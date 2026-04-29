@@ -1,0 +1,59 @@
+{
+  "name": "@cyberash/sdd-cli",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Spec-Driven Development helper CLI: freshness tokens, scope drift stubs, spec-lint, approval ceremony.",
+  "keywords": [
+    "spec-driven-development",
+    "sdd",
+    "cli",
+    "spec-lint",
+    "freshness-token",
+    "baseline"
+  ],
+  "license": "MIT",
+  "author": "cyberash <cyberash-dev@yandex.com>",
+  "homepage": "https://github.com/cyberash-dev/sdd-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cyberash-dev/sdd-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cyberash-dev/sdd-cli/issues"
+  },
+  "type": "module",
+  "bin": {
+    "sdd": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc && chmod +x dist/cli.js",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node --import tsx --test tests/unit/*.test.ts",
+    "test:integration": "node --import tsx --test tests/integration/*.test.ts",
+    "tsc": "tsc --noEmit",
+    "lint:spec": "node dist/cli.js lint"
+  },
+  "dependencies": {
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

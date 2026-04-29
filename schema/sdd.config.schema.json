@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyberash-dev/sdd-cli/blob/main/schema/sdd.config.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec_file", "baseline_id", "discovery_scope", "mechanism"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "spec_file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "baseline_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+:[A-Z]+-[0-9]+$"
+    },
+    "discovery_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "footprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "binding_id_prefix": {
+          "type": "string",
+          "default": "IMP-"
+        },
+        "binding_field": {
+          "type": "string",
+          "default": "binding"
+        }
+      }
+    },
+    "mechanism": {
+      "type": "string",
+      "enum": ["git_tree_hash_v1"]
+    }
+  }
+}
