@@ -455,6 +455,95 @@ The set of git subcommands used by `sdd-cli` is a strict allowlist:
 
 ---
 
+## Workflow at a glance
+
+Two views on the same loop: a flowchart for the full lifecycle, and a
+lookup table for "I know my situation, just give me the command".
+Detailed step-by-step scenarios live in [Typical workflows](#typical-workflows)
+below.
+
+### The SDD loop
+
+```mermaid
+flowchart TD
+  classDef cmd fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+  classDef human fill:#fff8e1,stroke:#f57f17,color:#5d4037
+  classDef ok fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+
+  S([SDD repo]):::ok
+
+  S --> Q1{BL block has a real<br/>freshness_token?}
+
+  Q1 -- "no — fresh repo" --> B1["sdd token --format=json"]:::cmd
+  B1 --> B2[paste token + commit_sha<br/>into the BL block]:::human
+  B2 --> B3["sdd approve<br/>--id partition:BL-NNN ..."]:::cmd
+  B3 --> Q2
+
+  Q1 -- "yes" --> Q2{routine check<br/>or CI gate?}
+
+  Q2 --> L["sdd lint"]:::cmd
+  Q2 --> C["sdd check"]:::cmd
+
+  L -- "exit 1" --> LF[fix weasel words /<br/>missing approval_record /<br/>missing test_obligation / ...]:::human
+  LF --> L
+  L -- "exit 0" --> OK([all green]):::ok
+
+  C -- "exit 0" --> OK
+  C -- "exit 1 — baseline-dirty" --> CD[commit or stash<br/>scope-touching edits]:::human
+  CD --> C
+  C -- "exit 1 — baseline-stale" --> R["sdd refresh > stubs.yaml"]:::cmd
+  R --> RS[fill Delta / Open-Q stubs,<br/>edit spec.md, commit]:::human
+  RS --> RT["sdd token<br/>paste new token + sha<br/>into BL block"]:::cmd
+  RT --> C
+
+  OK --> Q3{proposed ID got<br/>human sign-off?}
+  Q3 -- "yes" --> A["sdd approve --id ...<br/>--approver alice<br/>--owner-role ...<br/>--change-request ..."]:::cmd
+  A --> L
+  Q3 -- "no" --> Q4{cutting a release?}
+  Q4 -- "yes" --> RE([release gate:<br/>sdd check && sdd lint<br/>both exit 0]):::ok
+  Q4 -- "no" --> END([continue work]):::ok
+```
+
+Read the chart in three layers:
+
+1. **Bootstrap** (left branch off `Q1`) — one-time, when the
+   Brownfield-baseline block still has placeholder values. Compute the
+   token, paste it in, approve the BL record with a human identity,
+   confirm `sdd check` is green.
+2. **Daily / CI** (`Q2`) — `sdd lint` validates spec rules; `sdd
+   check` validates scope freshness. They are independent gates and
+   answer different questions, so wire both into CI.
+3. **Drift response** (right branch off `C`) — when `sdd check`
+   reports `baseline-stale`, `sdd refresh` emits one stub per drifted
+   path. After a human fills the stubs and updates the spec, recompute
+   the token with `sdd token` and re-record it in the BL block.
+
+Approval (`A`) is human-only by design (SDD §7.5: `sdd approve`
+refuses agent identities). It is a transition from `proposed` to
+`approved` on a normative ID, never a way to bypass `sdd lint` or
+`sdd check`.
+
+### When to run which command
+
+| Situation                                                       | Command(s)                                                                                                                                          |
+|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| Fresh repo, BrownfieldBaseline still has placeholders            | `sdd token` → paste token + commit_sha → `sdd approve --id <part>:BL-NNN ...` → `sdd check`                                                       |
+| Routine check: does the spec follow SDD rules?                   | `sdd lint`                                                                                                                                          |
+| Routine check: did anything in scope drift since baseline?       | `sdd check`                                                                                                                                         |
+| Pre-merge / pre-deploy CI gate                                   | `sdd lint && sdd check` (both must exit 0)                                                                                                          |
+| `sdd check` reports `baseline-dirty`                             | `git commit` or `git stash` your scope-touching working-tree edits, then re-run `sdd check`                                                          |
+| `sdd check` reports `baseline-stale`                             | `sdd refresh > stubs.yaml` → fill `Delta` / `Open-Q` stubs into the spec → commit → `sdd token` → paste fresh token + commit_sha → `sdd check`     |
+| Reviewer signed off on a `proposed` ID                           | `sdd approve --id ... --approver <human> --owner-role ... --change-request <url>` → `sdd lint`                                                      |
+| Inspect the current scope token without touching the spec        | `sdd token` (or `sdd token --format=json` for piping)                                                                                               |
+| Pre-release sanity check                                         | `sdd check && sdd lint`                                                                                                                             |
+
+> All commands are read-only on the spec **except `sdd approve`**,
+> which atomically rewrites `lifecycle.status` + `approval_record`
+> (INV-002 / INV-007). `sdd refresh` writes only to stdout — apply its
+> stubs by hand.
+
+---
+
 ## Typical workflows
 
 ### 1 — bootstrapping a new SDD baseline

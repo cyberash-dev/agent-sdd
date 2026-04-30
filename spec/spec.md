@@ -963,17 +963,22 @@ policy_refs:
   - sdd-cli:POL-001
 test_obligation:
   predicate: |
-    Given a fixture with a `lifecycle.status: proposed` record and a
-    placeholder `approval_record: not_applicable_for_proposed`,
-    sdd approve --id <id> --approver <human> ... rewrites both fields
-    in place; the resulting file is byte-identical to the golden output
-    except for the `timestamp` line.
+    Given a fixture with a `lifecycle.status: proposed` record — either
+    with a placeholder `approval_record: not_applicable_for_proposed`
+    OR with no `approval_record` field at all (SDD §7.6 forbids the
+    field while a record is still proposed) — `sdd approve --id <id>
+    --approver <human> ...` rewrites `lifecycle.status` AND emits the
+    full approval_record block in the same write; the resulting file
+    is byte-identical to the golden output except for the `timestamp`
+    line.
   test_template: integration (golden fixture + fake clock)
   boundary_classes:
     - single record matched
     - glob matches multiple records in one file
     - glob matches records across multiple files
     - reviewed_test_oracle flag included
+    - input record has no approval_record field at all
+      (SDD §7.6-conformant proposed input)
   failure_scenarios:
     - timestamp not in ISO format
     - lifecycle.status flipped without approval_record being written
@@ -2181,8 +2186,10 @@ negative_cases:
     a "secretly-approved proposed" record)
 test_obligation:
   predicate: |
-    For every fixture record with `lifecycle.status: proposed` +
-    `approval_record: not_applicable_for_proposed`, after `sdd approve`:
+    For every fixture record with `lifecycle.status: proposed`, in both
+    input shapes — (a) placeholder `approval_record:
+    not_applicable_for_proposed` present, and (b) no `approval_record`
+    field at all (SDD §7.6-conformant) — after `sdd approve`:
       - `lifecycle.status` ∈ {approved, deprecated, removed}
       - `approval_record` parses as a YAML mapping with the six fields
         owner_role, approver_identity, timestamp, change_request, scope
@@ -2194,9 +2201,13 @@ test_obligation:
     - exact id match
     - glob match (multiple records in one file rewritten as one batch)
     - reviewed_test_oracle present
+    - input record has no approval_record field
+      (SDD §7.6-conformant proposed input)
   failure_scenarios:
     - status flip emitted without approval_record block
     - approval_record block emitted without status flip
+    - approval_record absent from input and not inserted on rewrite
+      (regression of the lift-and-flip bug fixed in v0.2.x)
 ---
 ```
 

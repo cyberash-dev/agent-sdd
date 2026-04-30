@@ -384,6 +384,66 @@ test("sdd approve includes reviewed_test_oracle when provided", async () => {
   assert.match(specText, /reviewed_test_oracle: tests\/oracle\.spec\.ts/);
 });
 
+test("sdd approve inserts approval_record when source has no placeholder (INV-007)", async () => {
+  // @covers sdd-cli:BEH-013
+  // @covers sdd-cli:INV-007
+  // Regression: SDD §7.6 forbids approval_record on proposed records,
+  // so real-world specs do not carry the `approval_record:
+  // not_applicable_for_proposed` placeholder used by the legacy
+  // fixtures. Rewrite must still emit the full block atomically with
+  // the status flip; otherwise we land in spec-invalid (approved
+  // without approval_record), which is exactly the bug this test
+  // pins down.
+  const noPlaceholder = [
+    "```yaml",
+    "template: ExternalDependency",
+    "id: fixture:ext-1",
+    "lifecycle.status: proposed",
+    "version: 1",
+    "test_obligation:",
+    "  predicate: an example predicate",
+    "  test_template: integration",
+    "  boundary_classes:",
+    "    - happy",
+    "  failure_scenarios:",
+    "    - sad",
+    "```",
+  ].join("\n");
+  const { root } = await fixtureProject(noPlaceholder);
+
+  const result = await runSdd(root, [
+    "approve",
+    "--id", "fixture:ext-1",
+    "--approver", "alice",
+    "--owner-role", "tech-lead",
+    "--change-request", "https://example.com/pr/9",
+    "--format=json",
+  ]);
+  const body = JSON.parse(result.stdout) as { ok: boolean; matched_ids: string[] };
+  const specText = await readFile(join(root, "spec", "spec.md"), "utf8");
+
+  assert.equal(result.code, 0, `approve emitted: ${result.stdout}`);
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.matched_ids, ["fixture:ext-1"]);
+  assert.match(specText, /lifecycle\.status: approved/);
+  assert.match(specText, /approval_record:\n {2}owner_role: tech-lead/);
+  assert.match(specText, /approver_identity: alice/);
+
+  // After the rewrite the file must pass lint — no leftover
+  // sdd:approval-record-required diagnostic on the same record.
+  const lintResult = await runSdd(root, ["lint", "--format=json"]);
+  const lintBody = JSON.parse(lintResult.stdout) as {
+    ok: boolean;
+    diagnostics: Array<{ rule: string; id?: string }>;
+  };
+  assert.ok(
+    !lintBody.diagnostics.some(
+      (d) => d.rule === "sdd:approval-record-required" && d.id === "fixture:ext-1",
+    ),
+    `lint still complains: ${lintResult.stdout}`,
+  );
+});
+
 test("sdd approve rewrites multiple records when --id is a glob", async () => {
   // @covers sdd-cli:BEH-013
   const block = [

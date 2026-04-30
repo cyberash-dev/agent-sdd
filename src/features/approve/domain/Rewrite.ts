@@ -41,20 +41,35 @@ function applyOne(lines: string[], m: IdMatch, req: ApproveRequest, when: Date):
   const after = lines.slice(sliceEndExclusive);
 
   let lifecycleIdx = -1;
+  let lifecycleIndent = m.indent;
   let approvalIdx = -1;
   for (let i = 0; i < block.length; i++) {
     const line = block[i]!;
-    if (lifecycleIdx < 0 && /^\s*lifecycle\.status:/.test(line)) lifecycleIdx = i;
+    const lc = /^(\s*)lifecycle\.status:/.exec(line);
+    if (lifecycleIdx < 0 && lc !== null) {
+      lifecycleIdx = i;
+      lifecycleIndent = lc[1]!;
+    }
     if (approvalIdx < 0 && /^\s*approval_record:/.test(line)) approvalIdx = i;
   }
 
-  if (lifecycleIdx >= 0) {
-    block[lifecycleIdx] = `${m.indent}lifecycle.status: ${req.targetStatus}`;
+  // Per INV-007 the status flip and approval_record write are atomic:
+  // we never touch one without the other. If there is no lifecycle.status
+  // anchor in this record we leave the block untouched.
+  if (lifecycleIdx < 0) {
+    return [...before, ...block, ...after];
   }
 
+  block[lifecycleIdx] = `${lifecycleIndent}lifecycle.status: ${req.targetStatus}`;
+
+  const approvalLines = approvalBlock(req, when, lifecycleIndent);
   if (approvalIdx >= 0) {
-    const approvalLines = approvalBlock(req, when, m.indent);
     block.splice(approvalIdx, 1, ...approvalLines);
+  } else {
+    // Source carried no approval_record (SDD §7.6 forbids it on
+    // proposed records). Insert the block immediately after the
+    // flipped status line so the two writes stay contiguous.
+    block.splice(lifecycleIdx + 1, 0, ...approvalLines);
   }
 
   return [...before, ...block, ...after];
