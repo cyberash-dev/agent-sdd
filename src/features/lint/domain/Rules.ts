@@ -12,6 +12,8 @@ export {
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
   lifecycleStatusRules,
+  migrationCrossPartitionRule,
+  migrationEnforcementStageRule,
   NORMATIVE_SECTIONS,
   partitionDefaultPolicySetRule,
   REQUIRED_PARTITION_SECTIONS,

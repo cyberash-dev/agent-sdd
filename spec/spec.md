@@ -2214,6 +2214,89 @@ test_obligation:
 ---
 ```
 
+### 6.12 `sdd lint` — migration consistency (P2.2)
+
+```yaml
+---
+id: sdd-cli:BEH-038
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags Invariant/Contract/Behavior depending on a Migration that lacks enforcement_stage (ENF-017)
+given: |
+  - a record with template ∈ {Invariant, Contract, Behavior} and
+    parsed.data_scope == "post_migration:<MIG-ID>"
+  - the referenced Migration is missing OR has no enforcement_stage field
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1
+  - diagnostic with rule sdd:migration-enforcement-stage pointing at either
+    the dependent record (Migration missing) or the Migration itself
+    (Migration found but no enforcement_stage)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Invariant referencing a missing Migration → fires.
+    Invariant referencing a Migration without enforcement_stage → fires on
+    the Migration. Invariant referencing a Migration with enforcement_stage
+    → silent.
+  test_template: integration
+  boundary_classes:
+    - referenced Migration missing
+    - referenced Migration without enforcement_stage
+    - referenced Migration with enforcement_stage as string
+    - referenced Migration with enforcement_stage.marker
+  failure_scenarios:
+    - silent acceptance of a missing Migration
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-039
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags cross-partition Migration without partition_slice + coordinator_id (ENF-018)
+given: |
+  - a Migration record whose target_ids span more than one partition
+    (different prefixes before the colon in the ID)
+  - parsed.partition_slice is empty OR an entry lacks coordinator_id
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1
+  - diagnostic with rule sdd:migration-cross-partition naming the partitions
+    involved
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A Migration with target_ids ["a:X-1", "b:Y-2"] and no partition_slice
+    fires. With partition_slice declaring coordinator_id per slice, it is
+    silent. Single-partition target_ids never fire.
+  test_template: integration
+  boundary_classes:
+    - cross-partition + no partition_slice
+    - cross-partition + partition_slice without coordinator_id
+    - cross-partition + partition_slice with coordinator_id
+    - single-partition target_ids
+  failure_scenarios: [silent acceptance of cross-partition without coordinator]
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -3252,6 +3335,9 @@ schema:
       - sdd:boundary-concurrency-model
       - sdd:applicability-required
       - sdd:data-scope-required
+      # P2.2 — migration consistency (ENF-017/018)
+      - sdd:migration-enforcement-stage
+      - sdd:migration-cross-partition
     ready:
       - unapproved
       - uncovered
@@ -5800,6 +5886,30 @@ binding:
 authority: code_annotation
 verification_method: |
   tests/integration/p2-boundary-requiredness.test.ts (positive + negative per rule)
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-028
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: P2.2 migration-consistency lint rules
+target_ids:
+  - sdd-cli:BEH-038
+  - sdd-cli:BEH-039
+binding:
+  shared_domain:
+    - src/shared/domain/LintRules.ts   # migrationEnforcementStageRule, migrationCrossPartitionRule
+  feature_slice:
+    root: src/features/lint
+    application:
+      - src/features/lint/application/RunLint.ts
+authority: code_annotation
+verification_method: |
+  tests/integration/p2-migration-consistency.test.ts (positive + negative per rule)
 ---
 ```
 

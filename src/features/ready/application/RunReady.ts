@@ -18,6 +18,8 @@ import {
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
   lifecycleStatusRules,
+  migrationCrossPartitionRule,
+  migrationEnforcementStageRule,
   partitionDefaultPolicySetRule,
   REQUIRED_PARTITION_SECTIONS,
   sectionViolations,
@@ -280,6 +282,8 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
       ...boundaryConcurrencyModelRule(rec, boundaryIds),
       ...applicabilityRequiredRule(rec, boundaryIds),
       ...dataScopeRequiredRule(rec, boundaryIds),
+      ...migrationEnforcementStageRule(rec, records),
+      ...migrationCrossPartitionRule(rec),
     ]) {
       next = appendDiagnostic(next, d);
     }

@@ -40,6 +40,9 @@ export const LINT_DIAGNOSTIC_IDS = [
   "sdd:boundary-concurrency-model",
   "sdd:applicability-required",
   "sdd:data-scope-required",
+  // P2.2 — migration consistency (ENF-017/018)
+  "sdd:migration-enforcement-stage",
+  "sdd:migration-cross-partition",
 ] as const;
 
 export type LintDiagnosticId = typeof LINT_DIAGNOSTIC_IDS[number];

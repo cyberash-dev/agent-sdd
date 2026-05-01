@@ -14,6 +14,8 @@ import {
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
   lifecycleStatusRules,
+  migrationCrossPartitionRule,
+  migrationEnforcementStageRule,
   partitionDefaultPolicySetRule,
   REQUIRED_PARTITION_SECTIONS,
   sectionViolations,
@@ -90,6 +92,9 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
       ...boundaryConcurrencyModelRule(rec, boundaryIds),
       ...applicabilityRequiredRule(rec, boundaryIds),
       ...dataScopeRequiredRule(rec, boundaryIds),
+      // P2.2 — migration consistency (ENF-017/018)
+      ...migrationEnforcementStageRule(rec, records),
+      ...migrationCrossPartitionRule(rec),
     ]) {
       next = appendDiagnostic(next, d);
     }

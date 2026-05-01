@@ -503,6 +503,88 @@ function isObject(v: unknown): v is Record<string, unknown> {
 }
 
 // ---------------------------------------------------------------------------
+// P2.2 — Migration consistency (ENF-017/018). These rules need cross-record
+// lookup so the per-record signature carries the full records list.
+// ---------------------------------------------------------------------------
+
+const POST_MIGRATION_PREFIX = "post_migration:";
+
+/** ENF-017: any Invariant/Contract/Behavior whose data_scope is
+ *  `post_migration:<MIG-ID>` requires the referenced Migration to exist AND
+ *  to declare an `enforcement_stage` field (any non-empty value — the
+ *  methodology requires a test-controllable marker, which we cannot fully
+ *  validate mechanically; presence is the cheapest checkable signal). */
+export function migrationEnforcementStageRule(
+  rec: LintRecord,
+  records: ReadonlyArray<LintRecord>,
+): Diagnostic[] {
+  if (rec.template !== "Invariant" && rec.template !== "Contract" && rec.template !== "Behavior") return [];
+  const ds = rec.parsed.data_scope;
+  if (typeof ds !== "string") return [];
+  if (!ds.startsWith(POST_MIGRATION_PREFIX)) return [];
+  const migId = ds.slice(POST_MIGRATION_PREFIX.length).trim();
+  if (migId.length === 0) return [];
+  const mig = records.find((r) => r.id === migId);
+  if (mig === undefined) {
+    return [{
+      severity: "error",
+      rule: "sdd:migration-enforcement-stage",
+      file: rec.file,
+      line: rec.line,
+      message: `${rec.template} "${rec.id}" data_scope=${ds} but referenced Migration "${migId}" is not present in the partition spec (SDD §11.3-bis).`,
+    }];
+  }
+  const stage = mig.parsed.enforcement_stage;
+  if (typeof stage === "string" && stage.length > 0) return [];
+  if (isObject(stage) && typeof (stage as Record<string, unknown>).marker === "string") return [];
+  return [{
+    severity: "error",
+    rule: "sdd:migration-enforcement-stage",
+    file: mig.file,
+    line: mig.line,
+    message: `Migration "${mig.id}" must declare enforcement_stage with a test-controllable marker because ${rec.template} "${rec.id}" depends on it via data_scope=${ds} (SDD §11.3-bis).`,
+  }];
+}
+
+/** ENF-018: a Migration whose target_ids reference IDs from more than one
+ *  partition MUST declare partition_slice[] entries with coordinator_id set. */
+export function migrationCrossPartitionRule(rec: LintRecord): Diagnostic[] {
+  if (rec.template !== "Migration") return [];
+  const targets = rec.parsed.target_ids;
+  if (!Array.isArray(targets)) return [];
+  const partitions = new Set<string>();
+  for (const t of targets) {
+    if (typeof t !== "string") continue;
+    const idx = t.indexOf(":");
+    if (idx <= 0) continue;
+    partitions.add(t.slice(0, idx));
+  }
+  if (partitions.size <= 1) return [];
+
+  const slices = rec.parsed.partition_slice;
+  if (!Array.isArray(slices) || slices.length === 0) {
+    return [{
+      severity: "error",
+      rule: "sdd:migration-cross-partition",
+      file: rec.file,
+      line: rec.line,
+      message: `Migration "${rec.id}" target_ids span ${partitions.size} partitions (${[...partitions].sort().join(", ")}); cross-partition Migrations must declare partition_slice[] with coordinator_id (SDD §11.3-bis).`,
+    }];
+  }
+  const missingCoord = slices.some((s) => !isObject(s) || typeof (s as Record<string, unknown>).coordinator_id !== "string");
+  if (missingCoord) {
+    return [{
+      severity: "error",
+      rule: "sdd:migration-cross-partition",
+      file: rec.file,
+      line: rec.line,
+      message: `Migration "${rec.id}" partition_slice[] entries must each carry coordinator_id (SDD §11.3-bis).`,
+    }];
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
 // Section presence (per partition file). Operates on raw markdown.
 // ---------------------------------------------------------------------------
 
