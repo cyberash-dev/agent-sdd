@@ -1,0 +1,9 @@
+# Plan files queued by `sdd approve` are local attestation drafts, not
+# committed history. `sdd finalize` materialises them into spec/spec.md
+# and moves the plan to .sdd/plans/finalized/. Consumers who want a
+# git-audited approval trail can remove this `.gitignore` (see
+# CTR-019 / SUR-014 in spec/spec.md for the plan-file format).
+
+*.yaml
+.active
+finalized/

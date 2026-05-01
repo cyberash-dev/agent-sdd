@@ -5,9 +5,16 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { CliApproveHandler } from "./features/approve/adapters/inbound/CliApproveHandler.js";
 import { NodeApproveFileSystem } from "./features/approve/adapters/outbound/NodeApproveFileSystem.js";
+import { NodePlanFileWriter } from "./features/approve/adapters/outbound/NodePlanFileWriter.js";
 import { SystemApproveClock } from "./features/approve/adapters/outbound/SystemApproveClock.js";
 import { VALID_TARGET_STATUS, type ApproveRequest, type TargetStatus } from "./features/approve/domain/ApproveRequest.js";
 import { CliCheckHandler } from "./features/check/adapters/inbound/CliCheckHandler.js";
+import { CliFinalizeHandler } from "./features/finalize/adapters/inbound/CliFinalizeHandler.js";
+import { NodeFinalizeFileSystem } from "./features/finalize/adapters/outbound/NodeFinalizeFileSystem.js";
+import { NodePlanRepo } from "./features/finalize/adapters/outbound/NodePlanRepo.js";
+import { SystemFinalizeClock } from "./features/finalize/adapters/outbound/SystemFinalizeClock.js";
+import { CliPlanShowHandler } from "./features/plan/adapters/inbound/CliPlanShowHandler.js";
+import { NodePlanReader } from "./features/plan/adapters/outbound/NodePlanReader.js";
 import { ChildProcessCheckGit } from "./features/check/adapters/outbound/ChildProcessCheckGit.js";
 import { NodeCheckFileReader } from "./features/check/adapters/outbound/NodeCheckFileReader.js";
 import { CliLintHandler } from "./features/lint/adapters/inbound/CliLintHandler.js";
@@ -24,7 +31,7 @@ import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildPr
 import { NodeTokenConfigReader } from "./features/token/adapters/outbound/NodeTokenConfigReader.js";
 import type { CommandResult, OutputFormat } from "./shared/domain/CliOutput.js";
 
-type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready";
+type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan";
 
 interface ParsedArgv {
   mode: "command" | "help" | "version" | "error";
@@ -32,6 +39,8 @@ interface ParsedArgv {
   format?: OutputFormat;
   approve?: ApproveArgs;
   ready?: ReadyArgs;
+  finalize?: FinalizeArgs;
+  plan?: PlanArgs;
   message?: string;
 }
 
@@ -43,24 +52,38 @@ interface ApproveArgs {
   scope?: string;
   targetStatus?: string;
   reviewedTestOracle?: string;
+  inline?: boolean;
+  planId?: string;
 }
 
 interface ReadyArgs {
   partition?: string;
 }
 
+interface FinalizeArgs {
+  planId?: string;
+}
+
+interface PlanArgs {
+  subcommand: "show";
+  planId?: string;
+}
+
 const TOP_LEVEL_HELP = `sdd
 
 Usage:
-  sdd token   [--format=json|human]
-  sdd check   [--format=json|human]
-  sdd refresh [--format=json|human|yaml]
-  sdd lint    [--format=json|human]
-  sdd approve --id <id-or-glob> --approver <human-id>
-              --owner-role <role> --change-request <url>
-              [--scope <scope>] [--target-status approved|deprecated|removed]
-              [--reviewed-test-oracle <ref>] [--format=json|human]
-  sdd ready   [--format=json|human] [--partition <name>]
+  sdd token    [--format=json|human]
+  sdd check    [--format=json|human]
+  sdd refresh  [--format=json|human|yaml]
+  sdd lint     [--format=json|human]
+  sdd approve  --id <id-or-glob> --approver <human-id>
+               --owner-role <role> --change-request <url>
+               [--scope <scope>] [--target-status approved|deprecated|removed]
+               [--reviewed-test-oracle <ref>]
+               [--inline | --plan <plan_id>] [--format=json|human]
+  sdd plan show [--plan <plan_id>] [--format=json|human]
+  sdd finalize  [--plan <plan_id>] [--format=json|human]
+  sdd ready    [--format=json|human] [--partition <name>]
   sdd --help
   sdd --version`;
 
@@ -69,8 +92,10 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   check: "Usage: sdd check [--format=json|human]",
   refresh: "Usage: sdd refresh [--format=json|human|yaml]",
   lint: "Usage: sdd lint [--format=json|human]",
-  approve: "Usage: sdd approve --id <id-or-glob> --approver <human-id> --owner-role <role> --change-request <url> [--scope <scope>] [--target-status approved|deprecated|removed] [--reviewed-test-oracle <ref>] [--format=json|human]",
+  approve: "Usage: sdd approve --id <id-or-glob> --approver <human-id> --owner-role <role> --change-request <url> [--scope <scope>] [--target-status approved|deprecated|removed] [--reviewed-test-oracle <ref>] [--inline | --plan <plan_id>] [--format=json|human]",
   ready: "Usage: sdd ready [--format=json|human] [--partition <name>]",
+  finalize: "Usage: sdd finalize [--plan <plan_id>] [--format=json|human]",
+  plan: "Usage: sdd plan show [--plan <plan_id>] [--format=json|human]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -112,8 +137,35 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
       return { exitCode: 2, stdout: "", stderr: `${req.message}\n${COMMAND_HELP.approve}\n` };
     }
     const files = new NodeApproveFileSystem();
-    const command = new CliApproveHandler({ clock: new SystemApproveClock(), config: files, files });
-    return command.execute(cwd, req.value, parsed.format === "json" ? "json" : "human");
+    const plans = new NodePlanFileWriter();
+    const command = new CliApproveHandler({
+      clock: new SystemApproveClock(),
+      config: files,
+      files,
+      plans,
+    });
+    return command.execute(cwd, req.value, parsed.format === "json" ? "json" : "human", {
+      inline: parsed.approve?.inline === true,
+      planId: parsed.approve?.planId,
+    });
+  }
+  if (parsed.subcommand === "finalize") {
+    const finalizeFs = new NodeFinalizeFileSystem();
+    const command = new CliFinalizeHandler({
+      clock: new SystemFinalizeClock(),
+      config: finalizeFs,
+      files: finalizeFs,
+      plans: new NodePlanRepo(),
+    });
+    return command.execute(cwd, { planId: parsed.finalize?.planId }, parsed.format === "json" ? "json" : "human");
+  }
+  if (parsed.subcommand === "plan") {
+    if (parsed.plan?.subcommand !== "show") {
+      return { exitCode: 2, stdout: "", stderr: `${COMMAND_HELP.plan}\n` };
+    }
+    const reader = new NodePlanReader();
+    const command = new CliPlanShowHandler({ config: reader, reader });
+    return command.execute(cwd, { planId: parsed.plan.planId }, parsed.format === "json" ? "json" : "human");
   }
   if (parsed.subcommand === "ready") {
     const fs = new NodeReadyFileSystem();
@@ -144,6 +196,12 @@ function parseArgv(argv: readonly string[]): ParsedArgv {
   }
   if (subcommand === "ready") {
     return parseReadyArgv(rest);
+  }
+  if (subcommand === "finalize") {
+    return parseFinalizeArgv(rest);
+  }
+  if (subcommand === "plan") {
+    return parsePlanArgv(rest);
   }
   const defaultFormat = subcommand === "refresh" ? "yaml" : "human";
   let format: OutputFormat = defaultFormat;
@@ -200,6 +258,10 @@ function parseApproveArgv(args: readonly string[]): ParsedArgv {
       format = value;
       continue;
     }
+    if (arg === "--inline") {
+      approve.inline = true;
+      continue;
+    }
     if (!arg.startsWith("--")) return { mode: "error", message: `unknown positional: ${arg}` };
     const key = arg.slice(2);
     const next = args[i + 1];
@@ -215,10 +277,71 @@ function parseApproveArgv(args: readonly string[]): ParsedArgv {
       case "scope": approve.scope = next; break;
       case "target-status": approve.targetStatus = next; break;
       case "reviewed-test-oracle": approve.reviewedTestOracle = next; break;
+      case "plan": approve.planId = next; break;
       default: return { mode: "error", message: `unknown flag: --${key}` };
     }
   }
+  if (approve.inline === true && approve.planId !== undefined) {
+    return { mode: "error", message: "--inline and --plan are mutually exclusive" };
+  }
   return { mode: "command", subcommand: "approve", format, approve };
+}
+
+function parseFinalizeArgv(args: readonly string[]): ParsedArgv {
+  const finalize: FinalizeArgs = {};
+  let format: OutputFormat = "human";
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg.startsWith("--format=")) {
+      const value = arg.slice("--format=".length);
+      if (!isFormat(value) || value === "yaml") {
+        return { mode: "error", message: `invalid format: ${value}` };
+      }
+      format = value;
+      continue;
+    }
+    if (arg === "--plan") {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --plan" };
+      }
+      finalize.planId = next;
+      i++;
+      continue;
+    }
+    return { mode: "error", message: `unknown flag: ${arg}` };
+  }
+  return { mode: "command", subcommand: "finalize", format, finalize };
+}
+
+function parsePlanArgv(args: readonly string[]): ParsedArgv {
+  if (args.length === 0 || args[0] !== "show") {
+    return { mode: "error", message: "expected: sdd plan show [--plan <plan_id>]" };
+  }
+  const plan: PlanArgs = { subcommand: "show" };
+  let format: OutputFormat = "human";
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg.startsWith("--format=")) {
+      const value = arg.slice("--format=".length);
+      if (!isFormat(value) || value === "yaml") {
+        return { mode: "error", message: `invalid format: ${value}` };
+      }
+      format = value;
+      continue;
+    }
+    if (arg === "--plan") {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --plan" };
+      }
+      plan.planId = next;
+      i++;
+      continue;
+    }
+    return { mode: "error", message: `unknown flag: ${arg}` };
+  }
+  return { mode: "command", subcommand: "plan", format, plan };
 }
 
 type ApproveRequestParse =
@@ -258,7 +381,8 @@ function packageVersion(): string {
 }
 
 function isSubcommand(value: string | undefined): value is Subcommand {
-  return value === "token" || value === "check" || value === "refresh" || value === "lint" || value === "approve" || value === "ready";
+  return value === "token" || value === "check" || value === "refresh" || value === "lint"
+    || value === "approve" || value === "ready" || value === "finalize" || value === "plan";
 }
 
 function isFormat(value: string): value is OutputFormat {

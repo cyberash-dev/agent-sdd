@@ -23,6 +23,9 @@ export interface SddConfig {
   mechanism: Mechanism;
   lint: LintConfig;
   partitions: Partition[];
+  /** Directory under <repo_root> where attestation plan files live (P0.6).
+   *  Default: ".sdd/plans". */
+  plansDir: string;
 }
 
 export interface LintConfig {
@@ -43,9 +46,12 @@ const TOP_LEVEL_FIELDS = new Set([
   "mechanism",
   "lint",
   "partitions",
+  "plans_dir",
   "test_paths",
   "sandbox_paths",
 ]);
+
+const DEFAULT_PLANS_DIR = ".sdd/plans";
 const FOOTPRINT_FIELDS = new Set(["binding_id_prefix", "binding_field"]);
 const LINT_FIELDS = new Set(["spec_files", "approver_blocklist"]);
 const PARTITION_FIELDS = new Set(["spec_paths", "test_paths", "sandbox_paths"]);
@@ -79,6 +85,8 @@ export function configFromJson(value: unknown, path: string): SddConfig {
   const topLevelSandboxPaths = optionalGlobArrayField(value, "sandbox_paths", path);
   const partitions = partitionsField(value.partitions, path, lint.specFiles, topLevelTestPaths, topLevelSandboxPaths);
 
+  const plansDir = optionalStringField(value, "plans_dir", path) ?? DEFAULT_PLANS_DIR;
+
   return {
     specFile,
     baselineId,
@@ -87,6 +95,7 @@ export function configFromJson(value: unknown, path: string): SddConfig {
     mechanism,
     lint,
     partitions,
+    plansDir,
   };
 }
 

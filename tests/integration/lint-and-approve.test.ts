@@ -238,6 +238,7 @@ test("sdd approve rewrites lifecycle.status and approval_record", async () => {
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:beh-1",
     "--approver", "alice",
     "--owner-role", "tech-lead",
@@ -267,6 +268,7 @@ test("sdd approve refuses agent approver (case-insensitive)", async () => {
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:beh-1",
     "--approver", "Claude",
     "--owner-role", "tech-lead",
@@ -289,6 +291,7 @@ test("sdd approve refuses bot: prefix", async () => {
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:beh-1",
     "--approver", "bot:tg-1",
     "--owner-role", "tech-lead",
@@ -307,6 +310,7 @@ test("sdd approve refuses unknown owner-role", async () => {
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:beh-1",
     "--approver", "alice",
     "--owner-role", "junior-dev",
@@ -325,6 +329,7 @@ test("sdd approve refuses when --id matches no record", async () => {
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:nope-9999",
     "--approver", "alice",
     "--owner-role", "tech-lead",
@@ -354,6 +359,7 @@ test("sdd approve respects custom blocklist from .sdd/config.json#lint.approver_
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:beh-1",
     "--approver", "intern-bot-a",
     "--owner-role", "tech-lead",
@@ -373,6 +379,7 @@ test("sdd approve includes reviewed_test_oracle when provided", async () => {
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:beh-1",
     "--approver", "alice",
     "--owner-role", "architect",
@@ -414,6 +421,7 @@ test("sdd approve inserts approval_record when source has no placeholder (INV-00
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:ext-1",
     "--approver", "alice",
     "--owner-role", "tech-lead",
@@ -465,6 +473,7 @@ test("sdd approve rewrites multiple records when --id is a glob", async () => {
 
   const result = await runSdd(root, [
     "approve",
+    "--inline",
     "--id", "fixture:pol-*",
     "--approver", "alice",
     "--owner-role", "tech-lead",

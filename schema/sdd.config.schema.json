@@ -90,6 +90,11 @@
     "sandbox_paths": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
+    },
+    "plans_dir": {
+      "type": "string",
+      "minLength": 1,
+      "default": ".sdd/plans"
     }
   }
 }

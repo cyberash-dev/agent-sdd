@@ -362,6 +362,71 @@ notes: |
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:SUR-010
+type: Surface
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+name: sdd-cli/finalize
+version: "0.4.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-017
+  - sdd-cli:CTR-018
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.4.0 — `sdd finalize` materialises attestations recorded under
+  `.sdd/plans/<plan_id>.yaml` into spec files: it loads the plan,
+  validates the proposed graph (every flipped ID's referenced IDs are
+  >=approved post-flip), and atomically rewrites `lifecycle.status`
+  + `approval_record` for every plan attestation. On graph violation
+  it refuses and leaves spec files untouched.
+---
+```
+
+```yaml
+---
+id: sdd-cli:SUR-013
+type: Surface
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+name: sdd-cli/plan-show
+version: "0.4.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-020
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.4.0 — `sdd plan show` reads a plan file and prints its contents
+  for human review (default) or as a JSON envelope. Without `--plan`
+  it reads the active plan pointed to by `.sdd/plans/.active`.
+---
+```
+
+```yaml
+---
+id: sdd-cli:SUR-014
+type: Surface
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+name: sdd-cli/plan-files
+version: "0.4.0"
+boundary_type: public_storage
+members:
+  - sdd-cli:CTR-019
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.4.0 — files under `.sdd/plans/` are a published storage surface.
+  CTR-019 fixes the YAML schema for plan files and the grammar of
+  `plan_id`. Renaming or removing a key on the plan-file shape is a
+  major bump on this Surface.
+---
+```
+
 ---
 
 ## 6. Requirements
@@ -1478,6 +1543,219 @@ test_obligation:
 ---
 ```
 
+### 6.8 `sdd approve` (plan mode), `sdd plan show`, `sdd finalize`
+
+```yaml
+---
+id: sdd-cli:BEH-021
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd approve default mode writes attestation to plan file, never to spec
+given: |
+  - a plan_id <P> is active (.sdd/plans/.active) or implied by --plan
+  - all approval-validation rules pass (approver not in agent blocklist;
+    owner_role in {partition_owner, tech-lead, qa, sre, security})
+when: |
+  user runs `sdd approve --id <id> --approver <name> --owner-role <role>
+                       --change-request <url>`
+  without `--inline`
+then: |
+  - exits 0
+  - the file .sdd/plans/<P>.yaml exists and contains a
+    pending_attestations[] entry for <id> with the supplied fields
+  - no byte of any spec_file has changed
+applicability:
+  invariant_to_all_axes: true
+data_scope: new_writes_only
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Two-step approval flow: `sdd approve` followed by `sdd finalize`
+    produces the same lifecycle.status flip on spec files as the
+    legacy single-step `sdd approve --inline` would have, but the
+    plan stage is byte-stable on spec files.
+  test_template: integration
+  boundary_classes:
+    - active plan present
+    - active plan absent (auto-created)
+    - --plan <id> overrides .active
+  failure_scenarios:
+    - approve mutates spec.md in plan mode
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-022
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd approve --inline preserves legacy direct-write behavior with deprecation warning
+given: |
+  - same preconditions as BEH-021
+when: |
+  user runs `sdd approve --inline --id <id> --approver <name>
+                                --owner-role <role> --change-request <url>`
+then: |
+  - exits 0
+  - rewrites lifecycle.status + approval_record in the matching spec file
+    (legacy v0.3.x behavior, byte-equivalent to pre-v0.4 output)
+  - prints to stderr: "DEPRECATED: --inline will be removed in v1.1.0;
+    use `sdd approve` + `sdd finalize` instead"
+  - no plan file is created or modified
+applicability:
+  invariant_to_all_axes: true
+data_scope: new_writes_only
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    --inline output is byte-equivalent to v0.3.x sdd approve output
+    on the same input fixtures.
+  test_template: integration
+  boundary_classes:
+    - approve --inline with active plan present (plan untouched)
+    - approve --inline without any plan
+  failure_scenarios:
+    - --inline silently writes to a plan file
+    - missing deprecation warning
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-023
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd plan show prints active plan
+given: |
+  - a plan file exists at .sdd/plans/<P>.yaml
+  - either <P> is the active plan, or --plan <P> is supplied
+when: |
+  user runs `sdd plan show [--plan <P>] [--format=json|human]`
+then: |
+  - exits 0
+  - human format prints the plan_id, created_at, and an itemised list
+    of pending_attestations[] (id, owner_role, approver_identity, ...)
+  - json format prints { format_version: 1, ok: true, plan: { ... } }
+  - if no plan is active and --plan is omitted, exits 2 with
+    { ok: false, kind: "no-active-plan" }
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only command does not touch persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    plan show against a non-empty plan file prints all attestations;
+    against a missing/inactive plan, exits 2 with no-active-plan.
+  test_template: integration
+  boundary_classes:
+    - active plan with multiple attestations
+    - active plan empty
+    - --plan with a non-existent plan_id
+    - no .active pointer and no --plan
+  failure_scenarios:
+    - plan show modifies the plan file
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-024
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd finalize succeeds, atomically rewrites spec, moves plan to finalized/
+given: |
+  - a plan file at .sdd/plans/<P>.yaml with N>=1 pending_attestations[]
+  - graph-validation passes: for every plan attestation flipping ID <X>
+    to approved, every normative ID referenced by <X> (Surface members,
+    policy_refs, target_ids in Migration/Delta) is either >=approved in
+    HEAD spec, or also flipped to >=approved in the same plan
+when: |
+  user runs `sdd finalize [--plan <P>]`
+then: |
+  - exits 0
+  - for each attestation, the matching spec file's lifecycle.status is
+    rewritten to <target_status> (default approved) and approval_record
+    is set to the attestation block
+  - the plan file is moved to .sdd/plans/finalized/<P>.yaml
+  - the .active pointer is cleared if it pointed at <P>
+  - prints { format_version: 1, ok: true, plan_id, finalized_ids[],
+            files_changed[] }
+applicability:
+  invariant_to_all_axes: true
+data_scope: new_writes_only
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    finalize on a valid plan flips every attestation's lifecycle.status
+    in the matching spec file and moves the plan to finalized/. The
+    flips are byte-equivalent to running `sdd approve --inline` for
+    each attestation.
+  test_template: integration
+  boundary_classes:
+    - single attestation
+    - multiple attestations across multiple spec files
+    - target_status: deprecated, removed
+  failure_scenarios:
+    - partial flip on attestation N+1 failure
+    - plan file deleted before move
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-025
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd finalize refuses on graph violation, leaves spec unchanged
+given: |
+  - a plan file at .sdd/plans/<P>.yaml flipping ID <X> to approved
+  - <X> references some normative ID <Y> that is `proposed`/`draft` in
+    HEAD spec AND not flipped by the same plan
+when: |
+  user runs `sdd finalize [--plan <P>]`
+then: |
+  - exits 1
+  - prints { format_version: 1, ok: false, reason: "proposed-references",
+            offending: [{ id: <X>, references_id: <Y>,
+                         references_status: <status> }, ...] }
+  - no byte of any spec file has changed
+  - the plan file remains in place (not moved to finalized/)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: refusal path performs no writes
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    finalize against a graph-invalid plan exits 1 with a structured
+    offending list, leaves spec.md byte-stable, and leaves the plan
+    file in place.
+  test_template: integration
+  boundary_classes:
+    - Surface member references a proposed CTR
+    - INV.policy_refs references a proposed Policy
+  failure_scenarios:
+    - partial spec write on refusal
+    - plan moved to finalized/ on refusal
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -2546,6 +2824,245 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CTR-017
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd finalize CLI contract
+surface_ref: sdd-cli:SUR-010
+schema:
+  binary: sdd
+  subcommand: finalize
+  flags:
+    - name: --plan
+      values: "<plan_id>"
+    - name: --format
+      values: [json, human]
+      default: human
+preconditions:
+  - cwd contains a readable .sdd/config.json (or env-overridden equivalent)
+  - the plan file at <plansDir>/<plan_id>.yaml is present and YAML-valid
+postconditions:
+  - "exits 0 on success, 1 on graph violation, 2 on config error, 3 on environment error"
+  - "on success — every plan attestation's matching spec record has lifecycle.status flipped to <target_status> (default approved) and approval_record set"
+  - "on success — the plan file is moved to <plansDir>/finalized/<plan_id>.yaml"
+  - "on graph violation — no spec file is written; plan stays in place"
+external_identifiers:
+  - subcommand "finalize"
+  - flag --plan, --format
+compatibility_rules:
+  - removing --plan or --format => major bump on SUR-010
+  - adding a flag with a default => minor bump on SUR-010
+error_taxonomy:
+  - "exit 1 — graph violation (proposed-references)"
+  - "exit 2 — config (invalid-plan-file, missing-plan)"
+  - "exit 3 — environment (filesystem read/write error)"
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: "at_most_once_per_plan_id (plan moves to finalized/ on success)"
+  time_source: clock
+data_scope: new_writes_only
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    finalize CLI accepts the documented argv shape and rejects unknown flags
+    with exit 2; success path produces atomic flips per BEH-024; failure path
+    matches BEH-025.
+  test_template: integration
+  boundary_classes: [each documented flag combination, unknown flag, missing plan]
+  failure_scenarios: [silent acceptance of unknown flag]
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-018
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd finalize JSON envelope
+surface_ref: sdd-cli:SUR-010
+schema:
+  ok_envelope:
+    format_version: 1
+    ok: true
+    plan_id: "<plan_id>"
+    finalized_ids: ["<id>", "..."]
+    files_changed: ["<path>", "..."]
+  refusal_envelope:
+    format_version: 1
+    ok: false
+    reason: "proposed-references"
+    offending:
+      - id: "<flipped_id>"
+        references_id: "<unapproved_id>"
+        references_status: "proposed | draft"
+preconditions: not_applicable
+postconditions:
+  - both envelopes always include format_version: 1
+  - on ok=true: finalized_ids[] and files_changed[] are non-empty arrays
+  - on ok=false: offending[] is non-empty
+external_identifiers:
+  - keys format_version, ok, plan_id, finalized_ids, files_changed
+  - reason "proposed-references"
+  - keys id, references_id, references_status (offending[] item)
+compatibility_rules:
+  - renaming a key => major bump on SUR-010
+  - adding a key with a default => minor bump on SUR-010
+error_taxonomy:
+  - reason "proposed-references" is the sole graph-violation reason in v0.4.x
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_envelope_shape
+  reason: envelope shape has no runtime concurrency dimension
+data_scope:
+  not_applicable: envelope_describes_stdout_shape_not_persistent_state
+  reason: contract is over the printed JSON shape
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    JSON envelope keys match the schema for both ok=true and ok=false paths;
+    no extra keys appear in v0.4.x output.
+  test_template: integration
+  boundary_classes: [success path, graph-violation path]
+  failure_scenarios: [silent extra key, format_version drift]
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-019
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: plan-file YAML format and plan_id grammar
+surface_ref: sdd-cli:SUR-014
+schema:
+  plan_id_grammar: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z-[a-z0-9]{5}$"
+  yaml_shape:
+    plan_id: "<plan_id>"
+    created_at: "<ISO-8601 UTC timestamp>"
+    pending_attestations:
+      - id: "<partition>:<NEUTRAL-NNN>"
+        owner_role: "partition_owner | tech-lead | qa | sre | security"
+        approver_identity: "<string, not in BUILTIN_AGENT_BLOCKLIST>"
+        timestamp: "<ISO-8601 UTC timestamp>"
+        change_request: "<URL or free-text reference>"
+        scope: "first-time-approval | re-approval | downgrade | sunset"
+        target_status: "approved | deprecated | removed (default approved)"
+preconditions: not_applicable
+postconditions:
+  - "plan_id is generated as `<ISO-basic UTC timestamp>-<5-char base32 random>`, sortable by creation time, collision-safe under POL-001 single-actor"
+  - pending_attestations[] entries are append-only within a plan_id
+  - target_status defaults to approved when omitted
+external_identifiers:
+  - "top-level keys — plan_id, created_at, pending_attestations"
+  - "attestation keys — id, owner_role, approver_identity, timestamp, change_request, scope, target_status"
+compatibility_rules:
+  - renaming a top-level or attestation key => major bump on SUR-014
+  - adding a key with a default => minor bump on SUR-014
+  - changing plan_id_grammar => major bump on SUR-014
+error_taxonomy: not_applicable
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: append_only
+  time_source: clock
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A round-trip write/read of a plan-file produces an equal YAML object;
+    plan_id strings always match plan_id_grammar.
+  test_template: unit
+  boundary_classes: [single attestation, many attestations, deprecated/removed target_status]
+  failure_scenarios: [silent extra key, plan_id grammar drift]
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-020
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd plan show CLI + JSON envelope
+surface_ref: sdd-cli:SUR-013
+schema:
+  binary: sdd
+  subcommand: plan
+  sub_subcommand: show
+  flags:
+    - name: --plan
+      values: "<plan_id>"
+    - name: --format
+      values: [json, human]
+      default: human
+  ok_envelope:
+    format_version: 1
+    ok: true
+    plan:
+      plan_id: "<plan_id>"
+      created_at: "<ts>"
+      pending_attestations: []
+  refusal_envelope:
+    format_version: 1
+    ok: false
+    kind: "no-active-plan | invalid-plan-file"
+preconditions:
+  - cwd has a readable .sdd/config.json
+postconditions:
+  - read-only on the working tree
+  - on success: exits 0 with the plan-file contents reflected verbatim
+  - on no-active-plan / invalid-plan-file: exits 2 with the refusal envelope
+external_identifiers:
+  - subcommand "plan", sub-subcommand "show"
+  - flag --plan, --format
+  - envelope keys format_version, ok, plan, kind
+compatibility_rules:
+  - renaming a key or sub-subcommand => major bump on SUR-013
+  - adding a flag with a default => minor bump on SUR-013
+error_taxonomy:
+  - "exit 0 — success"
+  - "exit 2 — no-active-plan | invalid-plan-file | config-invalid"
+  - "exit 3 — environment"
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: read_only
+  time_source: none
+data_scope:
+  not_applicable: read_only_command_does_not_touch_persistent_state
+  reason: plan show is byte-stable on the working tree
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    plan show against a fixture plan file emits the documented envelope;
+    a missing plan triggers exit 2 with kind=no-active-plan.
+  test_template: integration
+  boundary_classes: [active plan with attestations, no active plan, --plan with missing id]
+  failure_scenarios: [stdin/stderr crossover, exit 0 on missing plan]
+---
+```
+
 ---
 
 ## 8. Invariants
@@ -3076,6 +3593,93 @@ test_obligation:
   failure_scenarios:
     - rogue rule-ID slips into a Diagnostic.rule literal
     - silent rename of a public diagnostic-ID without alias entry
+---
+```
+
+```yaml
+---
+id: sdd-cli:INV-011
+type: Invariant
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd approve in default (non-inline) mode does not write to spec_files
+never: |
+  When `sdd approve` runs without `--inline`, no byte of any file matched
+  by config.lint.specFiles is changed. The only writes target files
+  under <plansDir> (default .sdd/plans/).
+scope:
+  - src/features/approve/**
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: not_applicable
+  time_source: clock
+negative_cases:
+  - approve writes a placeholder approval_record to spec.md in plan mode
+  - approve creates a backup file alongside spec.md
+test_obligation:
+  predicate: |
+    For every approve invocation without --inline, snapshot mtime + content
+    sha of every file in lint.specFiles before and after; both snapshots
+    are equal.
+  test_template: integration
+  boundary_classes:
+    - approve --id <missing> in plan mode (refusal still writes nothing to spec)
+    - approve with active plan
+    - approve --plan <id>
+  failure_scenarios:
+    - approve writes to spec.md in plan mode
+    - approve --inline accidentally activated by absence of plan
+---
+```
+
+```yaml
+---
+id: sdd-cli:INV-012
+type: Invariant
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd finalize is atomic — every plan attestation flips, or none
+always: |
+  At the end of any `sdd finalize` invocation, the set of spec records
+  whose lifecycle.status differs from HEAD is either exactly the set of
+  IDs in pending_attestations[] (success path), or the empty set (refusal
+  or partial-failure path). Partial states (some IDs flipped, others not)
+  are never observable on disk after the process exits.
+scope:
+  - src/features/finalize/**
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: "at_most_once_per_plan_id"
+  time_source: clock
+negative_cases:
+  - finalize crashes after writing file 1 of 2 leaves file 1 modified
+  - finalize emits a partial JSON envelope before completion
+test_obligation:
+  predicate: |
+    Inject a synthetic write failure on the second of two attestations;
+    snapshot every spec file before vs. after — they are byte-equal. Plan
+    file remains in place (not moved to finalized/).
+  test_template: integration
+  boundary_classes:
+    - simulated mid-flight failure (write returns ENOSPC)
+    - graph violation (refusal path)
+    - successful multi-file flip
+  failure_scenarios:
+    - file 1 modified, file 2 untouched (partial state)
 ---
 ```
 
@@ -4388,6 +4992,90 @@ binding:
     - src/shared/domain/DiagnosticRegistry.ts
 authority: code_annotation
 verification_method: tests/unit/diagnostic-registry-coverage.test.ts
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-022
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd approve plan-mode binding (default) and --inline legacy shim
+target_ids:
+  - sdd-cli:BEH-021
+  - sdd-cli:BEH-022
+  - sdd-cli:INV-011
+binding:
+  feature_slice:
+    root: src/features/approve
+    application:
+      - src/features/approve/application/ApplyApproval.ts
+    inbound_adapter: src/features/approve/adapters/inbound/CliApproveHandler.ts
+    outbound_ports:
+      - src/features/approve/ports/outbound/ApproveFileSystem.ts
+      - src/features/approve/ports/outbound/PlanFileWriter.ts
+authority: code_annotation
+verification_method: |
+  tests/integration/approve-plan-mode.test.ts (default mode);
+  tests/integration/approve-inline-deprecated.test.ts (--inline shim)
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-023
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd finalize feature-slice
+target_ids:
+  - sdd-cli:BEH-024
+  - sdd-cli:BEH-025
+  - sdd-cli:INV-012
+  - sdd-cli:CTR-017
+  - sdd-cli:CTR-018
+  - sdd-cli:CTR-019
+binding:
+  feature_slice:
+    root: src/features/finalize
+    inbound_adapter: src/features/finalize/adapters/inbound/CliFinalizeHandler.ts
+    application: src/features/finalize/application/RunFinalize.ts
+    domain:
+      - src/features/finalize/domain/Plan.ts
+      - src/features/finalize/domain/ValidateFinalizeGraph.ts
+    outbound_ports:
+      - src/features/finalize/ports/outbound/PlanRepo.ts
+      - src/features/finalize/ports/outbound/FinalizeFileSystem.ts
+authority: code_annotation
+verification_method: |
+  tests/integration/finalize-success.test.ts;
+  tests/integration/finalize-graph-violation.test.ts
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-024
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd plan show feature-slice
+target_ids:
+  - sdd-cli:BEH-023
+  - sdd-cli:CTR-020
+binding:
+  feature_slice:
+    root: src/features/plan
+    inbound_adapter: src/features/plan/adapters/inbound/CliPlanShowHandler.ts
+    application: src/features/plan/application/ShowPlan.ts
+    outbound_ports:
+      - src/features/plan/ports/outbound/PlanReader.ts
+authority: code_annotation
+verification_method: tests/integration/approve-plan-mode.test.ts § "plan show"
 ---
 ```
 
