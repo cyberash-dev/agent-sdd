@@ -9,15 +9,18 @@ deterministic `freshness_token` over a configurable Discovery scope of
 your repository, compares the current state against the value recorded
 in your spec's Brownfield-baseline block, emits machine-readable stubs
 (`Delta` / `Open-Q`) describing scope drift since the recorded
-baseline commit, runs SDD spec-lint rules over normative IDs, and
-flips `lifecycle.status` from `proposed` to `approved` with a typed
-`approval_record` block via `sdd approve`.
+baseline commit, runs SDD spec-lint rules over normative IDs, flips
+`lifecycle.status` from `proposed` to `approved` with a typed
+`approval_record` block via `sdd approve`, and gates merges with the
+single `sdd ready` command — a strict superset of `sdd lint` and
+`sdd check` plus marker-coverage / sandbox-isolation checks for the
+SDD `implementation-valid` gate-3.
 
 The CLI is **mostly read-only on the spec**: `sdd token`, `sdd check`,
-`sdd refresh`, `sdd lint` never rewrite normative content. The single
-exception is `sdd approve`, which atomically writes
-`lifecycle.status` + `approval_record` and refuses agent identities
-(SDD §7.5: self-approval is forbidden).
+`sdd refresh`, `sdd lint`, `sdd ready` never rewrite normative
+content. The single exception is `sdd approve`, which atomically
+writes `lifecycle.status` + `approval_record` and refuses agent
+identities (SDD §7.5: self-approval is forbidden).
 
 > **Status**: v0.3.0, governed by `spec/spec.md`. The full normative
 > specification (Surfaces, Behaviors, Contracts, Invariants, Policies,
@@ -48,7 +51,7 @@ spec's baseline still describes the actual repository. Without a
 mechanical token, an agent has no way to detect that the source tree
 drifted from the baseline since the last review.
 
-`sdd-cli` provides three subcommands that automate this loop:
+`sdd-cli` provides six subcommands that automate this loop:
 
 | Command       | Purpose                                                            |
 |---------------|--------------------------------------------------------------------|
@@ -543,6 +546,7 @@ flowchart TD
   classDef cmd fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
   classDef human fill:#fff8e1,stroke:#f57f17,color:#5d4037
   classDef ok fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+  classDef gate fill:#f3e5f5,stroke:#6a1b9a,color:#311b92
 
   S([SDD repo]):::ok
 
@@ -555,12 +559,19 @@ flowchart TD
 
   Q1 -- "yes" --> Q2{routine check<br/>or CI gate?}
 
-  Q2 --> L["sdd lint"]:::cmd
-  Q2 --> C["sdd check"]:::cmd
+  Q2 -- "CI / pre-merge" --> RDY["sdd ready"]:::gate
+  Q2 -- "introspect" --> L["sdd lint"]:::cmd
+  Q2 -- "introspect" --> C["sdd check"]:::cmd
+
+  RDY -- "exit 0" --> OK([all green]):::ok
+  RDY -- "exit 1 — uncovered / unapproved /<br/>orphan_covers / unknown_partition_covers /<br/>aggregated_lint / aggregated_check / ..." --> RDYF[add `@covers <id>` next to a test /<br/>move proposed IDs into sandbox_paths /<br/>fix the upstream lint/check blocker]:::human
+  RDYF --> RDY
+  RDY -- "exit 2 — config_invalid /<br/>spec_parse_failed /<br/>unreadable_test_paths" --> RDYC[fix .sdd/config.json or<br/>spec.md syntax, retry]:::human
+  RDYC --> RDY
 
   L -- "exit 1" --> LF[fix weasel words /<br/>missing approval_record /<br/>missing test_obligation / ...]:::human
   LF --> L
-  L -- "exit 0" --> OK([all green]):::ok
+  L -- "exit 0" --> OK
 
   C -- "exit 0" --> OK
   C -- "exit 1 — baseline-dirty" --> CD[commit or stash<br/>scope-touching edits]:::human
@@ -572,44 +583,54 @@ flowchart TD
 
   OK --> Q3{proposed ID got<br/>human sign-off?}
   Q3 -- "yes" --> A["sdd approve --id ...<br/>--approver alice<br/>--owner-role ...<br/>--change-request ..."]:::cmd
-  A --> L
+  A --> RDY
   Q3 -- "no" --> Q4{cutting a release?}
-  Q4 -- "yes" --> RE([release gate:<br/>sdd check && sdd lint<br/>both exit 0]):::ok
+  Q4 -- "yes" --> RE([release gate:<br/>sdd ready exit 0]):::ok
   Q4 -- "no" --> END([continue work]):::ok
 ```
 
-Read the chart in three layers:
+Read the chart in four layers:
 
 1. **Bootstrap** (left branch off `Q1`) — one-time, when the
    Brownfield-baseline block still has placeholder values. Compute the
    token, paste it in, approve the BL record with a human identity,
    confirm `sdd check` is green.
-2. **Daily / CI** (`Q2`) — `sdd lint` validates spec rules; `sdd
-   check` validates scope freshness. They are independent gates and
-   answer different questions, so wire both into CI.
-3. **Drift response** (right branch off `C`) — when `sdd check`
+2. **CI / pre-merge** (`Q2 → RDY`) — `sdd ready` is the single
+   authoritative gate. It is a strict superset of `sdd lint` and
+   `sdd check`: re-runs both under one JSON envelope, plus enforces
+   marker coverage (`@covers <id>`), sandbox isolation for `proposed`
+   IDs, and `compatibility_action=…` markers for `removed` IDs. Add
+   `sdd ready` to your protected-branch policy and you do not need
+   to wire `sdd lint` and `sdd check` separately.
+3. **Introspection** (`Q2 → L` / `Q2 → C`) — when you want a focused
+   answer to one question (just spec rules, just scope freshness),
+   the dedicated commands are still useful for narrowing diagnostics.
+4. **Drift response** (right branch off `C`) — when `sdd check`
    reports `baseline-stale`, `sdd refresh` emits one stub per drifted
    path. After a human fills the stubs and updates the spec, recompute
    the token with `sdd token` and re-record it in the BL block.
 
 Approval (`A`) is human-only by design (SDD §7.5: `sdd approve`
 refuses agent identities). It is a transition from `proposed` to
-`approved` on a normative ID, never a way to bypass `sdd lint` or
-`sdd check`.
+`approved` on a normative ID, never a way to bypass `sdd ready` (or
+`sdd lint` / `sdd check` underneath).
 
 ### When to run which command
 
 | Situation                                                       | Command(s)                                                                                                                                          |
 |-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | Fresh repo, BrownfieldBaseline still has placeholders            | `sdd token` → paste token + commit_sha → `sdd approve --id <part>:BL-NNN ...` → `sdd check`                                                       |
-| Routine check: does the spec follow SDD rules?                   | `sdd lint`                                                                                                                                          |
-| Routine check: did anything in scope drift since baseline?       | `sdd check`                                                                                                                                         |
-| Pre-merge / pre-deploy CI gate                                   | `sdd lint && sdd check` (both must exit 0)                                                                                                          |
-| `sdd check` reports `baseline-dirty`                             | `git commit` or `git stash` your scope-touching working-tree edits, then re-run `sdd check`                                                          |
+| **Pre-merge / pre-deploy CI gate**                              | **`sdd ready`** (strict superset of `sdd lint` + `sdd check` — single command, one JSON envelope)                                                  |
+| **Pre-release sanity check**                                    | **`sdd ready`**                                                                                                                                     |
+| Introspect: does the spec follow SDD rules?                      | `sdd lint`                                                                                                                                          |
+| Introspect: did anything in scope drift since baseline?          | `sdd check`                                                                                                                                         |
+| `sdd ready` flags `[uncovered]`                                 | add `// @covers <partition>:<id>` next to a test that closes the obligation, or set `Test obligation: not_applicable + reason` in the spec          |
+| `sdd ready` flags `[unapproved]`                                | promote via `sdd approve …` (with a human identity), or move the proposed ID's spec file into `partitions[*].sandbox_paths`                          |
+| `sdd ready` flags `[unknown_partition_covers]`                  | add the partition to `.sdd/config.json#partitions`, or fix the marker prefix on the offending line                                                  |
+| `sdd check` reports `baseline-dirty`                             | `git commit` or `git stash` your scope-touching working-tree edits, then re-run `sdd check` (or `sdd ready`)                                         |
 | `sdd check` reports `baseline-stale`                             | `sdd refresh > stubs.yaml` → fill `Delta` / `Open-Q` stubs into the spec → commit → `sdd token` → paste fresh token + commit_sha → `sdd check`     |
-| Reviewer signed off on a `proposed` ID                           | `sdd approve --id ... --approver <human> --owner-role ... --change-request <url>` → `sdd lint`                                                      |
+| Reviewer signed off on a `proposed` ID                           | `sdd approve --id ... --approver <human> --owner-role ... --change-request <url>` → `sdd ready`                                                     |
 | Inspect the current scope token without touching the spec        | `sdd token` (or `sdd token --format=json` for piping)                                                                                               |
-| Pre-release sanity check                                         | `sdd check && sdd lint`                                                                                                                             |
 
 > All commands are read-only on the spec **except `sdd approve`**,
 > which atomically rewrites `lifecycle.status` + `approval_record`
@@ -685,21 +706,31 @@ sdd token --format=json | jq -r .commit_sha  # paste into BL-001.baseline_commit
 
 …and `sdd check` is green again.
 
-### 4 — `sdd lint` as a CI gate
+### 4 — `sdd ready` as the single CI gate
 
-Wire `sdd lint` into the same gate that runs `sdd check` to enforce the
-spec rule set (section presence, weasel words, lifecycle/approval-record
-consistency, test-obligation coverage, type-field enums). Lint never
-mutates the spec, so it is safe to run on every PR.
+`sdd ready` is the one command CI should call. It is a strict superset
+of `sdd lint` and `sdd check`: re-runs both under a single JSON
+envelope (kinds `aggregated_lint` / `aggregated_check`), and on top
+adds gate-3 (`implementation-valid`) checks — every
+`approved`/`deprecated` normative ID must have ≥ 1 test annotated
+`@covers <partition>:<id>`, every `removed` ID must have a matching
+`compatibility_action=…` marker, no `proposed`/`draft` ID may live
+outside `partitions[*].sandbox_paths`, and orphan/unknown-partition
+markers surface as `[orphan_covers]` / `[unknown_partition_covers]`.
 
 ```yaml
-- run: npx sdd check
-- run: npx sdd lint
+- run: npx sdd ready
 ```
 
-Errors are exit 1; warnings (e.g. a Constraint with no
-`test_obligations`) leave exit 0 so the gate stays green while you fix
-them.
+Wiring `sdd ready` into a protected-branch policy is what makes the
+SDD three-gate contract enforceable in practice. You no longer need
+to wire `sdd lint` and `sdd check` separately — both run inside
+`sdd ready`. They remain useful for narrowing diagnostics during
+local development.
+
+`sdd ready` exits 0 (mergeable), 1 (blocker — see the violation
+list), or 2 (`config_invalid` / `spec_parse_failed` /
+`unreadable_test_paths`, i.e. the gate could not even evaluate).
 
 ### 5 — promoting a `proposed` ID to `approved`
 
@@ -730,16 +761,18 @@ If `--approver` is in the built-in agent blocklist (e.g. `claude`,
 `codex`, `bot:tg-1`, `sdd-cli` itself) the command exits 1 with reason
 `agent-approver` and writes nothing.
 
-After approval, run `sdd lint` to verify the record now passes
-`sdd:approval-record-required`.
+After approval, run `sdd ready` to verify the record now passes
+`sdd:approval-record-required` and that gate-3 (the test annotated
+`@covers` for the just-approved ID) is in place.
 
 ### 6 — confirming a release
 
-Right before tagging a release, `sdd check` should be exit 0. That
-means: every scope-touching commit since the last baseline update has
-been reflected in the spec, and the working tree is clean. Releases
-without that signal break SDD's invariant that "spec is the source of
-truth".
+Right before tagging a release, `sdd ready` should be exit 0. That
+single signal means: spec rules pass, the recorded baseline is fresh,
+every approved ID has a `@covers` test, no `proposed`/`draft` ID
+slipped outside `sandbox_paths`, and the working tree is clean.
+Releases without that signal break SDD's invariant that "spec is the
+source of truth".
 
 ---
 
