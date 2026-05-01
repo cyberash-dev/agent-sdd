@@ -1,5 +1,7 @@
 // P2.3 — SpecDiff classifier unit tests. Exercises the pure logic of
 // classifyDiff + requiredSurfaceBumps + semver helpers without touching git.
+//
+// @covers sdd-cli:BEH-040
 
 import assert from "node:assert/strict";
 import test from "node:test";

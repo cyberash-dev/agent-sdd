@@ -139,18 +139,24 @@ type: Surface
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/cli
-version: "0.1.0"
+version: "0.2.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-001
   - sdd-cli:CTR-002
 consumer_compat_policy: semver_per_surface
+notes: |
+  v0.2.0 — additive: new subcommands `finalize`, `plan show`, `doctor`,
+  `report` join `token`/`check`/`refresh`/`lint`/`approve`/`ready`. Existing
+  argv shapes are unchanged.
+  v0.1.0 — original CLI surface (token, check, refresh).
 ---
 ```
 
@@ -161,10 +167,11 @@ type: Surface
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/config
 version: "0.1.0"
@@ -182,10 +189,11 @@ type: Surface
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/json-output
 version: "0.1.0"
@@ -204,10 +212,11 @@ type: Surface
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/refresh-stubs
 version: "0.1.0"
@@ -225,10 +234,11 @@ type: Surface
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/package
 version: "0.1.0"
@@ -251,22 +261,24 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:08.819Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/lint
-version: "0.2.0"
+version: "0.3.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-008
   - sdd-cli:CTR-009
 consumer_compat_policy: semver_per_surface
 notes: |
-  v0.2.0 — added the `sdd lint` subcommand. Static linter over a consumer
-  repo's normative-ID specs; read-only on the spec; emits diagnostics in
-  human or json formats. Spec files to scan are configured via
-  `.sdd/config.json#lint.spec_files` (extension to SUR-002 — see CTR-012).
+  v0.3.0 — additive: 12 new diagnostic-IDs join the original 17 (P0.5
+  field-aware modal weasel detection; P1 ENF-003/009/010/011/012; P2.1
+  ENF-013..016 boundary requiredness; P2.2 ENF-017/018 migration
+  consistency; P3.1 ENF-020 debt-budget form). Existing rules behave
+  bit-for-bit identically.
+  v0.2.0 — added the `sdd lint` subcommand.
 ---
 ```
 
@@ -279,23 +291,28 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:08.868Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/approve
-version: "0.2.0"
+version: "1.0.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-010
   - sdd-cli:CTR-011
 consumer_compat_policy: semver_per_surface
 notes: |
-  v0.2.0 — added the `sdd approve` subcommand. Promotes a normative ID's
-  `lifecycle.status` from `proposed` to `approved` (or `deprecated`/
-  `removed`) and writes the `approval_record` block. Refuses agent
-  identities (SDD §7.5). The only mutating sdd-cli subcommand on consumer
-  spec files; everything else is read-only.
+  v1.0.0 — MAJOR: `sdd approve` default mode no longer mutates spec
+  files. It writes a typed attestation to `.sdd/plans/<plan_id>.yaml`;
+  a separate `sdd finalize` invocation materialises the plan. The
+  methodology classifies this as a predicate change on the Surface's
+  user-observable post-condition (§1.5: predicate change = major).
+  `sdd approve --inline` survives one minor of v1.x as a transitional
+  shim with a stderr deprecation warning; removal scheduled for v1.1.0.
+  Migration recipe: `old: sdd approve <args>` → `new: sdd approve <args>
+  && sdd finalize`.
+  v0.2.0 — added the `sdd approve` subcommand.
 ---
 ```
 
@@ -308,12 +325,12 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.547Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/ready
-version: "0.3.0"
+version: "0.4.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-013
@@ -345,7 +362,13 @@ notes: |
 id: sdd-cli:SUR-009
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/diagnostics
 version: "0.4.0"
@@ -372,7 +395,13 @@ notes: |
 id: sdd-cli:SUR-010
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/finalize
 version: "0.4.0"
@@ -396,7 +425,13 @@ notes: |
 id: sdd-cli:SUR-013
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/plan-show
 version: "0.4.0"
@@ -416,7 +451,13 @@ notes: |
 id: sdd-cli:SUR-014
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/plan-files
 version: "0.4.0"
@@ -437,7 +478,13 @@ notes: |
 id: sdd-cli:SUR-011
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/doctor
 version: "0.4.0"
@@ -462,7 +509,13 @@ notes: |
 id: sdd-cli:SUR-012
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.146Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/report
 version: "0.4.0"
@@ -492,10 +545,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd token — compute current scope token
 given: |
@@ -560,10 +614,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd token — refuses to run on a scope-dirty working tree
 given: |
@@ -615,10 +670,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd check — token matches recorded baseline
 given: |
@@ -663,10 +719,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd check — token mismatch (baseline-stale)
 given: |
@@ -710,10 +767,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd check — scope-dirty working tree
 given: |
@@ -755,10 +813,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd refresh — emit Delta / Open-Q stubs for scope drift
 given: |
@@ -829,10 +888,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd refresh — no drift
 given: |
@@ -872,10 +932,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: --help / unknown subcommand
 given: cwd is anywhere
@@ -910,10 +971,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: configuration error
 given: |
@@ -958,10 +1020,11 @@ type: Behavior
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: environment error
 given: |
@@ -1004,8 +1067,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:08.918Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint — happy path emits zero diagnostics
@@ -1060,8 +1123,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:08.968Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint — reports each rule's violations
@@ -1120,8 +1183,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:09.017Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — promotes proposed to approved with approval_record
@@ -1201,8 +1264,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:09.068Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — refuses agent identity (SDD §7.5)
@@ -1259,8 +1322,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:09.121Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — refuses unknown owner-role
@@ -1307,8 +1370,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:09.174Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — refuses when --id matches no record
@@ -1354,8 +1417,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.596Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready — happy path emits zero violations
@@ -1424,8 +1487,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.644Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready — reports each rule's violations
@@ -1483,8 +1546,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.693Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready — aggregates lint and check blockers under same envelope
@@ -1542,8 +1605,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.743Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready — exit 2 on evaluate-failure
@@ -1602,7 +1665,13 @@ test_obligation:
 id: sdd-cli:BEH-021
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve default mode writes attestation to plan file, never to spec
 given: |
@@ -1644,7 +1713,13 @@ test_obligation:
 id: sdd-cli:BEH-022
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve --inline preserves legacy direct-write behavior with deprecation warning
 given: |
@@ -1683,7 +1758,13 @@ test_obligation:
 id: sdd-cli:BEH-023
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd plan show prints active plan
 given: |
@@ -1724,7 +1805,13 @@ test_obligation:
 id: sdd-cli:BEH-024
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd finalize succeeds, atomically rewrites spec, moves plan to finalized/
 given: |
@@ -1771,7 +1858,13 @@ test_obligation:
 id: sdd-cli:BEH-025
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd finalize refuses on graph violation, leaves spec unchanged
 given: |
@@ -1815,7 +1908,13 @@ test_obligation:
 id: sdd-cli:BEH-026
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd doctor reports no drift when registry matches CLI
 given: |
@@ -1851,7 +1950,13 @@ test_obligation:
 id: sdd-cli:BEH-027
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd doctor reports drift kinds (version, missing, stale)
 given: |
@@ -1890,7 +1995,13 @@ test_obligation:
 id: sdd-cli:BEH-028
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd doctor exits 2 when --rules points to a missing or unreadable file
 given: |
@@ -1923,7 +2034,13 @@ test_obligation:
 id: sdd-cli:BEH-029
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags Delta and Migration records missing baseline_version (ENF-003)
 given: |
@@ -1956,7 +2073,13 @@ test_obligation:
 id: sdd-cli:BEH-030
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags deprecated records missing sunset_version or replacement_id (ENF-009)
 given: |
@@ -1988,7 +2111,13 @@ test_obligation:
 id: sdd-cli:BEH-031
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags ASSUMPTION downgrade-to-advisory without human approval (ENF-010)
 given: |
@@ -2030,7 +2159,13 @@ test_obligation:
 id: sdd-cli:BEH-032
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags Partition records missing default_policy_set (ENF-011)
 given: |
@@ -2062,7 +2197,13 @@ test_obligation:
 id: sdd-cli:BEH-033
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags GeneratedArtifact records published as Surface but lacking surface_ref (ENF-012)
 given: |
@@ -2101,7 +2242,13 @@ test_obligation:
 id: sdd-cli:BEH-034
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags boundary CTR/BEH lacking policy_refs (ENF-013)
 given: |
@@ -2138,7 +2285,13 @@ test_obligation:
 id: sdd-cli:BEH-035
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags boundary CTR/BEH missing concurrency_model sub-fields (ENF-014)
 given: |
@@ -2176,7 +2329,13 @@ test_obligation:
 id: sdd-cli:BEH-036
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags boundary CTR/BEH missing applicability (ENF-015)
 given: |
@@ -2211,7 +2370,13 @@ test_obligation:
 id: sdd-cli:BEH-037
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags boundary CTR/BEH missing data_scope (ENF-016)
 given: |
@@ -2248,7 +2413,13 @@ test_obligation:
 id: sdd-cli:BEH-038
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags Invariant/Contract/Behavior depending on a Migration that lacks enforcement_stage (ENF-017)
 given: |
@@ -2290,7 +2461,13 @@ test_obligation:
 id: sdd-cli:BEH-039
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags cross-partition Migration without partition_slice + coordinator_id (ENF-018)
 given: |
@@ -2331,7 +2508,13 @@ test_obligation:
 id: sdd-cli:BEH-042
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags Partition records missing the unmodeled_budget block (ENF-020 form)
 given: |
@@ -2371,7 +2554,13 @@ test_obligation:
 id: sdd-cli:BEH-043
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready --against flags debt budget increase violating the trend (ENF-020 runtime)
 given: |
@@ -2418,7 +2607,13 @@ test_obligation:
 id: sdd-cli:BEH-041
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd report --pr-summary emits a 5-section markdown block
 given: |
@@ -2458,7 +2653,13 @@ test_obligation:
 id: sdd-cli:BEH-040
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.204Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready --against detects Surface semver cascade violations (ENF-004A)
 given: |
@@ -2510,7 +2711,13 @@ test_obligation:
 id: sdd-cli:CTR-023
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd report CLI contract
 surface_ref: sdd-cli:SUR-012
@@ -2567,7 +2774,13 @@ test_obligation:
 id: sdd-cli:CTR-024
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd report --pr-summary markdown shape
 surface_ref: sdd-cli:SUR-012
@@ -2626,10 +2839,11 @@ type: Contract
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: CLI argv & subcommand contract
 surface_ref: sdd-cli:SUR-001
@@ -2698,10 +2912,11 @@ type: Contract
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: exit-code taxonomy
 surface_ref: sdd-cli:SUR-001
@@ -2755,10 +2970,11 @@ type: Contract
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: .sdd/config.json schema
 surface_ref: sdd-cli:SUR-002
@@ -2840,10 +3056,11 @@ type: Contract
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd token JSON output schema
 surface_ref: sdd-cli:SUR-003
@@ -2901,10 +3118,11 @@ type: Contract
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd check JSON output schema
 surface_ref: sdd-cli:SUR-003
@@ -2965,10 +3183,11 @@ type: Contract
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd refresh stub format
 surface_ref: sdd-cli:SUR-004
@@ -3056,10 +3275,11 @@ type: Contract
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: package.json bin contract
 surface_ref: sdd-cli:SUR-005
@@ -3120,8 +3340,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:09.224Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint — CLI invocation contract
@@ -3181,8 +3401,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T14:03:12.335Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint --format=json — output schema
@@ -3233,8 +3453,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T14:03:12.383Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — CLI invocation contract
@@ -3300,8 +3520,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T14:03:12.432Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve --format=json — output schema
@@ -3349,8 +3569,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T14:03:12.480Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: .sdd/config.json — optional `lint` block (extension to CTR-003)
@@ -3408,8 +3628,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.791Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready — CLI invocation contract
@@ -3472,8 +3692,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.840Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready --format=json — output envelope schema
@@ -3537,8 +3757,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T14:03:12.677Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: .sdd/config.json — optional `partitions` block (extension to CTR-003)
@@ -3616,7 +3836,13 @@ test_obligations:
 id: sdd-cli:CTR-016
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd-cli/diagnostics — published diagnostic-ID grammar and members
 surface_ref: sdd-cli:SUR-009
@@ -3720,7 +3946,13 @@ test_obligation:
 id: sdd-cli:CTR-017
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd finalize CLI contract
 surface_ref: sdd-cli:SUR-010
@@ -3777,7 +4009,13 @@ test_obligation:
 id: sdd-cli:CTR-018
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd finalize JSON envelope
 surface_ref: sdd-cli:SUR-010
@@ -3835,7 +4073,13 @@ test_obligation:
 id: sdd-cli:CTR-019
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: plan-file YAML format and plan_id grammar
 surface_ref: sdd-cli:SUR-014
@@ -3890,7 +4134,13 @@ test_obligation:
 id: sdd-cli:CTR-020
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd plan show CLI + JSON envelope
 surface_ref: sdd-cli:SUR-013
@@ -3959,7 +4209,13 @@ test_obligation:
 id: sdd-cli:CTR-021
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd doctor CLI contract
 surface_ref: sdd-cli:SUR-011
@@ -4014,7 +4270,13 @@ test_obligation:
 id: sdd-cli:CTR-022
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.263Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd doctor JSON envelope
 surface_ref: sdd-cli:SUR-011
@@ -4084,10 +4346,11 @@ type: Invariant
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: token determinism
 always: |
@@ -4134,10 +4397,11 @@ type: Invariant
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: spec.md and config.json are read-only
 never: |
@@ -4178,10 +4442,11 @@ type: Invariant
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: token mechanism is git_tree_hash_v1
 always: |
@@ -4211,10 +4476,11 @@ type: Invariant
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: vertical-slice hexagonal boundaries
 never: |
@@ -4271,8 +4537,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T14:03:12.530Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve refuses agent identities (self-approval ban)
@@ -4332,8 +4598,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T14:03:12.577Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint is read-only on consumer spec files
@@ -4381,8 +4647,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:09.273Z
-    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve atomic per record — status flip implies approval_record
@@ -4453,8 +4719,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.891Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready does not execute tests
@@ -4513,8 +4779,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T13:52:13.940Z
-    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready is read-only on the working tree
@@ -4562,7 +4828,13 @@ test_obligation:
 id: sdd-cli:INV-010
 type: Invariant
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: every published diagnostic-ID is a member of SUR-009
 always: |
@@ -4611,7 +4883,13 @@ test_obligation:
 id: sdd-cli:INV-011
 type: Invariant
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve in default (non-inline) mode does not write to spec_files
 never: |
@@ -4654,7 +4932,13 @@ test_obligation:
 id: sdd-cli:INV-012
 type: Invariant
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd finalize is atomic — every plan attestation flips, or none
 always: |
@@ -4698,7 +4982,13 @@ test_obligation:
 id: sdd-cli:INV-013
 type: Invariant
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.328Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd doctor is read-only on ~/.claude/ and on the working tree
 never: |
@@ -5486,10 +5776,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:BEH-001
@@ -5525,10 +5816,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids: [sdd-cli:BEH-001, sdd-cli:BEH-002]
 binding:
@@ -5554,10 +5846,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids: [sdd-cli:BEH-003, sdd-cli:BEH-004, sdd-cli:BEH-005]
 binding:
@@ -5584,10 +5877,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids: [sdd-cli:BEH-006, sdd-cli:BEH-007]
 binding:
@@ -5616,10 +5910,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:INV-001
@@ -5641,10 +5936,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:BEH-003
@@ -5667,10 +5963,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:BEH-006
@@ -5688,10 +5985,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:BEH-006
@@ -5710,10 +6008,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:BEH-009
@@ -5735,10 +6034,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:BEH-001
@@ -5759,10 +6059,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:CST-003
@@ -5813,10 +6114,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:EXT-001
@@ -5838,10 +6140,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T16:26:12Z
-    change_request: approve vertical-slice hexagonal architecture refactor
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:POL-001
@@ -5863,10 +6166,11 @@ type: ImplementationBinding
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 target_ids:
   - sdd-cli:CTR-007
@@ -5885,7 +6189,13 @@ verification_method: tests/integration/e2e.test.ts (npm pack tarball install)
 id: sdd-cli:IMP-015
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: lint feature — domain layer (pure rules + parser)
 target_ids:
@@ -5909,7 +6219,13 @@ verification_method: tests/unit/Rules.test.ts + tests/unit/SpecParser.test.ts
 id: sdd-cli:IMP-016
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: lint feature — application + ports + adapters
 target_ids:
@@ -5937,7 +6253,13 @@ verification_method: tests/integration/e2e.test.ts (sdd lint subcommand fixture)
 id: sdd-cli:IMP-017
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: approve feature — domain layer (request classifier + rewriter)
 target_ids:
@@ -5961,7 +6283,13 @@ verification_method: tests/unit/ApproveRequest.test.ts + tests/unit/Rewrite.test
 id: sdd-cli:IMP-018
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: approve feature — application + ports + adapters
 target_ids:
@@ -5993,7 +6321,13 @@ verification_method: tests/integration/e2e.test.ts (sdd approve fixture)
 id: sdd-cli:IMP-019
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: shared/domain/Config.ts — extension for the `lint` block
 target_ids:
@@ -6011,7 +6345,13 @@ verification_method: "tests/unit/Config.test.ts (NB: extension tests are authore
 id: sdd-cli:IMP-020
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: cli.ts — dispatch for lint and approve subcommands
 target_ids:
@@ -6030,7 +6370,13 @@ verification_method: "tests/unit/argv.test.ts (Phase-3 follow-up: extend argv te
 id: sdd-cli:IMP-021
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: DiagnosticRegistry — single source of truth for published diagnostic-IDs
 target_ids:
@@ -6049,7 +6395,13 @@ verification_method: tests/unit/diagnostic-registry-coverage.test.ts
 id: sdd-cli:IMP-022
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve plan-mode binding (default) and --inline legacy shim
 target_ids:
@@ -6077,7 +6429,13 @@ verification_method: |
 id: sdd-cli:IMP-023
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd finalize feature-slice
 target_ids:
@@ -6110,7 +6468,13 @@ verification_method: |
 id: sdd-cli:IMP-024
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd plan show feature-slice
 target_ids:
@@ -6133,7 +6497,13 @@ verification_method: tests/integration/approve-plan-finalize.test.ts § "plan sh
 id: sdd-cli:IMP-025
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd doctor --rule-version feature-slice
 target_ids:
@@ -6163,7 +6533,13 @@ verification_method: tests/integration/doctor-rule-version.test.ts
 id: sdd-cli:IMP-026
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: P1 cheap-requiredness lint rules
 target_ids:
@@ -6191,7 +6567,13 @@ verification_method: |
 id: sdd-cli:IMP-027
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: P2.1 boundary-requiredness lint rules + reachability helper
 target_ids:
@@ -6218,7 +6600,13 @@ verification_method: |
 id: sdd-cli:IMP-028
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: P2.2 migration-consistency lint rules
 target_ids:
@@ -6242,7 +6630,13 @@ verification_method: |
 id: sdd-cli:IMP-029
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: P2.3 semver cascade diff engine
 target_ids:
@@ -6270,7 +6664,13 @@ verification_method: |
 id: sdd-cli:IMP-030
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd report --pr-summary feature-slice
 target_ids:
@@ -6295,7 +6695,13 @@ verification_method: tests/integration/report-pr-summary.test.ts
 id: sdd-cli:IMP-031
 type: ImplementationBinding
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T19:54:21.390Z
+    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    scope: first-time-approval
 partition_id: sdd-cli
 title: P3 debt budget rules — form (lint) + monotonicity (ready --against)
 target_ids:

@@ -1,6 +1,9 @@
 // INV-010 / CTR-016 / SUR-009 — every published diagnostic-ID literal in
 // product source ∈ DiagnosticRegistry, and every registry entry is referenced
 // ≥1 time as a Diagnostic.rule (lint) or ReadyViolation.kind (ready).
+//
+// @covers sdd-cli:INV-010
+// @covers sdd-cli:CTR-016
 
 import assert from "node:assert/strict";
 import test from "node:test";

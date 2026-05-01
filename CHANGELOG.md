@@ -10,6 +10,150 @@ landed.
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-05-01
+
+### BREAKING
+
+- **`sdd approve` default mode no longer mutates spec files.** Default
+  behavior is now to write a typed attestation to
+  `.sdd/plans/<plan_id>.yaml` and exit 0. A separate `sdd finalize`
+  invocation materialises the queued plan into spec files atomically,
+  with prospective graph validation against still-proposed referenced
+  IDs. The methodology classifies this as a predicate change on
+  `Surface: sdd-cli/approve` (SUR-007: §1.5 — predicate change = major).
+
+  Migration recipe:
+
+  ```diff
+  - sdd approve --id 'p:BEH-001' --approver alice --owner-role tech-lead --change-request URL
+  + sdd approve --id 'p:BEH-001' --approver alice --owner-role tech-lead --change-request URL
+  + sdd finalize
+  ```
+
+  The legacy direct-rewrite path survives one minor of v1.x as
+  `sdd approve --inline`, with a stderr deprecation warning. Removal
+  is scheduled for v1.1.0.
+
+### Added
+
+- **`sdd finalize`** subcommand (`SUR-010`). Loads the active plan or
+  `--plan <plan_id>`, validates the proposed graph (every flipped ID's
+  referenced IDs are `>=approved` post-flip), and atomically rewrites
+  `lifecycle.status` + `approval_record` for every attestation. On
+  graph violation, exits 1 with `reason: "proposed-references"` and
+  leaves spec files byte-stable. Spec: `BEH-024`, `BEH-025`,
+  `CTR-017`, `CTR-018`, `INV-012`, `IMP-023`.
+- **`sdd plan show`** subcommand (`SUR-013`). Reads the active plan
+  (or `--plan <plan_id>`) and prints the attestation list in human
+  or JSON format. Read-only on the working tree. Spec: `BEH-023`,
+  `CTR-020`, `IMP-024`.
+- **Plan-file storage surface** (`SUR-014`). Files under `.sdd/plans/`
+  follow `CTR-019`: `plan_id` is `<ISO-basic UTC timestamp>-<5-char
+  base32 random>`; the YAML shape pins `pending_attestations[]` per
+  plan_id. The default `.sdd/plans/.gitignore` keeps plan files
+  local; consumers who want a git-audited approval trail can remove
+  the entry.
+- **`sdd doctor --rule-version`** (`SUR-011`). Parses an enforcement
+  registry markdown file (default
+  `~/.claude/rules/enforcement_registry.md`) and reports drift between
+  the methodology's declared compatible CLI version range and the
+  running CLI, plus drift between methodology-declared diagnostic-IDs
+  (maturity=implemented) and `DiagnosticRegistry`. When the registry
+  file is absent, exits 2 with `kind: "registry-not-found"`.
+  Spec: `BEH-026..028`, `CTR-021`, `CTR-022`, `INV-013`, `IMP-025`.
+- **`sdd report --pr-summary`** (`SUR-012`). Emits a 5-section
+  markdown block (closed test obligations, internal decisions
+  placeholder, ASSUMPTIONs, Open-Q residuals, debt budget delta)
+  suitable for pasting into a PR description. Read-only on the
+  working tree. Spec: `BEH-041`, `CTR-023`, `CTR-024`, `IMP-030`.
+- **`sdd ready --against <ref>`** runs two new diff-based checks:
+  - **Surface semver cascade** (`ENF-004A`, kind:
+    `surface_semver_cascade`). Classifies per-ID diffs as
+    `predicate_change` / `content_change` / `none`, then fires when a
+    Surface's declared version bump is below the cascade-required
+    level (predicate-change in a reachable contractual ID requires
+    major; content-change requires ≥minor). Spec: `BEH-040`,
+    `IMP-029`.
+  - **Debt budget monotonicity** (`ENF-020` runtime, kind:
+    `debt_budget_increased`). Compares
+    `Partition.unmodeled_budget.current` against the same partition's
+    value at `<ref>` and fires when `current` grew in a way that
+    violates the declared `trend`. Spec: `BEH-043`, `IMP-031`.
+- **`Surface: diagnostics`** (`SUR-009`). Promotes the 17 lint
+  diagnostic-IDs and 9 ready violation kinds from private string
+  literals to a published Surface with explicit semver. New
+  diagnostic-IDs are append-only at minor; rename or removal is a
+  major bump on SUR-009 plus an alias period ≥1 minor. Coverage is
+  enforced mechanically by `INV-010`
+  (tests/unit/diagnostic-registry-coverage.test.ts).
+  Spec: `CTR-016`, `IMP-021`.
+- **Field-aware modal weasel detection** (`P0.5`). The
+  `sdd:weasel-word` rule now distinguishes "absolute" weasel words
+  (etc., approximately, ...) — which fire anywhere in a normative
+  section, as before — from "modal" verbs (`may be`, `might be`),
+  which fire only inside fields whose `IS_NORMATIVE` entry is `true`
+  (e.g. `Behavior.then`, `Invariant.always`). Diagnostic message
+  names the field. Source-of-truth lives in
+  `src/shared/domain/data/weasel-words.json` for cross-plan sync.
+- **P1 — five cheap requiredness rules**:
+  `sdd:baseline-version-required` (`ENF-003`),
+  `sdd:deprecated-fields-required` (`ENF-009`),
+  `sdd:assumption-downgrade-approval` (`ENF-010`),
+  `sdd:partition-default-policy-set` (`ENF-011`),
+  `sdd:generated-artifact-surface-ref` (`ENF-012`). Spec: `BEH-029..033`,
+  `IMP-026`.
+- **P2.1 — boundary requiredness**:
+  `sdd:boundary-policy-ref` (`ENF-013`),
+  `sdd:boundary-concurrency-model` (`ENF-014`),
+  `sdd:applicability-required` (`ENF-015`),
+  `sdd:data-scope-required` (`ENF-016`). A new
+  `BoundaryReachability` helper computes the set of IDs reachable
+  from any external Surface (`api`, `sdk`, `event_bus`, `cli`,
+  `public_db`, `public_storage`); rules fire only on those IDs.
+  Spec: `BEH-034..037`, `IMP-027`.
+- **P2.2 — migration consistency**:
+  `sdd:migration-enforcement-stage` (`ENF-017`),
+  `sdd:migration-cross-partition` (`ENF-018`).
+  Spec: `BEH-038`, `BEH-039`, `IMP-028`.
+- **P3.1 — debt budget form**: `sdd:debt-budget-form` (`ENF-020`
+  form). Every `Partition` record must declare an
+  `unmodeled_budget` block with `current`, `baseline_at`,
+  `baseline_value`, `trend`. Spec: `BEH-042`, `IMP-031`.
+- `.sdd/config.json#plans_dir` (optional, default `.sdd/plans`)
+  configures the attestation namespace location.
+
+### Changed
+
+- `sdd lint` now considers field-aware modal weasel detection
+  (P0.5) and emits diagnostics naming the field
+  (e.g. `Behavior.then`) when a modal verb fires inside a normative
+  field. Absolute-weasel section-aware behavior is unchanged.
+- `Surface: sdd-cli/cli` (SUR-001) bumped `0.1.0 → 0.2.0` —
+  additive new subcommands.
+- `Surface: sdd-cli/lint` (SUR-006) bumped `0.2.0 → 0.3.0` —
+  additive 12 new diagnostic-IDs.
+- `Surface: sdd-cli/ready` (SUR-008) bumped `0.3.0 → 0.4.0` —
+  additive `--against <ref>` flag and two new violation kinds.
+- The agent blocklist (`BUILTIN_AGENT_BLOCKLIST`) and the
+  `isBlockedApprover()` helper relocated from
+  `src/features/approve/domain/ApproveRequest.ts` to
+  `src/shared/domain/AgentBlocklist.ts` so the lint slice
+  (ENF-010) and the approve slice can both consult it without
+  crossing feature boundaries.
+- The approval rewriter (`Rewrite.ts`) relocated from
+  `src/features/approve/domain/Rewrite.ts` to
+  `src/shared/domain/SpecApprovalRewrite.ts` so both the approve
+  slice (`--inline`) and the new finalize slice (plan
+  materialisation) can use it without crossing feature
+  boundaries. The approve-domain shim re-exports for backward
+  compatibility.
+
+### Deprecated
+
+- `sdd approve --inline` — preserves the v0.3.x direct-rewrite
+  behavior with a stderr deprecation warning. Removal scheduled for
+  v1.1.0.
+
 ## [0.2.0] — 2026-04-30
 
 ### Added

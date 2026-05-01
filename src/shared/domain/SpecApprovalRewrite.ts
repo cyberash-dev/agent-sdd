@@ -121,7 +121,24 @@ function applyOne(lines: string[], m: IdMatch, req: ApprovalAttestation, when: D
   const approvalLines = approvalBlock(req, when, approvalIndent);
   if (approvalIdx >= 0) {
     void approvalIsNested;
-    block.splice(approvalIdx, 1, ...approvalLines);
+    // Strip the existing block: the `approval_record:` header line AND every
+    // subsequent line that is indented strictly deeper than the header (its
+    // child mapping). Stop at the first sibling-or-shallower line. Without
+    // this, repeated approvals against the same record would interleave a
+    // new approval_record block on top of the prior one (regression observed
+    // when batch-finalising an already-approved record).
+    const headerMatch = /^(\s*)approval_record:/.exec(block[approvalIdx] ?? "");
+    const headerIndent = headerMatch !== null ? headerMatch[1]!.length : 0;
+    let endExclusive = approvalIdx + 1;
+    while (endExclusive < block.length) {
+      const line = block[endExclusive]!;
+      if (line.trim().length === 0) break;
+      const indentMatch = /^(\s*)/.exec(line);
+      const lineIndent = indentMatch !== null ? indentMatch[1]!.length : 0;
+      if (lineIndent <= headerIndent) break;
+      endExclusive++;
+    }
+    block.splice(approvalIdx, endExclusive - approvalIdx, ...approvalLines);
   } else {
     block.splice(statusIdx + 1, 0, ...approvalLines);
   }
