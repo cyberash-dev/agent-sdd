@@ -150,16 +150,31 @@ function applyOne(lines: string[], m: IdMatch, req: ApprovalAttestation, when: D
 function approvalBlock(req: ApprovalAttestation, when: Date, indent: string): string[] {
   const out = [
     `${indent}approval_record:`,
-    `${indent}  owner_role: ${req.ownerRole}`,
-    `${indent}  approver_identity: ${req.approver}`,
+    `${indent}  owner_role: ${yamlScalar(req.ownerRole)}`,
+    `${indent}  approver_identity: ${yamlScalar(req.approver)}`,
     `${indent}  timestamp: ${when.toISOString()}`,
-    `${indent}  change_request: ${req.changeRequest}`,
-    `${indent}  scope: ${req.scope}`,
+    `${indent}  change_request: ${yamlScalar(req.changeRequest)}`,
+    `${indent}  scope: ${yamlScalar(req.scope)}`,
   ];
   if (req.reviewedTestOracle !== null) {
-    out.push(`${indent}  reviewed_test_oracle: ${req.reviewedTestOracle}`);
+    out.push(`${indent}  reviewed_test_oracle: ${yamlScalar(req.reviewedTestOracle)}`);
   }
   return out;
+}
+
+/** Emit a value as a YAML scalar — quoted only when the raw string would
+ *  parse differently as plain YAML. The trigger we actually need to handle
+ *  is `:` followed by whitespace (which YAML reads as a nested mapping).
+ *  Plain URLs (`https://example.com/x`) keep `:` but never have `: ` and so
+ *  stay unquoted — preserving v0.3.x output bytes for consumers that grep
+ *  the rewritten approval_record for URL prefixes. */
+function yamlScalar(value: string): string {
+  if (value.length === 0) return '""';
+  const needsQuoting = /:\s/.test(value)
+    || /^[\s?\-#&*!|>'"%@`]/.test(value)
+    || /\s$/.test(value);
+  if (!needsQuoting) return value;
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 function findMatches(lines: readonly string[], idOrGlob: string): IdMatch[] {

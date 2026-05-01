@@ -1,4 +1,9 @@
 // @covers sdd-cli:BEH-041
+// @covers sdd-cli:BEH-044
+// @covers sdd-cli:BEH-045
+// @covers sdd-cli:BEH-046
+// @covers sdd-cli:BEH-047
+// @covers sdd-cli:BEH-048
 // @covers sdd-cli:CTR-023
 // @covers sdd-cli:CTR-024
 //

@@ -61,6 +61,8 @@ export const READY_VIOLATION_KINDS = [
   "aggregated_check",
   // P2.3 — semver cascade (ENF-004A) shipped as severity:warn initially
   "surface_semver_cascade",
+  // P2.3-stretch — structural diff in a published GeneratedArtifact (ENF-019)
+  "generated_artifact_structural_diff_unbumped",
   // P3.2 — debt-budget monotonicity check (ENF-020 runtime side)
   "debt_budget_increased",
 ] as const;

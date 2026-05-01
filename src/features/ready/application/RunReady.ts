@@ -29,7 +29,13 @@ import {
 } from "../../../shared/domain/LintRules.js";
 import { reachableBoundaryIds } from "../../../shared/domain/BoundaryReachability.js";
 import { lintRecordsFromMarkdown, type LintRecord } from "../../../shared/domain/SpecRecord.js";
-import { actualBump, bumpAtLeast, classifyDiff, requiredSurfaceBumps } from "../domain/SpecDiff.js";
+import {
+  actualBump,
+  bumpAtLeast,
+  classifyDiff,
+  generatedArtifactStructuralDiffs,
+  requiredSurfaceBumps,
+} from "../domain/SpecDiff.js";
 import { TOKEN_MECHANISM, token as computeToken } from "../../../shared/domain/Token.js";
 import {
   aggregatedCheckViolations,
@@ -377,6 +383,30 @@ async function semverCascadeViolations(
       remediation: `Surface ${b.surfaceId} reachable change requires a ${b.required} bump (declared ${b.prevDeclaredVersion ?? "?"} → ${b.declaredVersion ?? "?"}). Driven by: ${b.drivenBy.map((d) => `${d.id} (${d.classification})`).slice(0, 4).join(", ")}${b.drivenBy.length > 4 ? "..." : ""}`,
     });
   }
+
+  // ENF-019 — structural diff in a published GeneratedArtifact requires a
+  // major bump on the parent Surface. We emit a dedicated violation that
+  // names the GA so consumers can distinguish "library shape changed" from
+  // "API contract changed". When the parent Surface already bumps major
+  // (via the cascade pass above), we still emit the GA-specific violation
+  // for traceability.
+  const gaDiffs = generatedArtifactStructuralDiffs(prevRecords, currRecords, diffs);
+  for (const ga of gaDiffs) {
+    const surfaceRec = currRecords.find((r) => r.id === ga.surfaceId);
+    const bump = bumps.find((b) => b.surfaceId === ga.surfaceId);
+    const actual = bump !== undefined ? actualBump(bump.prevDeclaredVersion, bump.declaredVersion) : null;
+    if (bumpAtLeast(actual, "major")) continue;
+    out.push({
+      kind: "generated_artifact_structural_diff_unbumped",
+      id: ga.surfaceId,
+      file: surfaceRec?.file,
+      line: surfaceRec?.line,
+      expected: "major",
+      actual: actual ?? "patch",
+      remediation: `Surface ${ga.surfaceId} reaches GeneratedArtifact ${ga.generatedArtifactId} (published_surface=yes) with ${ga.classification}; structural diff in a published GA requires a major bump on the parent Surface (ENF-019).`,
+    });
+  }
+
   return out;
 }
 

@@ -2512,8 +2512,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T19:54:21.204Z
-    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint flags Partition records missing the unmodeled_budget block (ENF-020 form)
@@ -2558,8 +2558,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T19:54:21.204Z
-    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready --against flags debt budget increase violating the trend (ENF-020 runtime)
@@ -2611,8 +2611,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T19:54:21.204Z
-    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd report --pr-summary emits a 5-section markdown block
@@ -2646,6 +2646,203 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:BEH-044
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: report --pr-summary section 1 — Closed Test obligations (ENF-007A)
+given: |
+  - cwd has a readable .sdd/config.json
+  - the resolved spec files contain N records with `test_obligation:` blocks
+when: |
+  user runs `sdd report --pr-summary`
+then: |
+  - the emitted markdown contains a `### Closed Test obligations` heading
+  - when N > 0, the heading is followed by N bullet lines naming each ID
+  - when N == 0, the heading is followed by a placeholder line
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only emission
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Section emits one bullet per record with test_obligation, or a placeholder.
+  test_template: integration
+  boundary_classes: [empty fixture, fixture with multiple test_obligations]
+  failure_scenarios: [section absent, multiple instances of the heading]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-045
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: report --pr-summary section 2 — Internal decisions placeholder (ENF-007B)
+given: |
+  - cwd has a readable .sdd/config.json
+when: |
+  user runs `sdd report --pr-summary`
+then: |
+  - the emitted markdown contains a heading
+    "### Internal decisions (candidates for new Constraint/Policy/ASSUMPTION)"
+  - the section is a static placeholder block; the CLI never tries to extract
+    internal decisions from the diff
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: heuristic-free static placeholder
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Internal-decisions section is a constant-shape TODO block in every fixture.
+  test_template: integration
+  boundary_classes: [any fixture]
+  failure_scenarios: [CLI invents internal decisions]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-046
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: report --pr-summary section 3 — ASSUMPTIONs (ENF-007C)
+given: |
+  - cwd has a readable .sdd/config.json
+  - the resolved spec files contain M ASSUMPTION records
+when: |
+  user runs `sdd report --pr-summary`
+then: |
+  - exactly one `### ASSUMPTIONs` heading
+  - when M > 0, M bullets each naming id, blocking, review_by
+  - when M == 0, placeholder text
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only emission
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Section reflects the count of ASSUMPTION records in the resolved spec files.
+  test_template: integration
+  boundary_classes: [empty, one ASSUMPTION, multiple ASSUMPTIONs]
+  failure_scenarios: [section absent, blocking field omitted]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-047
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: report --pr-summary section 4 — Open-Q residuals (ENF-007D)
+given: |
+  - cwd has a readable .sdd/config.json
+  - the resolved spec files contain K Open-Q records with status proposed/draft
+when: |
+  user runs `sdd report --pr-summary`
+then: |
+  - exactly one `### Open-Q residuals` heading
+  - when K > 0, K bullets each naming id, blocking
+  - when K == 0, placeholder text
+  - resolved Open-Qs (status approved/removed) are NOT listed
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only emission
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Only Open-Qs with status proposed/draft surface in the section.
+  test_template: integration
+  boundary_classes: [empty, one proposed Open-Q, one approved Open-Q (silent)]
+  failure_scenarios: [resolved Open-Q listed]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-048
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: report --pr-summary section 5 — Debt budget delta (ENF-007E)
+given: |
+  - cwd has a readable .sdd/config.json
+  - the resolved spec files contain Q Partition records
+when: |
+  user runs `sdd report --pr-summary [--against <ref>]`
+then: |
+  - exactly one `### Debt budget delta` heading
+  - when Q > 0, one bullet per Partition naming current, baseline_at, trend
+  - when --against <ref> is set AND a comparable budget exists at <ref>,
+    the bullet annotates `(was <prev> at <ref>, +Δ)`
+  - when Q == 0, placeholder text
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only emission
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Debt-budget section reflects the resolved Partition records and, when
+    --against is set, the diff against the same partition's prior budget.
+  test_template: integration
+  boundary_classes:
+    - no Partition in scope
+    - Partition with unmodeled_budget but no --against
+    - Partition with unmodeled_budget AND --against
+  failure_scenarios: [debt section silently empty when Partition is present]
+---
+```
+
 ### 6.13 `sdd ready --against <ref>` — semver cascade (P2.3)
 
 ```yaml
@@ -2657,8 +2854,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-01T19:54:21.204Z
-    change_request: approve sdd-cli v1.0.0 Plan 2 cohort
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd ready --against detects Surface semver cascade violations (ENF-004A)
@@ -2703,6 +2900,68 @@ test_obligation:
   failure_scenarios:
     - cascade pass runs without --against
     - silent acceptance of a major-required Surface bumped only minor
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-049
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:54.896Z
+    change_request: "approve gap-fill cohort: BEH-044 through BEH-049"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready --against detects structural diff in a published GeneratedArtifact (ENF-019)
+given: |
+  - cwd is a git repository
+  - --against <ref> resolves to a parent commit
+  - between <ref> and HEAD, a Surface reaches a GeneratedArtifact record with
+    parsed.published_surface == "yes"
+  - the GeneratedArtifact has at least one non-`none` diff classification
+  - the parent Surface's declared bump is below `major`
+when: |
+  user runs `sdd ready --against <ref>`
+then: |
+  - exits 1
+  - violation { kind: "generated_artifact_structural_diff_unbumped",
+                id: <SUR-id>,
+                expected: "major",
+                remediation: <message naming the GA-id> }
+  - the GA-specific violation is layered on top of any surface_semver_cascade
+    for the same Surface
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only diff over git history
+policy_refs:
+  - sdd-cli:POL-001
+notes: |
+  ENF-019 distinguishes "library shape changed" from "API contract changed".
+  Even content-level changes in a published GA (field order, generated symbol
+  names, wire format) are breaking for downstream consumers compiling against
+  the artifact, so the rule requires major regardless of whether the diff was
+  classified as predicate_change or content_change.
+test_obligation:
+  predicate: |
+    A fixture two-commit repo where commit B mutates a published
+    GeneratedArtifact triggers exactly one
+    generated_artifact_structural_diff_unbumped when the parent Surface bumps
+    minor. With published_surface=no, the rule is silent. With no GA diff,
+    silent.
+  test_template: integration
+  boundary_classes:
+    - "GA outputs change + parent Surface bumped only minor (fires)"
+    - "GA outputs change + parent Surface bumped major (silent)"
+    - "GA published_surface=no (silent — out of scope)"
+    - "no diff (silent)"
+  failure_scenarios:
+    - silent acceptance of a published GA structural diff
+    - rule fires on an internal-only GA
 ---
 ```
 
@@ -2825,6 +3084,99 @@ test_obligation:
     - empty fixture (placeholder content per section)
     - non-empty fixture (real content per section)
   failure_scenarios: [section reordered or renamed without major bump]
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-025
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:54.952Z
+    change_request: approve gap-fill — CTR-025 ready --against semantics
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready --against semver-cascade semantics
+surface_ref: sdd-cli:SUR-008
+schema:
+  flag: --against
+  arg: "<git ref>"
+  effect_on_envelope:
+    additional_violation_kinds:
+      - surface_semver_cascade
+      - generated_artifact_structural_diff_unbumped
+      - debt_budget_increased
+  cascade_classification:
+    predicate_change_fields:
+      - always
+      - never
+      - when
+      - then
+      - predicate
+      - schema
+      - preconditions
+      - postconditions
+      - error_taxonomy
+      - compatibility_rules
+      - rule
+      - metric
+      - target
+      - given
+    content_change_fields: "any other top-level field NOT in {id, type, lifecycle, partition_id, approval_record, version}"
+    none: "byte-equal across the two snapshots after metadata-key skip"
+  required_bump_per_surface:
+    rule_predicate_change_in_reachable_id: "major"
+    rule_content_change_in_reachable_id_only: "minor"
+    rule_no_change_in_reachable_id: "patch"
+preconditions:
+  - cwd is a git repository (cascade pass is a no-op in a non-git working tree)
+  - <ref> is resolvable to a tree containing the same spec files
+postconditions:
+  - "ready exits 1 if any reachable diff classifies above the declared bump"
+  - "the cascade pass NEVER writes to any spec file (INV-014)"
+  - "ready without --against runs no cascade pass"
+external_identifiers:
+  - flag --against
+  - the predicate_change_fields list (consumers grep for this set)
+  - "violation kinds — surface_semver_cascade, generated_artifact_structural_diff_unbumped, debt_budget_increased"
+compatibility_rules:
+  - removing --against => major bump on SUR-008
+  - extending predicate_change_fields with a new field => minor bump on SUR-008
+  - shrinking predicate_change_fields => major bump on SUR-008
+  - introducing a new violation kind that --against can produce => minor bump on SUR-008
+error_taxonomy:
+  - "exit 1 — at least one reachable Surface has declared bump < required"
+  - "exit 0 — every reachable Surface has declared bump >= required (or no diff)"
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: read_only
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Against a fixture two-commit repo where commit B changes a Contract's
+    schema, ready --against A on B emits surface_semver_cascade on the parent
+    Surface; without --against, ready emits no cascade violation. Snapshot
+    of every spec file before vs after the run is byte-equal in every
+    classification class (INV-014).
+  test_template: integration
+  boundary_classes:
+    - schema change (predicate_change → major required)
+    - notes change (content_change → minor required)
+    - byte-equal snapshots (no change → patch)
+    - --against unset (cascade pass skipped entirely)
+  failure_scenarios:
+    - cascade pass writes to a spec file
+    - --against unset still triggers a cascade
 ---
 ```
 
@@ -5022,6 +5374,57 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:INV-014
+type: Invariant
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T20:15:55.011Z
+    change_request: approve gap-fill — INV-014 cascade is computed not asserted
+    scope: first-time-approval
+partition_id: sdd-cli
+title: semver cascade is computed, not asserted
+always: |
+  When `sdd ready --against <ref>` runs, the semver-cascade pass classifies
+  diffs and computes the *required* Surface bump per Surface in the partition
+  view. The CLI never enforces a particular declared bump on the Surface
+  records themselves; it only emits a `surface_semver_cascade` violation when
+  the declared bump is below the computed required level. The Surface's
+  `version` field stays under the consumer's editorial control.
+scope:
+  - src/features/ready/domain/SpecDiff.ts
+  - src/features/ready/application/RunReady.ts
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: invariant_is_static_over_diff_pass
+  reason: cascade pass is a single-pass read-only computation
+negative_cases:
+  - ready edits a Surface's `version` field to satisfy the cascade
+  - ready writes a `version_required` annotation back into the spec
+test_obligation:
+  predicate: |
+    Snapshot of every spec file before vs after `sdd ready --against <ref>` is
+    byte-equal in every fixture; when the declared bump is below required,
+    exactly one surface_semver_cascade violation is emitted per offending
+    Surface.
+  test_template: integration
+  boundary_classes:
+    - declared bump < required (violation)
+    - declared bump == required (silent)
+    - declared bump > required (silent)
+  failure_scenarios:
+    - ready writes to a spec file during the cascade pass
+---
+```
+
 ---
 
 ## 9. External dependencies
@@ -6716,6 +7119,77 @@ binding:
       - src/features/ready/application/RunReady.ts   # debtBudgetMonotonicityViolations()
 authority: code_annotation
 verification_method: tests/integration/p3-debt-budget.test.ts
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-032
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: ENF-019 — published GeneratedArtifact structural diff
+target_ids:
+  - sdd-cli:BEH-049
+binding:
+  feature_slice:
+    root: src/features/ready
+    application:
+      - src/features/ready/application/RunReady.ts        # GA-specific cascade emission
+    domain:
+      - src/features/ready/domain/SpecDiff.ts             # generatedArtifactStructuralDiffs()
+authority: code_annotation
+verification_method: |
+  tests/integration/ready-semver-cascade.test.ts § BEH-049 / ENF-019
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-033
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: P2.4 report sections — ENF-007A..E behavior splits
+target_ids:
+  - sdd-cli:BEH-044
+  - sdd-cli:BEH-045
+  - sdd-cli:BEH-046
+  - sdd-cli:BEH-047
+  - sdd-cli:BEH-048
+binding:
+  feature_slice:
+    root: src/features/report
+    application:
+      - src/features/report/application/RunReport.ts   # one emitter per section
+authority: code_annotation
+verification_method: tests/integration/report-pr-summary.test.ts
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-034
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: gap-fill — CTR-025 + INV-014 binding the semver-cascade contract
+target_ids:
+  - sdd-cli:CTR-025
+  - sdd-cli:INV-014
+binding:
+  feature_slice:
+    root: src/features/ready
+    application:
+      - src/features/ready/application/RunReady.ts
+    domain:
+      - src/features/ready/domain/SpecDiff.ts
+authority: code_annotation
+verification_method: |
+  tests/integration/ready-semver-cascade.test.ts § INV-014 + § CTR-025
 ---
 ```
 

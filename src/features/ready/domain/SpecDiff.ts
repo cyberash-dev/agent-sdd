@@ -160,6 +160,53 @@ function readVersion(rec: LintRecord): string | null {
   return typeof v === "string" ? v : null;
 }
 
+/** ENF-019 — structural diff in a published GeneratedArtifact reachable from a
+ *  Surface forces a major bump on that Surface. The classifier already detects
+ *  the diff; this helper picks out the GA-driven cases for callers that want
+ *  to emit a dedicated violation (`generated_artifact_structural_diff_unbumped`).
+ *
+ *  Returns one entry per Surface that:
+ *    - has at least one reachable GA record with predicate_change OR
+ *      content_change in the same partition view
+ *    - AND the GA carries `published_surface: "yes"`. */
+export interface GAStructuralDiff {
+  surfaceId: string;
+  generatedArtifactId: string;
+  classification: Exclude<DiffClassification, "none">;
+}
+
+export function generatedArtifactStructuralDiffs(
+  prev: ReadonlyArray<LintRecord>,
+  curr: ReadonlyArray<LintRecord>,
+  diffs: ReadonlyArray<ClassifiedDiff>,
+): GAStructuralDiff[] {
+  const byId = new Map(curr.map((r) => [r.id, r]));
+  const diffById = new Map(diffs.map((d) => [d.id, d]));
+  void prev;
+
+  const out: GAStructuralDiff[] = [];
+  const surfaces = curr.filter((r) => r.template === "Surface");
+
+  for (const sur of surfaces) {
+    const reachable = reachableFrom(sur, curr);
+    for (const id of reachable) {
+      if (id === sur.id) continue;
+      const rec = byId.get(id);
+      if (rec === undefined) continue;
+      if (rec.template !== "GeneratedArtifact") continue;
+      if (rec.parsed.published_surface !== "yes") continue;
+      const d = diffById.get(id);
+      if (d === undefined || d.classification === "none") continue;
+      out.push({
+        surfaceId: sur.id,
+        generatedArtifactId: id,
+        classification: d.classification,
+      });
+    }
+  }
+  return out;
+}
+
 /** Compare two semver strings ("0.3.0" vs "0.4.0") and return the actual bump.
  *  Returns null if either string is unparseable. */
 export function actualBump(prev: string | null, curr: string | null): RequiredBump | null {
