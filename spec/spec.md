@@ -452,6 +452,28 @@ notes: |
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:SUR-012
+type: Surface
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+name: sdd-cli/report
+version: "0.4.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-023
+  - sdd-cli:CTR-024
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.4.0 — `sdd report --pr-summary` emits a 5-section markdown block
+  (closed test obligations, internal decisions placeholder,
+  ASSUMPTIONs touched, Open-Q residuals, debt budget delta) suitable
+  for pasting into a PR description. Read-only on the working tree.
+---
+```
+
 ---
 
 ## 6. Requirements
@@ -2297,6 +2319,46 @@ test_obligation:
 ---
 ```
 
+### 6.14 `sdd report --pr-summary` (P2.4)
+
+```yaml
+---
+id: sdd-cli:BEH-041
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd report --pr-summary emits a 5-section markdown block
+given: |
+  - cwd is a project with .sdd/config.json
+when: |
+  user runs `sdd report --pr-summary [--against <ref>] [--format=markdown|json]`
+then: |
+  - exits 0
+  - stdout contains a `## SDD PR Report` heading and five sections in order:
+    1. Closed Test obligations, 2. Internal decisions, 3. ASSUMPTIONs,
+    4. Open-Q residuals, 5. Debt budget delta
+  - read-only on the working tree
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only on the working tree
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Against a fixture project, sdd report --pr-summary emits all five sections
+    in the documented order.
+  test_template: integration
+  boundary_classes:
+    - empty fixture (every section uses placeholder text)
+    - fixture with ASSUMPTION + Open-Q + Partition.unmodeled_budget
+  failure_scenarios:
+    - missing section
+    - sections out of order
+---
+```
+
 ### 6.13 `sdd ready --against <ref>` — semver cascade (P2.3)
 
 ```yaml
@@ -2348,6 +2410,116 @@ test_obligation:
   failure_scenarios:
     - cascade pass runs without --against
     - silent acceptance of a major-required Surface bumped only minor
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-023
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd report CLI contract
+surface_ref: sdd-cli:SUR-012
+schema:
+  binary: sdd
+  subcommand: report
+  flags:
+    - name: --pr-summary
+      values: "<flag, no value>"
+    - name: --against
+      values: "<git ref>"
+    - name: --format
+      values: [json, human]
+      default: human
+preconditions:
+  - cwd contains a readable .sdd/config.json
+postconditions:
+  - exits 0 on success, 2 on config error, 3 on environment error
+  - read-only on the working tree
+external_identifiers:
+  - subcommand "report"
+  - flags --pr-summary, --against, --format
+compatibility_rules:
+  - removing --pr-summary or --against => major bump on SUR-012
+  - adding a flag with a default => minor bump on SUR-012
+error_taxonomy:
+  - "exit 0 — success"
+  - "exit 2 — config error or missing --pr-summary"
+  - "exit 3 — environment"
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: read_only
+  time_source: clock
+data_scope:
+  not_applicable: read_only_command_does_not_touch_persistent_state
+  reason: report only emits stdout
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Argv parser accepts the documented flags and rejects unknown flags with
+    exit 2.
+  test_template: integration
+  boundary_classes: [each documented flag, unknown flag, --pr-summary missing]
+  failure_scenarios: [silent acceptance of unknown flag]
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-024
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd report --pr-summary markdown shape
+surface_ref: sdd-cli:SUR-012
+schema:
+  top_level_heading: "## SDD PR Report"
+  sections_in_order:
+    - "### Closed Test obligations"
+    - "### Internal decisions (candidates for new Constraint/Policy/ASSUMPTION)"
+    - "### ASSUMPTIONs"
+    - "### Open-Q residuals"
+    - "### Debt budget delta"
+preconditions: not_applicable
+postconditions:
+  - markdown contains the top-level heading
+  - markdown contains each section heading exactly once, in the documented order
+  - empty sections render placeholder text (e.g. "_No ..._")
+external_identifiers:
+  - the five section headings (consumers grep for these)
+  - the top-level heading
+compatibility_rules:
+  - renaming a section heading => major bump on SUR-012
+  - reordering sections => major bump on SUR-012
+  - inserting a new section between existing ones => major bump on SUR-012
+  - appending a new section after section 5 => minor bump on SUR-012
+error_taxonomy: not_applicable
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_markdown_shape
+  reason: markdown shape has no runtime concurrency dimension
+data_scope:
+  not_applicable: contract_describes_stdout_shape_not_persistent_state
+  reason: report only emits stdout
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    The fixture's emitted markdown contains every section heading exactly once
+    in the documented order.
+  test_template: integration
+  boundary_classes:
+    - empty fixture (placeholder content per section)
+    - non-empty fixture (real content per section)
+  failure_scenarios: [section reordered or renamed without major bump]
 ---
 ```
 
@@ -5994,6 +6166,31 @@ verification_method: |
   `node dist/cli.js ready --against HEAD~5` after a multi-commit run
   surfaces the cascade violations that justify the SUR-007 major bump
   scheduled in the Final task.
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-030
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd report --pr-summary feature-slice
+target_ids:
+  - sdd-cli:BEH-041
+  - sdd-cli:CTR-023
+  - sdd-cli:CTR-024
+binding:
+  feature_slice:
+    root: src/features/report
+    inbound_adapter: src/features/report/adapters/inbound/CliReportHandler.ts
+    application: src/features/report/application/RunReport.ts
+    outbound_ports:
+      - src/features/report/ports/outbound/ReportFileReader.ts
+      - src/features/report/ports/outbound/ReportConfigPort.ts
+authority: code_annotation
+verification_method: tests/integration/report-pr-summary.test.ts
 ---
 ```
 

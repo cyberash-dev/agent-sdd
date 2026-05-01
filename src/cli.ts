@@ -17,6 +17,8 @@ import { NodePlanRepo } from "./features/finalize/adapters/outbound/NodePlanRepo
 import { SystemFinalizeClock } from "./features/finalize/adapters/outbound/SystemFinalizeClock.js";
 import { CliPlanShowHandler } from "./features/plan/adapters/inbound/CliPlanShowHandler.js";
 import { NodePlanReader } from "./features/plan/adapters/outbound/NodePlanReader.js";
+import { CliReportHandler } from "./features/report/adapters/inbound/CliReportHandler.js";
+import { NodeReportFileSystem } from "./features/report/adapters/outbound/NodeReportFileSystem.js";
 import { ChildProcessCheckGit } from "./features/check/adapters/outbound/ChildProcessCheckGit.js";
 import { NodeCheckFileReader } from "./features/check/adapters/outbound/NodeCheckFileReader.js";
 import { CliLintHandler } from "./features/lint/adapters/inbound/CliLintHandler.js";
@@ -33,7 +35,7 @@ import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildPr
 import { NodeTokenConfigReader } from "./features/token/adapters/outbound/NodeTokenConfigReader.js";
 import type { CommandResult, OutputFormat } from "./shared/domain/CliOutput.js";
 
-type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan" | "doctor";
+type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan" | "doctor" | "report";
 
 interface ParsedArgv {
   mode: "command" | "help" | "version" | "error";
@@ -44,7 +46,13 @@ interface ParsedArgv {
   finalize?: FinalizeArgs;
   plan?: PlanArgs;
   doctor?: DoctorArgs;
+  report?: ReportArgs;
   message?: string;
+}
+
+interface ReportArgs {
+  prSummary: boolean;
+  against?: string;
 }
 
 interface DoctorArgs {
@@ -93,6 +101,7 @@ Usage:
   sdd plan show [--plan <plan_id>] [--format=json|human]
   sdd finalize  [--plan <plan_id>] [--format=json|human]
   sdd doctor    --rule-version [--rules <path>] [--format=json|human]
+  sdd report    --pr-summary [--against <ref>] [--format=json|human]
   sdd ready    [--format=json|human] [--partition <name>]
   sdd --help
   sdd --version`;
@@ -107,6 +116,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   finalize: "Usage: sdd finalize [--plan <plan_id>] [--format=json|human]",
   plan: "Usage: sdd plan show [--plan <plan_id>] [--format=json|human]",
   doctor: "Usage: sdd doctor --rule-version [--rules <path>] [--format=json|human]",
+  report: "Usage: sdd report --pr-summary [--against <ref>] [--format=json|human]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -188,6 +198,23 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
       rulesPath: parsed.doctor.rulesPath,
     }, parsed.format === "json" ? "json" : "human");
   }
+  if (parsed.subcommand === "report") {
+    if (parsed.report === undefined) {
+      return { exitCode: 2, stdout: "", stderr: `${COMMAND_HELP.report}\n` };
+    }
+    const reportFs = new NodeReportFileSystem();
+    const git = new ChildProcessReadyGit();
+    const command = new CliReportHandler({
+      config: reportFs,
+      files: reportFs,
+      readAtRef: (root, ref, path) => git.readAtRef(root, ref, path),
+      repoRoot: (cwdInner) => git.repoRoot(cwdInner),
+    });
+    return command.execute(cwd, {
+      prSummary: parsed.report.prSummary,
+      against: parsed.report.against,
+    }, parsed.format === "json" ? "json" : "human");
+  }
   if (parsed.subcommand === "ready") {
     const fs = new NodeReadyFileSystem();
     const command = new CliReadyHandler({ config: fs, files: fs, git: new ChildProcessReadyGit() });
@@ -231,6 +258,9 @@ function parseArgv(argv: readonly string[]): ParsedArgv {
   }
   if (subcommand === "doctor") {
     return parseDoctorArgv(rest);
+  }
+  if (subcommand === "report") {
+    return parseReportArgv(rest);
   }
   const defaultFormat = subcommand === "refresh" ? "yaml" : "human";
   let format: OutputFormat = defaultFormat;
@@ -421,7 +451,38 @@ function packageVersion(): string {
 function isSubcommand(value: string | undefined): value is Subcommand {
   return value === "token" || value === "check" || value === "refresh" || value === "lint"
     || value === "approve" || value === "ready" || value === "finalize" || value === "plan"
-    || value === "doctor";
+    || value === "doctor" || value === "report";
+}
+
+function parseReportArgv(args: readonly string[]): ParsedArgv {
+  const report: ReportArgs = { prSummary: false };
+  let format: OutputFormat = "human";
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg.startsWith("--format=")) {
+      const value = arg.slice("--format=".length);
+      if (!isFormat(value) || value === "yaml") {
+        return { mode: "error", message: `invalid format: ${value}` };
+      }
+      format = value;
+      continue;
+    }
+    if (arg === "--pr-summary") { report.prSummary = true; continue; }
+    if (arg === "--against") {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --against" };
+      }
+      report.against = next;
+      i++;
+      continue;
+    }
+    return { mode: "error", message: `unknown flag: ${arg}` };
+  }
+  if (!report.prSummary) {
+    return { mode: "error", message: "report requires --pr-summary" };
+  }
+  return { mode: "command", subcommand: "report", format, report };
 }
 
 function parseDoctorArgv(args: readonly string[]): ParsedArgv {
