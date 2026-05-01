@@ -427,6 +427,31 @@ notes: |
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:SUR-011
+type: Surface
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+name: sdd-cli/doctor
+version: "0.4.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-021
+  - sdd-cli:CTR-022
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.4.0 — `sdd doctor --rule-version --rules <path>` parses an
+  enforcement registry markdown file (default
+  `~/.claude/rules/enforcement_registry.md`) and reports drift
+  between the methodology's declared compatible CLI version range
+  and the running CLI, plus drift between methodology-declared
+  diagnostic-IDs (maturity=implemented) and DiagnosticRegistry.
+  Read-only on `~/.claude/` and on the working tree (INV-013).
+---
+```
+
 ---
 
 ## 6. Requirements
@@ -1756,6 +1781,114 @@ test_obligation:
 ---
 ```
 
+### 6.9 `sdd doctor --rule-version`
+
+```yaml
+---
+id: sdd-cli:BEH-026
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd doctor reports no drift when registry matches CLI
+given: |
+  - `--rules <path>` resolves to a readable enforcement registry markdown
+  - the registry's compatible_sdd_cli range includes the running CLI version
+  - every registry row with maturity=implemented has its diagnostic_id present
+    in DiagnosticRegistry.LINT_DIAGNOSTIC_IDS or READY_VIOLATION_KINDS
+  - every DiagnosticRegistry constant is referenced by some implemented row
+when: |
+  user runs `sdd doctor --rule-version [--rules <path>] [--format=json|human]`
+then: |
+  - exits 0
+  - JSON envelope { format_version: 1, ok: true, rule_version, cli_version,
+                    compatible_range, drift: [] }
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: doctor is read-only on ~/.claude/ and the working tree
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Against a fixture registry that matches the running CLI, doctor exits 0
+    with drift=[].
+  test_template: integration
+  boundary_classes: [exact match, all maturities=implemented covered]
+  failure_scenarios: [doctor reports drift on a clean registry]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-027
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd doctor reports drift kinds (version, missing, stale)
+given: |
+  - registry parses cleanly
+  - the registry declares a compatible_sdd_cli range that excludes the running
+    CLI, OR an implemented row with a diagnostic_id absent from the registry,
+    OR DiagnosticRegistry has a constant not claimed by any implemented row
+when: |
+  user runs `sdd doctor --rule-version --rules <path>`
+then: |
+  - exits 1
+  - drift[] contains one entry per detected issue with kind ∈
+    {version_mismatch, missing_diagnostic, stale_diagnostic} and a remediation
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only diagnostic command
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Each drift kind is produced by a fixture exercising exactly that condition.
+  test_template: integration
+  boundary_classes:
+    - version_mismatch (CLI version outside compatible range)
+    - missing_diagnostic (registry declares an ID not in DiagnosticRegistry)
+    - stale_diagnostic (DiagnosticRegistry has an ID not in registry)
+  failure_scenarios:
+    - drift entry without a remediation field
+    - drift kind misclassified
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-028
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd doctor exits 2 when --rules points to a missing or unreadable file
+given: |
+  - `--rules <path>` resolves to a path that does not exist or is unreadable
+when: |
+  user runs `sdd doctor --rule-version --rules <path>`
+then: |
+  - exits 2
+  - JSON envelope { format_version: 1, ok: false, kind: "registry-not-found",
+                    path: "<path>" }
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: refusal path performs no writes
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    With a non-existent --rules path, doctor exits 2 with kind=registry-not-found.
+  test_template: integration
+  boundary_classes: [missing file, unreadable directory]
+  failure_scenarios: [exit 0 or 1 on missing registry]
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -3063,6 +3196,125 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CTR-021
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd doctor CLI contract
+surface_ref: sdd-cli:SUR-011
+schema:
+  binary: sdd
+  subcommand: doctor
+  flags:
+    - name: --rule-version
+      values: "<flag, no value>"
+    - name: --rules
+      values: "<path>"
+    - name: --format
+      values: [json, human]
+      default: human
+preconditions: not_applicable
+postconditions:
+  - exits 0 on no drift, 1 on drift detected, 2 on registry-not-found, 3 on environment error
+  - read-only on ~/.claude/ and on the working tree (INV-013)
+external_identifiers:
+  - subcommand "doctor"
+  - flag --rule-version, --rules, --format
+compatibility_rules:
+  - removing --rule-version or --rules => major bump on SUR-011
+  - adding a flag with a default => minor bump on SUR-011
+error_taxonomy:
+  - "exit 1 — drift report (drift[] non-empty)"
+  - "exit 2 — registry-not-found"
+  - "exit 3 — environment (filesystem read error)"
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: read_only
+  time_source: none
+data_scope:
+  not_applicable: read_only_command_does_not_touch_persistent_state
+  reason: doctor reads the registry markdown and emits stdout
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Doctor accepts the documented argv and rejects unknown flags with exit 2.
+  test_template: integration
+  boundary_classes: [each documented flag, unknown flag]
+  failure_scenarios: [silent acceptance of unknown flag]
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-022
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd doctor JSON envelope
+surface_ref: sdd-cli:SUR-011
+schema:
+  ok_envelope:
+    format_version: 1
+    ok: true
+    rule_version: "<string from registry compatibility metadata>"
+    cli_version: "<package.json#version>"
+    compatible_range: "<semver range from registry>"
+    drift: []
+  drift_envelope:
+    format_version: 1
+    ok: false
+    rule_version: "<string>"
+    cli_version: "<string>"
+    compatible_range: "<semver range>"
+    drift:
+      - kind: "version_mismatch | missing_diagnostic | stale_diagnostic"
+        id: "<diagnostic_id or n/a>"
+        remediation: "<short string>"
+  registry_not_found_envelope:
+    format_version: 1
+    ok: false
+    kind: "registry-not-found"
+    path: "<resolved path>"
+preconditions: not_applicable
+postconditions:
+  - "all envelopes include format_version: 1 and ok"
+  - "drift_envelope.drift[] is non-empty when ok=false; ok=true => drift=[]"
+external_identifiers:
+  - keys format_version, ok, rule_version, cli_version, compatible_range, drift
+  - drift kind values version_mismatch, missing_diagnostic, stale_diagnostic
+  - registry_not_found kind value "registry-not-found"
+compatibility_rules:
+  - renaming a key => major bump on SUR-011
+  - adding a drift kind => minor bump on SUR-011
+error_taxonomy: not_applicable
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_envelope_shape
+  reason: envelope shape has no runtime concurrency dimension
+data_scope:
+  not_applicable: envelope_describes_stdout_shape_not_persistent_state
+  reason: contract is over the printed JSON shape
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Each envelope shape (ok, drift, registry_not_found) appears for the
+    corresponding fixture; format_version is 1 in all envelopes.
+  test_template: integration
+  boundary_classes: [ok path, drift path, registry-not-found path]
+  failure_scenarios: [silent extra key, format_version drift]
+---
+```
+
 ---
 
 ## 8. Invariants
@@ -3680,6 +3932,45 @@ test_obligation:
     - successful multi-file flip
   failure_scenarios:
     - file 1 modified, file 2 untouched (partial state)
+---
+```
+
+```yaml
+---
+id: sdd-cli:INV-013
+type: Invariant
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd doctor is read-only on ~/.claude/ and on the working tree
+never: |
+  When `sdd doctor` runs, no byte under <home>/.claude/, no byte of the
+  registry markdown, and no byte of the working tree under <repo_root> is
+  modified. Doctor's only outputs are stdout and stderr.
+scope:
+  - src/features/doctor/**
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: multi_per_resource
+  read_consistency: strong
+  idempotency: read_only
+  time_source: none
+negative_cases:
+  - doctor edits the registry markdown to fix drift in place
+  - doctor caches the parsed registry under .sdd/cache/
+test_obligation:
+  predicate: |
+    Snapshot of every tracked file in the repo + ~/.claude (when present in
+    the test fixture) before vs after a `sdd doctor --rule-version` run is
+    byte-equal.
+  test_template: integration
+  boundary_classes: [no-drift run, drift run, registry-not-found run]
+  failure_scenarios:
+    - any byte under ~/.claude or the repo changes during doctor
 ---
 ```
 
@@ -5075,7 +5366,37 @@ binding:
     outbound_ports:
       - src/features/plan/ports/outbound/PlanReader.ts
 authority: code_annotation
-verification_method: tests/integration/approve-plan-mode.test.ts § "plan show"
+verification_method: tests/integration/approve-plan-finalize.test.ts § "plan show"
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-025
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd doctor --rule-version feature-slice
+target_ids:
+  - sdd-cli:BEH-026
+  - sdd-cli:BEH-027
+  - sdd-cli:BEH-028
+  - sdd-cli:CTR-021
+  - sdd-cli:CTR-022
+  - sdd-cli:INV-013
+binding:
+  feature_slice:
+    root: src/features/doctor
+    inbound_adapter: src/features/doctor/adapters/inbound/CliDoctorHandler.ts
+    application: src/features/doctor/application/RunDoctor.ts
+    domain:
+      - src/features/doctor/domain/RegistryRow.ts
+      - src/features/doctor/domain/SemverRange.ts
+    outbound_ports:
+      - src/features/doctor/ports/outbound/RegistryReader.ts
+authority: code_annotation
+verification_method: tests/integration/doctor-rule-version.test.ts
 ---
 ```
 

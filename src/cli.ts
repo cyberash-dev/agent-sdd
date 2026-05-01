@@ -9,6 +9,8 @@ import { NodePlanFileWriter } from "./features/approve/adapters/outbound/NodePla
 import { SystemApproveClock } from "./features/approve/adapters/outbound/SystemApproveClock.js";
 import { VALID_TARGET_STATUS, type ApproveRequest, type TargetStatus } from "./features/approve/domain/ApproveRequest.js";
 import { CliCheckHandler } from "./features/check/adapters/inbound/CliCheckHandler.js";
+import { CliDoctorHandler } from "./features/doctor/adapters/inbound/CliDoctorHandler.js";
+import { NodeRegistryReader } from "./features/doctor/adapters/outbound/NodeRegistryReader.js";
 import { CliFinalizeHandler } from "./features/finalize/adapters/inbound/CliFinalizeHandler.js";
 import { NodeFinalizeFileSystem } from "./features/finalize/adapters/outbound/NodeFinalizeFileSystem.js";
 import { NodePlanRepo } from "./features/finalize/adapters/outbound/NodePlanRepo.js";
@@ -31,7 +33,7 @@ import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildPr
 import { NodeTokenConfigReader } from "./features/token/adapters/outbound/NodeTokenConfigReader.js";
 import type { CommandResult, OutputFormat } from "./shared/domain/CliOutput.js";
 
-type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan";
+type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan" | "doctor";
 
 interface ParsedArgv {
   mode: "command" | "help" | "version" | "error";
@@ -41,7 +43,13 @@ interface ParsedArgv {
   ready?: ReadyArgs;
   finalize?: FinalizeArgs;
   plan?: PlanArgs;
+  doctor?: DoctorArgs;
   message?: string;
+}
+
+interface DoctorArgs {
+  ruleVersion: boolean;
+  rulesPath: string;
 }
 
 interface ApproveArgs {
@@ -83,6 +91,7 @@ Usage:
                [--inline | --plan <plan_id>] [--format=json|human]
   sdd plan show [--plan <plan_id>] [--format=json|human]
   sdd finalize  [--plan <plan_id>] [--format=json|human]
+  sdd doctor    --rule-version [--rules <path>] [--format=json|human]
   sdd ready    [--format=json|human] [--partition <name>]
   sdd --help
   sdd --version`;
@@ -96,6 +105,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   ready: "Usage: sdd ready [--format=json|human] [--partition <name>]",
   finalize: "Usage: sdd finalize [--plan <plan_id>] [--format=json|human]",
   plan: "Usage: sdd plan show [--plan <plan_id>] [--format=json|human]",
+  doctor: "Usage: sdd doctor --rule-version [--rules <path>] [--format=json|human]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -167,6 +177,16 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
     const command = new CliPlanShowHandler({ config: reader, reader });
     return command.execute(cwd, { planId: parsed.plan.planId }, parsed.format === "json" ? "json" : "human");
   }
+  if (parsed.subcommand === "doctor") {
+    if (parsed.doctor === undefined) {
+      return { exitCode: 2, stdout: "", stderr: `${COMMAND_HELP.doctor}\n` };
+    }
+    const command = new CliDoctorHandler({ registry: new NodeRegistryReader() });
+    return command.execute(cwd, {
+      ruleVersion: parsed.doctor.ruleVersion,
+      rulesPath: parsed.doctor.rulesPath,
+    }, parsed.format === "json" ? "json" : "human");
+  }
   if (parsed.subcommand === "ready") {
     const fs = new NodeReadyFileSystem();
     const command = new CliReadyHandler({ config: fs, files: fs, git: new ChildProcessReadyGit() });
@@ -202,6 +222,9 @@ function parseArgv(argv: readonly string[]): ParsedArgv {
   }
   if (subcommand === "plan") {
     return parsePlanArgv(rest);
+  }
+  if (subcommand === "doctor") {
+    return parseDoctorArgv(rest);
   }
   const defaultFormat = subcommand === "refresh" ? "yaml" : "human";
   let format: OutputFormat = defaultFormat;
@@ -382,7 +405,42 @@ function packageVersion(): string {
 
 function isSubcommand(value: string | undefined): value is Subcommand {
   return value === "token" || value === "check" || value === "refresh" || value === "lint"
-    || value === "approve" || value === "ready" || value === "finalize" || value === "plan";
+    || value === "approve" || value === "ready" || value === "finalize" || value === "plan"
+    || value === "doctor";
+}
+
+function parseDoctorArgv(args: readonly string[]): ParsedArgv {
+  const doctor: DoctorArgs = { ruleVersion: false, rulesPath: "~/.claude/rules/enforcement_registry.md" };
+  let format: OutputFormat = "human";
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg.startsWith("--format=")) {
+      const value = arg.slice("--format=".length);
+      if (!isFormat(value) || value === "yaml") {
+        return { mode: "error", message: `invalid format: ${value}` };
+      }
+      format = value;
+      continue;
+    }
+    if (arg === "--rule-version") {
+      doctor.ruleVersion = true;
+      continue;
+    }
+    if (arg === "--rules") {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --rules" };
+      }
+      doctor.rulesPath = next;
+      i++;
+      continue;
+    }
+    return { mode: "error", message: `unknown flag: ${arg}` };
+  }
+  if (!doctor.ruleVersion) {
+    return { mode: "error", message: "doctor requires --rule-version" };
+  }
+  return { mode: "command", subcommand: "doctor", format, doctor };
 }
 
 function isFormat(value: string): value is OutputFormat {
