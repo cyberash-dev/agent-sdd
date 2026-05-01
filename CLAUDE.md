@@ -12,8 +12,10 @@ apply; this file overrides or extends them where the project diverges.
 Development. It computes a deterministic `freshness_token` over a
 configurable Discovery scope, compares it against the value recorded in
 the spec's Brownfield-baseline block, emits stubs (`Delta` / `Open-Q`)
-on drift, runs SDD spec-lint rules over normative IDs, and rewrites
-`lifecycle.status` + `approval_record` blocks via `sdd approve`.
+on drift, runs SDD spec-lint rules over normative IDs, rewrites
+`lifecycle.status` + `approval_record` blocks via `sdd approve`, and
+gates the `implementation-valid` step in CI via `sdd ready` (marker
+coverage + sandbox isolation + lint/check aggregation).
 
 The full normative specification is `spec/spec.md`. **It is the source
 of truth.** Every code change must be reflected in the spec first. The
@@ -31,7 +33,7 @@ Vertical Slice + Hexagonal, enforced by
 src/
   cli.ts                        # composition root only
   features/
-    {token,check,refresh,lint,approve}/
+    {token,check,refresh,lint,approve,ready}/
       domain/                   # pure logic, no node:* (except Token.ts)
       application/              # use cases, depend on ports + domain
       ports/{inbound,outbound}/ # interfaces only
@@ -39,6 +41,8 @@ src/
                                 # only here you may import node:*
   shared/
     domain/                     # cross-feature primitives
+                                # PartitionGrammar.ts — single source of truth
+                                # for CST-007 marker + CTR-015 partition-name regex
 ```
 
 Hard rules (the test will fail if you violate them):
@@ -100,11 +104,14 @@ node dist/cli.js token
 node dist/cli.js check
 node dist/cli.js refresh
 node dist/cli.js lint            # must exit 0 in CI
+node dist/cli.js ready           # gate-3; should exit 0 in CI
 ```
 
 `.sdd/config.json` is already set up to point at `spec/spec.md` with
-`baseline_id: sdd-cli:BL-001` and `discovery_scope` covering `src`,
-`tests`, `schema`, build files, `spec/spec.md`, `.sdd/config.json`.
+`baseline_id: sdd-cli:BL-001`, `discovery_scope` covering `src`,
+`tests`, `schema`, build files, `spec/spec.md`, `.sdd/config.json`,
+and a `partitions.sdd-cli` entry that scopes `@covers` marker scanning
+to `tests/**/*.test.ts`.
 
 ---
 
@@ -114,16 +121,27 @@ node dist/cli.js lint            # must exit 0 in CI
   touch the import graph, run this first.
 - `tests/integration/git-shim-allowlist.test.ts` — `POL-002`. Only the
   six git subcommands enumerated in `EXT-001` may be invoked.
-- `tests/integration/fs-readonly.test.ts` — `INV-002` / `POL-001`. The
-  CLI never writes to `spec.md`, `.sdd/config.json`, or `.git/` refs &
-  objects. The exception is `sdd approve`, which is allowed to write to
-  files matched by `lint.spec_files` and only those.
+- `tests/integration/fs-readonly.test.ts` — `INV-002` / `INV-008` /
+  `INV-009` / `POL-001`. The CLI never writes to `spec.md`,
+  `.sdd/config.json`, or `.git/` refs & objects. The exception is
+  `sdd approve`, which is allowed to write to files matched by
+  `lint.spec_files` and only those. `sdd ready` never spawns a test
+  runner (INV-008) — verified by the same fs-readonly probe.
 - `tests/integration/lint-and-approve.test.ts` — `BEH-011..016`,
-  `INV-005..007`. Approve must refuse agent identities case-insensitively
-  and via the `bot:` prefix.
-- `tests/unit/constraints.test.ts` — `CST-001/002/004/005`. Reads
-  `package.json`/`tsconfig.json`/`schema/sdd.config.schema.json` and
-  asserts the structural Constraints hold.
+  `INV-005..007`, `DLT-001`. Approve must refuse agent identities
+  case-insensitively and via the `bot:` prefix.
+- `tests/unit/constraints.test.ts` — `CST-001/002/004/005/006`,
+  `EXT-002`. Reads `package.json`/`tsconfig.json`/`schema/sdd.config.schema.json`
+  and asserts the structural Constraints hold (incl. CST-006 — no
+  third-party glob library in the runtime dep tree).
+- `tests/unit/MarkerParser.test.ts` — `CST-007`. Single-segment
+  legacy form, multi-segment two/three-segment forms, near-miss
+  silent-skip (OQ-017 default a). Don't drop these cases without a
+  CST-007 spec edit.
+- `tests/unit/Rewrite.test.ts` — `INV-007`. Atomic flip of
+  `lifecycle.status` + `approval_record` in **both** YAML shapes:
+  flat `lifecycle.status:` and nested `lifecycle:\n  status:` (the
+  canonical brownfield form used in our own spec.md).
 
 ---
 
@@ -136,13 +154,29 @@ node dist/cli.js lint            # must exit 0 in CI
 - The mechanism enum in `schema/sdd.config.schema.json` is exactly
   `["git_tree_hash_v1"]` (`CST-005`). Adding another mechanism is a
   major bump on `SUR-002`.
+- The runtime dep tree must stay `{yaml}` only (`CST-006`). No
+  third-party glob library — the matcher under
+  `src/features/ready/domain/PartitionResolver.ts` is hand-rolled.
 - `Surface` records use semver (`"0.1.0"` etc.); every other normative
   template uses integer `version` (`SDD §1.5`).
 - `approval_record` lives nested under `lifecycle.approval_record:` in
-  `sdd-cli`'s spec; the parser also accepts a top-level form. Both work
-  — but stick to one shape per record.
+  `sdd-cli`'s spec; the parser also accepts a top-level form. Both
+  work — and the rewriter (`Rewrite.ts`) supports both shapes too.
 - `sdd approve` rewrites `lifecycle.status` and `approval_record`
   atomically (`INV-007`). Never split them.
+- The marker grammar (`CST-007`) is one-or-more colon-separated
+  lowercase tokens (`my-partition:BEH-001`,
+  `bridge:commands:CON-004`). Single source of truth lives in
+  `src/shared/domain/PartitionGrammar.ts`. Never re-write the regex
+  in two places — the duplication is exactly what landed this gap
+  pre-v0.3.0.
+- The marker scanner is byte-level (`CST-007` rationale). String
+  literals containing `@covers` patterns inside `.test.ts` files
+  WILL be picked up. Construct fixture markers via `"@cov" + "ers ..."`
+  splits so the source bytes don't match the regex.
+- `sdd ready` does NOT execute tests (`INV-008`); it byte-scans test
+  files for `@covers` markers and is read-only on the working tree
+  (`INV-009`).
 
 ---
 

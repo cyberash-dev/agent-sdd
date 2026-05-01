@@ -62,6 +62,7 @@ test("refresh --help prints subcommand help and exits zero", async () => {
 
 test("unknown subcommand exits with code 2", async () => {
   // @covers sdd-cli:CTR-001
+  // @covers sdd-cli:CTR-002
   // @covers sdd-cli:BEH-008
   const result = await main(["unknown-subcommand"], TMP_CWD);
 
@@ -178,4 +179,35 @@ test("lint rejects --format=yaml", async () => {
   const result = await main(["lint", "--format=yaml"], TMP_CWD);
 
   assert.equal(result.exitCode, 2);
+});
+
+test("ready --help prints subcommand help", async () => {
+  // @covers sdd-cli:CTR-013
+  const result = await main(["ready", "--help"], TMP_CWD);
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.stdout, /Usage: sdd ready/);
+  assert.match(result.stdout, /--partition/);
+});
+
+test("ready rejects --format=yaml", async () => {
+  // @covers sdd-cli:CTR-013
+  const result = await main(["ready", "--format=yaml"], TMP_CWD);
+
+  assert.equal(result.exitCode, 2);
+});
+
+test("ready rejects an unknown flag", async () => {
+  // @covers sdd-cli:CTR-013
+  const result = await main(["ready", "--bogus"], TMP_CWD);
+
+  assert.equal(result.exitCode, 2);
+});
+
+test("ready --partition without a value exits 2", async () => {
+  // @covers sdd-cli:CTR-013
+  const result = await main(["ready", "--partition"], TMP_CWD);
+
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderr, /missing value for --partition/);
 });

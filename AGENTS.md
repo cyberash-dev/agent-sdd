@@ -70,13 +70,15 @@ approver, which writes a typed `approval_record` block atomically
 ```
 src/
   cli.ts                                 # composition root (DI only)
-  features/{token,check,refresh,lint,approve}/
+  features/{token,check,refresh,lint,approve,ready}/
     domain/                              # pure logic
     application/                         # use cases
     ports/{inbound,outbound}/            # interfaces
     adapters/{inbound,outbound}/         # only here you may import node:*
   shared/
-    domain/                              # cross-feature primitives
+    domain/                              # cross-feature primitives, incl. PartitionGrammar
+                                         # (single source of truth for CST-007 marker
+                                         #  + CTR-015 partition-name regex)
 ```
 
 - Inside a feature: `adapters → ports → application → domain`. No
@@ -107,22 +109,25 @@ node dist/cli.js token
 node dist/cli.js check
 node dist/cli.js refresh
 node dist/cli.js lint        # MUST exit 0 in CI
+node dist/cli.js ready       # SHOULD exit 0 in CI (gate-3)
 ```
 
-CI runs `tsc && test:unit && test:integration && build && sdd lint`.
-Make all five green before you stop.
+CI runs `tsc && test:unit && test:integration && build && sdd lint && sdd ready`.
+Make all six green before you stop.
 
 ---
 
-## Five tests that must never regress
+## Tests that must never regress
 
-| Test                                             | Guards                              |
-|--------------------------------------------------|-------------------------------------|
-| `tests/unit/layer-imports.test.ts`               | `INV-004` / `CST-003` (architecture)|
-| `tests/integration/git-shim-allowlist.test.ts`   | `POL-002` (git command allowlist)   |
-| `tests/integration/fs-readonly.test.ts`          | `INV-002` / `POL-001` (read-only)   |
-| `tests/integration/lint-and-approve.test.ts`     | `BEH-011..016`, `INV-005..007`      |
-| `tests/unit/constraints.test.ts`                 | `CST-001/002/004/005`               |
+| Test                                             | Guards                                        |
+|--------------------------------------------------|-----------------------------------------------|
+| `tests/unit/layer-imports.test.ts`               | `INV-004` / `CST-003` (architecture)          |
+| `tests/integration/git-shim-allowlist.test.ts`   | `POL-002` (git command allowlist)             |
+| `tests/integration/fs-readonly.test.ts`          | `INV-002` / `INV-008` / `INV-009` / `POL-001` |
+| `tests/integration/lint-and-approve.test.ts`     | `BEH-011..016`, `INV-005..007`, `DLT-001`     |
+| `tests/unit/constraints.test.ts`                 | `CST-001/002/004/005/006`, `EXT-002`          |
+| `tests/unit/MarkerParser.test.ts`                | `CST-007` (marker grammar incl. multi-segment)|
+| `tests/unit/Rewrite.test.ts`                     | `INV-007` (atomic flip; flat + nested form)   |
 
 If any of these break under your change, your change is wrong — fix
 the change, not the test. (Adjusting one of these tests requires a
@@ -137,6 +142,7 @@ spec update, like everything else.)
 3. `npm test` green?
 4. `npm run build` clean?
 5. `node dist/cli.js lint` exit 0?
+6. `node dist/cli.js ready` exit 0?
 
-If all five — you're done. Tell the user what changed (one line per
+If all six — you're done. Tell the user what changed (one line per
 file ideally), surface anything surprising, and stop.

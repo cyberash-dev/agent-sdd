@@ -19,12 +19,18 @@ exception is `sdd approve`, which atomically writes
 `lifecycle.status` + `approval_record` and refuses agent identities
 (SDD §7.5: self-approval is forbidden).
 
-> **Status**: v0.2.0, governed by `spec/spec.md`. The full normative
+> **Status**: v0.3.0, governed by `spec/spec.md`. The full normative
 > specification (Surfaces, Behaviors, Contracts, Invariants, Policies,
 > Constraints, External dependencies, Migrations, Deltas,
 > Implementation bindings) lives there. This README is the
 > consumer-facing manual — for spec details, read `spec/spec.md`.
 > Release notes: [CHANGELOG.md](CHANGELOG.md).
+>
+> **What's new in v0.3.0** — `sdd ready` (the single gate-3 / `implementation-valid`
+> command), a `partitions` block in `.sdd/config.json` (CTR-015), and
+> multi-segment partition prefixes in normative IDs and `@covers` markers
+> (CST-007 widening: `<a>:<b>:<TYPE>-<NNN>`). Single-segment adopters
+> see byte-identical behaviour from v0.2.0.
 
 ---
 
@@ -51,6 +57,7 @@ drifted from the baseline since the last review.
 | `sdd refresh` | Diff scope state against the recorded baseline, emit stubs.        |
 | `sdd lint`    | Run SDD spec-lint rules over your `lint.spec_files`; exit 1 on errors. |
 | `sdd approve` | Promote a `proposed` ID to `approved` with a typed `approval_record`. Refuses agent identities (SDD §7.5). |
+| `sdd ready`   | The single CI gate-3 (`implementation-valid`) check: marker coverage, sandbox isolation, lint + check aggregation. |
 
 The mechanism is fixed (`git_tree_hash_v1`), but the tool is generic:
 every SDD-following repo configures it through a small JSON file
@@ -134,10 +141,17 @@ example:
 | `footprint.binding_field`   | string    | no       | `"binding"`            | YAML key under which file paths live in IMP blocks.                     |
 | `lint.spec_files`           | string[]  | no       | `[spec_file]`          | Glob patterns (posix) for spec files to scan with `sdd lint`/`sdd approve`. |
 | `lint.approver_blocklist`   | string[]  | no       | `[]`                   | Extra approver identities to refuse on top of the built-in agent list.  |
+| `partitions`                | object    | no       | absent → flat shorthand | Multi-partition mode (CTR-015). Per-partition `spec_paths` (required), `test_paths`, `sandbox_paths`. Keys match the partition-name regex below. |
+| `test_paths` (top-level)    | string[]  | no       | `[]`                   | Shorthand applied to the synthesised single-partition fallback when `partitions` is absent. |
+| `sandbox_paths` (top-level) | string[]  | no       | `[]`                   | Shorthand applied to the synthesised single-partition fallback when `partitions` is absent. |
 
-`baseline_id` matches `^[a-z0-9_-]+:[A-Z]+-[0-9]+$` (e.g.
-`pipeline-driver:BL-001`). Unknown top-level fields are rejected — see
-`schema/sdd.config.schema.json` for the formal JSON Schema.
+`baseline_id` and `partitions.<name>` keys both match
+`^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)*$` (one or more lowercase tokens
+joined by `:`; CST-007 / CTR-015 widening). Examples:
+`pipeline-driver:BL-001`, `bridge:commands:CON-004`. Single-segment is
+the v0.1.0/v0.2.0 default and is preserved unchanged. Unknown
+top-level fields are rejected — see `schema/sdd.config.schema.json`
+for the formal JSON Schema.
 
 ### Discovery scope tips
 
@@ -387,6 +401,66 @@ approval_record:
 `security-owner`, `platform-runtime-lead`, `product-owner`,
 `compliance`.
 
+### `sdd ready`
+
+Single, authoritative gate-3 check for CI. Strict superset of
+`sdd lint` and `sdd check`: scans for `@covers <partition>:<id>`
+markers in your test files, refuses `proposed`/`draft` IDs outside
+`sandbox_paths`, demands a typed `compatibility_action=…` marker for
+`removed` IDs, and re-runs lint/check semantics under one JSON
+envelope. Adding `sdd ready` to your protected-branch policy is what
+makes the SDD three-gate contract enforceable in practice.
+
+```sh
+sdd ready                              # default: all partitions, human output
+sdd ready --format=json                # stable JSON for CI / GitHub annotations
+sdd ready --partition pipeline-driver  # filter (and staged-rollout knob)
+```
+
+**Exit codes**:
+
+| Exit | Meaning                                                                              |
+|------|--------------------------------------------------------------------------------------|
+| 0    | Mergeable. No blockers found.                                                        |
+| 1    | At least one merge blocker found (any of the seven rule kinds, or aggregated).       |
+| 2    | Could not evaluate (`config_invalid` / `spec_parse_failed` / `unreadable_test_paths`). |
+
+**Marker grammar** (CST-007): `@covers <partition>:<id> [key=value ...]`
+where `<partition>` matches
+`^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)*$` (one or more lowercase tokens
+joined by `:` — single-segment `my-partition:BEH-001` and multi-segment
+`bridge:commands:CON-004` both parse), `<id>` matches `^[A-Z]+-\d+$`,
+and the only whitelisted tail key in v0.3.0 is
+`compatibility_action=<value>`. Unknown tail keys are silently
+ignored (forward-compat). The partition/id split is at the rightmost
+`:` of the captured token (the id tail contains no `:`). Place
+markers anywhere in your test files — typically as
+`// @covers <id>` near the test that closes the obligation.
+
+**Configuring partitions** (CTR-015): the v0.1.0/v0.2.0 flat
+`.sdd/config.json` shape is preserved as a single-partition shorthand
+when `partitions` is absent. For multi-partition repos, declare:
+
+```json
+{
+  "partitions": {
+    "my-partition": {
+      "spec_paths": ["spec/spec.md"],
+      "test_paths": ["tests/**/*.test.ts"],
+      "sandbox_paths": ["spike/**"]
+    }
+  }
+}
+```
+
+A cross-partition test that legitimately covers IDs from both A and
+B must appear in **both** partitions' `test_paths`. Implicit
+cross-credit is not provided.
+
+> `sdd ready` verifies traceability presence, not test fidelity.
+> Major-bump correctness (oracle/assertion summary, input classes,
+> negative oracle) is human review per SDD §three gates.
+
 ### Output formats summary
 
 | Subcommand    | `human`        | `json` | `yaml` |
@@ -396,6 +470,7 @@ approval_record:
 | `sdd refresh` | yes            | yes    | yes (default) |
 | `sdd lint`    | yes (default)  | yes    | —      |
 | `sdd approve` | yes (default)  | yes    | —      |
+| `sdd ready`   | yes (default)  | yes    | —      |
 
 JSON outputs carry `format_version: 1` and are stable per the
 contracts in `spec/spec.md` §7. Human-format output is a one-line
@@ -672,9 +747,9 @@ truth".
 ## Architecture
 
 `sdd-cli` follows Vertical Slice + Hexagonal architecture. Each
-command (`token`, `check`, `refresh`) owns its own slice with local
-domain, application, ports, and adapters. The composition root is
-`src/cli.ts`.
+command (`token`, `check`, `refresh`, `lint`, `approve`, `ready`) owns
+its own slice with local domain, application, ports, and adapters. The
+composition root is `src/cli.ts`.
 
 ```
 src/
@@ -705,8 +780,15 @@ src/
       application/            # ApplyApproval
       ports/{inbound,outbound}/
       adapters/{inbound,outbound}/
+    ready/
+      domain/                 # MarkerParser (CST-007), PartitionResolver, Rules (8 rule fns)
+      application/            # RunReady — strict superset of lint + check
+      ports/{inbound,outbound}/
+      adapters/{inbound,outbound}/
   shared/
-    domain/                   # Config (incl. LintConfig), Token, SpecBlocks, Scope, CliOutput, Errors
+    domain/                   # Config (incl. LintConfig + partitions), Token, SpecBlocks,
+                              # Scope, CliOutput, Errors, PartitionGrammar (CST-007 source of truth),
+                              # SpecRecord, LintReport, LintRules, CheckOutcome
 ```
 
 Cross-feature imports are forbidden and enforced by
@@ -741,7 +823,7 @@ installs the tarball into a fresh consumer to verify the `bin` wiring
 
 ---
 
-## Limits / out of scope (v0.2.0)
+## Limits / out of scope (v0.3.0)
 
 - npm-registry publication of `@cyberash/sdd-cli`.
 - Other token mechanisms (`sha256_of_concat`, `git_tag_based`).
@@ -749,8 +831,12 @@ installs the tarball into a fresh consumer to verify the `bin` wiring
 - Auto-application of `sdd refresh` stubs back into `spec.md`
   (forbidden by INV-002).
 - Localised output / message catalogs.
+- Lint/aggregated diagnostic on `@covers` near-misses (e.g. uppercase
+  in partition prefix). v0.3.0 silently skips them — see
+  [`OQ-017`](spec/spec.md) for the deferred decision.
 
-`sdd lint` shipped in v0.2.0 and is no longer out of scope.
+`sdd lint` shipped in v0.2.0 and `sdd ready` shipped in v0.3.0 — both
+are no longer out of scope.
 
 ---
 

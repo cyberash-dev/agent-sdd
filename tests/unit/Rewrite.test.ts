@@ -147,6 +147,60 @@ test("inserts approval_record when input record has no placeholder (SDD §7.6, I
   assert.ok(lifecyclePos < approvalPos && approvalPos < versionPos);
 });
 
+test("rewrites nested lifecycle form (lifecycle:\\n  status:)", () => {
+  // @covers sdd-cli:INV-007
+  // sdd-cli's own spec.md uses the nested YAML form (lifecycle:\n  status: …),
+  // not the flat dotted form. The parser already accepts both per the project
+  // README; the rewriter must too, otherwise `sdd approve` on the canonical
+  // brownfield form silently no-ops (returns ok:true, files_changed:[]).
+  const md = [
+    "```yaml",
+    "---",
+    "id: demo:beh-nested",
+    "type: Behavior",
+    "lifecycle:",
+    "  status: proposed",
+    "partition_id: demo",
+    "test_obligation:",
+    "  predicate: x",
+    "  test_template: unit",
+    "---",
+    "```",
+  ].join("\n");
+  const result = rewriteApproval(md, { ...REQ, id: "demo:beh-nested" }, FROZEN_TIME);
+  assert.equal(result.matched.length, 1);
+  // Status line is rewritten in-place under `lifecycle:`.
+  assert.match(result.newContent, /^lifecycle:\n {2}status: approved$/m);
+  // approval_record is inserted contiguously with the status flip — same
+  // indent, same nested key family. Atomic per INV-007.
+  assert.match(result.newContent, /^ {2}approval_record:\n {4}owner_role: tech-lead$/m);
+  assert.match(result.newContent, /approver_identity: cyberash/);
+});
+
+test("rewrites nested lifecycle form already carrying approval_record placeholder", () => {
+  // @covers sdd-cli:INV-007
+  // Mirrors the dotted-form list-of-objects case but in nested shape.
+  const md = [
+    "```yaml",
+    "---",
+    "id: demo:beh-nested-2",
+    "type: Behavior",
+    "lifecycle:",
+    "  status: proposed",
+    "  approval_record: not_applicable_for_proposed",
+    "partition_id: demo",
+    "---",
+    "```",
+  ].join("\n");
+  const result = rewriteApproval(md, { ...REQ, id: "demo:beh-nested-2" }, FROZEN_TIME);
+  assert.equal(result.matched.length, 1);
+  assert.match(result.newContent, /^lifecycle:\n {2}status: approved$/m);
+  // The placeholder approval_record line is replaced (not appended) so we end
+  // up with exactly one approval_record block under lifecycle.
+  assert.equal((result.newContent.match(/^ {2}approval_record:/gm) ?? []).length, 1);
+  assert.match(result.newContent, /approver_identity: cyberash/);
+});
+
 test("inserts approval_record when no placeholder in list-of-objects record", () => {
   const md = [
     "```yaml",

@@ -40,37 +40,92 @@ function applyOne(lines: string[], m: IdMatch, req: ApproveRequest, when: Date):
   const block = lines.slice(sliceStart, sliceEndExclusive);
   const after = lines.slice(sliceEndExclusive);
 
-  let lifecycleIdx = -1;
-  let lifecycleIndent = m.indent;
+  // The lifecycle anchor exists in two YAML shapes (CLAUDE.md: "the parser
+  // also accepts a top-level form. Both work"):
+  //   (i)  flat:    `lifecycle.status: <value>`                — one line.
+  //   (ii) nested:  `lifecycle:` then `<indent>  status: <value>` — two lines.
+  // Per INV-007 the status flip and approval_record write are atomic
+  // regardless of shape. We pick whichever anchor we find first, then write
+  // back in the same shape.
+  let statusKind: "flat" | "nested" | null = null;
+  let statusIdx = -1;
+  let statusIndent = m.indent;     // indent of `lifecycle.status:` (flat) or of `status:` line (nested)
+  let approvalIndent = m.indent;   // where to write approval_record — same family as the status field
+  let nestedHeaderIdx = -1;        // index of the `lifecycle:` header line (nested only)
   let approvalIdx = -1;
+  let approvalIsNested = false;    // whether the existing approval_record is the nested or flat shape
+
   for (let i = 0; i < block.length; i++) {
     const line = block[i]!;
-    const lc = /^(\s*)lifecycle\.status:/.exec(line);
-    if (lifecycleIdx < 0 && lc !== null) {
-      lifecycleIdx = i;
-      lifecycleIndent = lc[1]!;
+    if (statusKind === null) {
+      const flat = /^(\s*)lifecycle\.status:/.exec(line);
+      if (flat !== null) {
+        statusKind = "flat";
+        statusIdx = i;
+        statusIndent = flat[1]!;
+        approvalIndent = flat[1]!;
+        continue;
+      }
+      const nestedHeader = /^(\s*)lifecycle:\s*$/.exec(line);
+      if (nestedHeader !== null) {
+        const headerIndent = nestedHeader[1]!;
+        const childIndent = `${headerIndent}  `;
+        for (let j = i + 1; j < block.length; j++) {
+          const child = block[j]!;
+          if (new RegExp(`^${childIndent}status:\\s*\\S`).test(child)) {
+            statusKind = "nested";
+            statusIdx = j;
+            statusIndent = childIndent;
+            approvalIndent = childIndent;
+            nestedHeaderIdx = i;
+            break;
+          }
+          // anything that breaks out of the nested mapping (different indent
+          // or empty line) ends the search; nested form requires status to
+          // be the immediate or near child of `lifecycle:`.
+          if (child.length > 0 && !child.startsWith(headerIndent)) break;
+          if (child.length > 0 && child.startsWith(headerIndent) && !child.startsWith(childIndent)) break;
+        }
+      }
     }
-    if (approvalIdx < 0 && /^\s*approval_record:/.test(line)) approvalIdx = i;
+    if (approvalIdx < 0) {
+      // Match approval_record at any indent (covers both shapes); we record
+      // its indent to know whether to replace or insert later.
+      const ar = /^(\s*)approval_record:/.exec(line);
+      if (ar !== null) {
+        approvalIdx = i;
+        approvalIsNested = ar[1]!.length >= statusIndent.length && statusKind === "nested";
+      }
+    }
   }
 
-  // Per INV-007 the status flip and approval_record write are atomic:
-  // we never touch one without the other. If there is no lifecycle.status
-  // anchor in this record we leave the block untouched.
-  if (lifecycleIdx < 0) {
+  if (statusKind === null) {
+    // No anchor in either shape — leave block untouched (atomic contract).
     return [...before, ...block, ...after];
   }
 
-  block[lifecycleIdx] = `${lifecycleIndent}lifecycle.status: ${req.targetStatus}`;
+  // Flip the status line in its native shape.
+  if (statusKind === "flat") {
+    block[statusIdx] = `${statusIndent}lifecycle.status: ${req.targetStatus}`;
+  } else {
+    block[statusIdx] = `${statusIndent}status: ${req.targetStatus}`;
+  }
 
-  const approvalLines = approvalBlock(req, when, lifecycleIndent);
+  const approvalLines = approvalBlock(req, when, approvalIndent);
   if (approvalIdx >= 0) {
+    // Source had a placeholder/old approval_record — replace it in place.
+    // For nested form the existing approval_record may have lived under
+    // `lifecycle:` (nested) or as a top-level sibling (flat sibling); we
+    // replace at its existing position with the indent we've chosen.
+    void approvalIsNested; // intent documented; replacement uses approvalIndent uniformly
     block.splice(approvalIdx, 1, ...approvalLines);
   } else {
-    // Source carried no approval_record (SDD §7.6 forbids it on
-    // proposed records). Insert the block immediately after the
-    // flipped status line so the two writes stay contiguous.
-    block.splice(lifecycleIdx + 1, 0, ...approvalLines);
+    // Source carried no approval_record (SDD §7.6 forbids it on proposed
+    // records). Insert immediately after the flipped status line so the two
+    // writes stay contiguous.
+    block.splice(statusIdx + 1, 0, ...approvalLines);
   }
+  void nestedHeaderIdx; // reserved for future shape-preserving edits
 
   return [...before, ...block, ...after];
 }

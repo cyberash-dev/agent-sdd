@@ -1,10 +1,3 @@
-export type BaselineComparison =
-  | { kind: "match"; recordedToken: string; recomputedToken: string }
-  | { kind: "stale"; recordedToken: string; recomputedToken: string };
+// Re-export shim — content lives in src/shared/domain/CheckOutcome.ts.
 
-export function baselineComparison(recordedToken: string, recomputedToken: string): BaselineComparison {
-  if (recordedToken === recomputedToken) {
-    return { kind: "match", recordedToken, recomputedToken };
-  }
-  return { kind: "stale", recordedToken, recomputedToken };
-}
+export { baselineComparison, type BaselineComparison } from "../../../shared/domain/CheckOutcome.js";

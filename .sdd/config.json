@@ -19,5 +19,11 @@
   "lint": {
     "spec_files": ["spec/spec.md"],
     "approver_blocklist": []
+  },
+  "partitions": {
+    "sdd-cli": {
+      "spec_paths": ["spec/spec.md"],
+      "test_paths": ["tests/**/*.test.ts"]
+    }
   }
 }

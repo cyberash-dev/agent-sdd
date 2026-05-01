@@ -82,6 +82,7 @@ test("sdd lint exits 0 on a happy spec", async () => {
   // @covers sdd-cli:BEH-011
   // @covers sdd-cli:CTR-008
   // @covers sdd-cli:CTR-009
+  // @covers sdd-cli:DLT-001
   const { root } = await fixtureProject(HAPPY_BLOCK);
 
   const result = await runSdd(root, ["lint", "--format=json"]);

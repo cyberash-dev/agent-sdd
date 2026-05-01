@@ -252,7 +252,13 @@ notes: |
 id: sdd-cli:SUR-006
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:08.819Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/lint
 version: "0.2.0"
@@ -274,7 +280,13 @@ notes: |
 id: sdd-cli:SUR-007
 type: Surface
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:08.868Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/approve
 version: "0.2.0"
@@ -289,6 +301,47 @@ notes: |
   `removed`) and writes the `approval_record` block. Refuses agent
   identities (SDD §7.5). The only mutating sdd-cli subcommand on consumer
   spec files; everything else is read-only.
+---
+```
+
+```yaml
+---
+id: sdd-cli:SUR-008
+type: Surface
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.547Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+name: sdd-cli/ready
+version: "0.3.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-013
+  - sdd-cli:CTR-014
+  - sdd-cli:CTR-015
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.3.0 — added the `sdd ready` subcommand. Closes the gate-3
+  (implementation-valid) hole described in SDD §three gates: every
+  `approved`/`deprecated` normative ID must have ≥1 executable test
+  annotated `@covers <partition>:<id>`, every `removed` ID must
+  have a test with the matching `compatibility_action`, and no
+  `proposed`/`draft` IDs may exist outside `sandbox_paths`.
+  Strict superset of `sdd lint` and `sdd check` — re-runs their
+  semantics under one JSON envelope (kinds `aggregated_lint` and
+  `aggregated_check`). Read-only on the working tree (INV-009);
+  does not run tests (INV-008). Configured via
+  `.sdd/config.json#partitions[*].{spec_paths,test_paths,sandbox_paths}`
+  (extension to SUR-002 — see CTR-015), with the v0.1.0/v0.2.0
+  flat config shape preserved as a single-partition shorthand.
+  Marker grammar (CST-007) accepts one-or-more colon-separated
+  lowercase partition segments; single-segment is the default and
+  preserved unchanged from v0.2.0.
 ---
 ```
 
@@ -813,7 +866,13 @@ test_obligation:
 id: sdd-cli:BEH-011
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:08.918Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint — happy path emits zero diagnostics
 given: |
@@ -863,7 +922,13 @@ test_obligation:
 id: sdd-cli:BEH-012
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:08.968Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint — reports each rule's violations
 given: |
@@ -917,7 +982,13 @@ test_obligation:
 id: sdd-cli:BEH-013
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:09.017Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — promotes proposed to approved with approval_record
 given: |
@@ -992,7 +1063,13 @@ test_obligation:
 id: sdd-cli:BEH-014
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:09.068Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — refuses agent identity (SDD §7.5)
 given: |
@@ -1044,7 +1121,13 @@ test_obligation:
 id: sdd-cli:BEH-015
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:09.121Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — refuses unknown owner-role
 given: |
@@ -1086,7 +1169,13 @@ test_obligation:
 id: sdd-cli:BEH-016
 type: Behavior
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:09.174Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — refuses when --id matches no record
 given: |
@@ -1117,6 +1206,258 @@ test_obligation:
     - glob with one match (negative oracle: should succeed)
   failure_scenarios:
     - silent no-op (exit 0 with no rewrites)
+---
+```
+
+### 6.7 `sdd ready`
+
+```yaml
+---
+id: sdd-cli:BEH-017
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.596Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready — happy path emits zero violations
+given: |
+  - cwd is anywhere; ready does not require git for its own rule
+    evaluation (aggregated `check` does invoke git when configured)
+  - .sdd/config.json validates against CTR-003 (CTR-015 if
+    `partitions` block present)
+  - every spec file matched by `partitions[*].spec_paths` (or the
+    `lint.spec_files` fallback) parses; every approved/deprecated
+    normative ID either is exempted by `Test obligation:
+    not_applicable + reason` (see OQ-013) or is annotated by ≥1
+    file under that partition's `test_paths` with a marker
+    `@covers <partition>:<id>`; every removed ID's
+    `compatibility_action` matches the matching marker's
+    `compatibility_action=` token; no `proposed`/`draft` ID exists
+    outside that partition's `sandbox_paths`; aggregated lint and
+    check surface no error.
+when: user runs `sdd ready` (with optional --format=json|human and/or --partition <name>)
+then: |
+  process exits 0; stdout reports `0 violation(s)`.
+    --format=json   => single JSON object with ok: true,
+                       error: null, violations: []
+    --format=human  => one line per violation (none) + summary line
+negative_cases:
+  - any of the seven rule kinds fires => see BEH-018
+  - aggregated lint or check surfaces a blocker => see BEH-019
+  - .sdd/config.json missing/invalid or spec parse error => see BEH-020
+out_of_scope:
+  - mutating any spec file (ready is read-only — see INV-009)
+  - running stage tests (ready scans for marker presence — see INV-008)
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A spec snapshot satisfying every rule (every approved ID covered
+    or exempted, every removed ID has a matching
+    `compatibility_action` marker, no proposed/draft outside
+    `sandbox_paths`, aggregated lint+check clean) yields exit 0
+    and an empty violations list.
+  test_template: integration
+  boundary_classes:
+    - single-partition flat config (legacy shorthand)
+    - explicit partitions block
+    - approved ID with `Test obligation: not_applicable + reason`
+    - removed ID with matching `compatibility_action` marker
+  failure_scenarios:
+    - exit 0 despite a known violation in a fixture spec
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-018
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.644Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready — reports each rule's violations
+given: |
+  - environment as in BEH-017, except at least one of the seven
+    ready rule kinds (unapproved, uncovered, removed_no_compat_test,
+    removed_compat_action_mismatch, surface_unapproved_ref,
+    orphan_covers, unknown_partition_covers) fires.
+when: user runs `sdd ready`
+then: |
+  process exits 1; stdout/stderr enumerate the violations. JSON
+  mode carries `ok: false`, `error: null`, and a `violations[]`
+  array with `{kind, id, partition, status?, file?, line?, expected?, actual?, remediation?, source?}`
+  per finding (kind enumerates the seven rule types plus the two
+  aggregated kinds — see BEH-019 and CTR-014). Spec files are
+  NOT modified.
+negative_cases:
+  - "ready mutates spec on its own — forbidden (INV-009)"
+  - "tests are not executed (INV-008) — a `@covers` marker is sufficient to satisfy uncovered even if the test would fail at runtime"
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Each of the seven rule kinds fires at least once against a
+    fixture; the violation appears in `violations[]` with the
+    correct `kind`, and exit is 1.
+    `removed_compat_action_mismatch` populates `expected` and
+    `actual` from the spec record's `compatibility_action` and the
+    marker tail's `compatibility_action=` token, respectively.
+  test_template: integration
+  boundary_classes:
+    - one rule violation per rule kind (×7)
+    - multiple rules in same partition
+    - removed_compat_action_mismatch with expected/actual fields
+  failure_scenarios:
+    - rule fires on a record that satisfies it (false positive)
+    - rule does not fire on a record that violates it (false negative)
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-019
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.693Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready — aggregates lint and check blockers under same envelope
+given: |
+  - environment as in BEH-017, except either `sdd lint` would emit
+    ≥1 error-severity diagnostic over the configured spec files,
+    OR `sdd check` would emit `baseline-dirty`/`baseline-stale`
+    over the configured `discovery_scope`.
+when: user runs `sdd ready`
+then: |
+  process exits 1. The `violations[]` array contains:
+    - one ReadyViolation{kind:"aggregated_lint", source:<lint rule
+      id>, file, line, remediation:<message>} per error-severity
+      lint diagnostic (notably: unresolved
+      `Open-Q.blocking=yes`, weasel-words in normative sections,
+      missing `approval_record`, and any other lint error rule).
+    - one ReadyViolation{kind:"aggregated_check",
+      remediation:<baseline-dirty|baseline-stale>} when the
+      baseline check is not `match` (stale `freshness_token`).
+  Warning-severity lint diagnostics are NOT included (see OQ-015).
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A fixture spec with an unresolved `Open-Q.blocking=yes`, a
+    weasel-word in a normative section, a missing `approval_record`,
+    OR a stale `freshness_token` surfaces in `sdd ready` violations[]
+    under kind `aggregated_lint` or `aggregated_check`. Warn-severity
+    diagnostics do not surface as ready blockers.
+  test_template: integration
+  boundary_classes:
+    - aggregated_lint (each lint error rule represented at least once)
+    - aggregated_check (baseline-dirty AND baseline-stale)
+    - mixed lint + check failure in same run
+  failure_scenarios:
+    - lint warn-severity diagnostic surfaces as a ready blocker
+    - lint error-severity diagnostic missing from ready output
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-020
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.743Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready — exit 2 on evaluate-failure
+given: |
+  - one of:
+      a) .sdd/config.json missing or fails CTR-003 + CTR-015
+         validation (`config_invalid`)
+      b) a configured spec file fails to parse as YAML/markdown
+         (`spec_parse_failed`)
+      c) a path under `partitions[*].test_paths` exists in the
+         glob expansion but cannot be read
+         (`unreadable_test_paths`)
+when: user runs `sdd ready`
+then: |
+  process exits 2; stdout JSON envelope is
+    { ok: false,
+      error: { kind, message, file? },
+      violations: [] }
+  where `kind` is one of {spec_parse_failed, config_invalid,
+  unreadable_test_paths, internal} and `file` is populated when
+  the cause is locatable. Human format prints the error reason on
+  stderr. No partial `violations[]` is emitted; CI distinguishes
+  "fix your spec" (1) from "fix your tool/config" (2).
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: not_applicable
+  time_source: none
+data_scope:
+  not_applicable: ready_does_not_touch_persistent_state_on_failure
+  reason: evaluate-failure short-circuits before any rule scan
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Each of (a) missing config, (b) spec parse error, (c)
+    unreadable test_paths produces exit 2 and a populated
+    `error.kind`. `violations[]` is empty in every case.
+  test_template: integration
+  boundary_classes:
+    - missing .sdd/config.json
+    - corrupt YAML in spec.md
+    - test_paths glob matches a file with mode 0 (POSIX only)
+  failure_scenarios:
+    - exit 1 (instead of 2) is reported on evaluate-failure
+    - violations[] is non-empty when error is populated
 ---
 ```
 
@@ -1609,7 +1950,13 @@ test_obligation:
 id: sdd-cli:CTR-008
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:09.224Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint — CLI invocation contract
 applicability:
@@ -1664,7 +2011,13 @@ test_obligations:
 id: sdd-cli:CTR-009
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.335Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint --format=json — output schema
 applicability:
@@ -1675,12 +2028,12 @@ schema:
     ok: bool
     error_count: int (>=0)
     warn_count: int (>=0)
-    diagnostics: array of:
-      severity: enum [error, warn]
-      rule: string                # e.g. "sdd:weasel-word"
-      file: string                # path relative to repo root, posix-separated
-      line: int | null            # 1-based, or null for file-scoped findings
-      message: string
+    diagnostics:                  # array; each element shaped as below
+      - severity: enum [error, warn]
+        rule: string                # e.g. "sdd:weasel-word"
+        file: string                # path relative to repo root, posix-separated
+        line: int | null            # 1-based, or null for file-scoped findings
+        message: string
 external_identifiers:
   - top-level keys: format_version, ok, error_count, warn_count, diagnostics
   - diagnostic key set: severity, rule, file, line, message
@@ -1710,7 +2063,13 @@ test_obligations:
 id: sdd-cli:CTR-010
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.383Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve — CLI invocation contract
 applicability:
@@ -1719,45 +2078,43 @@ schema:
   argv:
     subcommand: "approve"
     flags:
-      "--id":                    required, string (id or glob with `*`)
-      "--approver":              required, string
-      "--owner-role":            required, enum [tech-lead, architect, security-owner, platform-runtime-lead, product-owner, compliance]
-      "--change-request":        required, string (URL-shaped; not validated)
-      "--scope":                 optional, string, default "first-time-approval"
-      "--target-status":         optional, enum [approved, deprecated, removed], default approved
-      "--reviewed-test-oracle":  optional, string
-      "--format":                optional, enum [json, human], default human
+      "--id":                    "required, string (id or glob with `*`)"
+      "--approver":              "required, string"
+      "--owner-role":            "required, enum [tech-lead, architect, security-owner, platform-runtime-lead, product-owner, compliance]"
+      "--change-request":        "required, string (URL-shaped; not validated)"
+      "--scope":                 "optional, string, default \"first-time-approval\""
+      "--target-status":         "optional, enum [approved, deprecated, removed], default approved"
+      "--reviewed-test-oracle":  "optional, string"
+      "--format":                "optional, enum [json, human], default human"
   exit_codes:
     0: at least one record matched and rewritten
-    1: refused (agent identity, invalid owner-role, no-id-match)
+    1: "refused (agent identity, invalid owner-role, no-id-match)"
     2: argv error
     3: environment error
   outputs:
-    stdout_human: one line per matched id `approve: <id> -> <status> (approver=<who>)`
-                  followed by summary
+    stdout_human: |
+      one line per matched id `approve: <id> -> <status> (approver=<who>)`
+      followed by summary
     stdout_json: see CTR-011
 external_identifiers:
   - all flag names above
   - the six owner-role enum values
 preconditions: not_applicable
 postconditions:
-  - on exit 0: matched spec files are rewritten in place; lifecycle.status
-    flipped; approval_record block written with caller-supplied fields +
-    server-side timestamp
-  - on exit 1: NO file is written
+  - "on exit 0: matched spec files are rewritten in place; lifecycle.status flipped; approval_record block written with caller-supplied fields + server-side timestamp"
+  - "on exit 1: NO file is written"
 error_taxonomy:
   - reason="agent-approver" (BEH-014)
   - reason="invalid-owner-role" (BEH-015)
   - reason="no-id-match" (BEH-016)
 compatibility_rules:
   - owner-role enum is append-only; values are part of the contract
-  - approval_record key set is fixed: owner_role, approver_identity,
-    timestamp, change_request, scope, optional reviewed_test_oracle
+  - "approval_record key set is fixed: owner_role, approver_identity, timestamp, change_request, scope, optional reviewed_test_oracle"
 concurrency_model:
   actor_concurrency: single_per_process
   read_consistency: strong
   idempotency: none
-  time_source: wall_clock:1ms   # used only to stamp the timestamp field
+  time_source: "wall_clock:1ms"   # used only to stamp the timestamp field
 data_scope: all_data
 policy_refs:
   - sdd-cli:POL-001
@@ -1773,7 +2130,13 @@ test_obligations:
 id: sdd-cli:CTR-011
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.432Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve --format=json — output schema
 applicability:
@@ -1790,8 +2153,7 @@ schema:
     reason: enum [agent-approver, invalid-owner-role, no-id-match]
     detail: string                 # human-readable extension
 external_identifiers:
-  - top-level keys: format_version, ok, matched_ids, files_changed,
-    reason, detail
+  - "top-level keys: format_version, ok, matched_ids, files_changed, reason, detail"
 preconditions: not_applicable
 postconditions: not_applicable
 error_taxonomy: not_applicable
@@ -1817,7 +2179,13 @@ test_obligations:
 id: sdd-cli:CTR-012
 type: Contract
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.480Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: .sdd/config.json — optional `lint` block (extension to CTR-003)
 applicability:
@@ -1836,20 +2204,19 @@ schema:
           domain: 0..N entries
           default_when_absent: []
 external_identifiers:
-  - "lint" top-level key (extending CTR-003)
-  - "lint.spec_files"
-  - "lint.approver_blocklist"
+  - '"lint" top-level key (extending CTR-003)'
+  - '"lint.spec_files"'
+  - '"lint.approver_blocklist"'
 preconditions:
   - all other CTR-003 fields still validate
 postconditions:
   - when `lint` absent, sdd lint and sdd approve operate on [spec_file] only
 error_taxonomy:
-  - "config-invalid" with detail naming offending lint.* field
+  - '"config-invalid" with detail naming offending lint.* field'
 compatibility_rules:
   - lint key is additive at minor (was absent in v0.1.0)
   - sub-keys append-only
-  - removing `lint` from a v0.2.0+ config is allowed (graceful degradation
-    to v0.1.0 behaviour)
+  - "removing `lint` from a v0.2.0+ config is allowed (graceful degradation to v0.1.0 behaviour)"
 concurrency_model:
   actor_concurrency: single_per_process
   read_consistency: strong
@@ -1863,6 +2230,218 @@ test_obligations:
   - to:sdd-cli:CTR-012:absent_falls_back
   - to:sdd-cli:CTR-012:invalid_array_rejected
   - to:sdd-cli:CTR-012:unknown_subkey_rejected
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-013
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.791Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready — CLI invocation contract
+applicability:
+  invariant_to_all_axes: true
+schema:
+  argv:
+    subcommand: "ready"
+    flags:
+      "--format":    { type: enum, values: [json, human], default: human }
+      "--partition": { type: string, optional: true, default: "(scan every configured partition)" }
+      "--help":      optional
+  exit_codes:
+    0: every rule passed (mergeable)
+    1: at least one violation found (≥1 merge blocker)
+    2: could not evaluate (config_invalid | spec_parse_failed | unreadable_test_paths | internal)
+  outputs:
+    stdout_human: |
+      one line per violation: `[<kind>] <file>[:<line>]  <id-or-context>: <remediation>`
+      followed by blank line and summary `sdd ready: N violation(s).`
+    stdout_json: see CTR-014
+external_identifiers:
+  - argv flag --format
+  - argv flag --partition
+  - exit codes 0 / 1 / 2
+preconditions: not_applicable
+postconditions:
+  - ready is read-only (INV-009): no spec, config, or test file is written
+error_taxonomy:
+  - exit 0 on no violations
+  - exit 1 on ≥1 violation (any of the seven rule kinds plus the two aggregated kinds — see CTR-014)
+  - exit 2 on evaluate-failure (config_invalid | spec_parse_failed | unreadable_test_paths | internal)
+compatibility_rules:
+  - flag enum is append-only
+  - exit code semantics fixed across minor versions
+  - --partition value is a bare partition name (no glob); a value
+    not present in `.sdd/config.json#partitions` yields exit 2
+    config_invalid
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligations:
+  - to:sdd-cli:CTR-013:flag_set_complete
+  - to:sdd-cli:CTR-013:exit_codes
+  - to:sdd-cli:CTR-013:partition_filter
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-014
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.840Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready --format=json — output envelope schema
+applicability:
+  invariant_to_all_axes: true
+schema:
+  json:
+    ok: bool
+    error: ReadyError | null
+    violations: array of ReadyViolation
+  ReadyError:
+    kind: enum [spec_parse_failed, config_invalid, unreadable_test_paths, internal]
+    message: string
+    file: string | absent
+  ReadyViolation:
+    kind: enum [unapproved, uncovered, removed_no_compat_test, removed_compat_action_mismatch, surface_unapproved_ref, orphan_covers, unknown_partition_covers, aggregated_lint, aggregated_check]
+    id: string | absent              # partition-scoped <partition>:<id>; absent for aggregated_check
+    partition: string | absent       # absent for aggregated_check
+    status: enum [draft, proposed, approved, deprecated, removed] | absent
+    file: string | absent            # repo-relative posix path
+    line: int | absent               # 1-based
+    expected: string | absent        # removed_compat_action_mismatch only
+    actual: string | absent          # removed_compat_action_mismatch only
+    remediation: string | absent
+    source: string | absent          # lint rule id when kind == aggregated_lint
+external_identifiers:
+  - top-level keys: ok, error, violations
+  - error key set: kind, message, file
+  - violation key set: kind, id, partition, status, file, line, expected, actual, remediation, source
+  - violation kind enum (9 values)
+  - error kind enum (4 values)
+preconditions: not_applicable
+postconditions: not_applicable
+error_taxonomy: not_applicable
+compatibility_rules:
+  - field set additive at minor; rename or removal is major (cascades to SUR-008)
+  - violation kind enum is append-only
+  - error kind enum is append-only
+  - existing violation kinds never change semantics across minor versions
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligations:
+  - to:sdd-cli:CTR-014:envelope_shape_stable
+  - to:sdd-cli:CTR-014:violation_kind_append_only
+  - to:sdd-cli:CTR-014:error_envelope_on_exit_2
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-015
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.677Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: .sdd/config.json — optional `partitions` block (extension to CTR-003)
+applicability:
+  invariant_to_all_axes: true
+schema:
+  json:
+    partitions:
+      type: object | absent
+      keys: <partition-name> matching ^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)*$
+            (one or more lowercase tokens joined by ':'; single-segment
+            remains the default and is preserved from v0.2.0)
+      values:
+        spec_paths:
+          type: array of string (glob patterns, posix-separated)
+          domain: non-empty when the partition is present
+        test_paths:
+          type: array of string (glob patterns, posix-separated)
+          domain: 0..N entries
+          default_when_absent: []
+        sandbox_paths:
+          type: array of string (glob patterns, posix-separated)
+          domain: 0..N entries
+          default_when_absent: []
+    test_paths:
+      type: array of string (glob patterns) | absent
+      domain: 0..N entries
+      default_when_absent: []
+      semantics: top-level shorthand applied to the synthesized
+                 single-partition fallback when `partitions` is absent
+    sandbox_paths:
+      type: array of string (glob patterns) | absent
+      domain: 0..N entries
+      default_when_absent: []
+      semantics: top-level shorthand applied to the synthesized
+                 single-partition fallback when `partitions` is absent
+external_identifiers:
+  - '"partitions" top-level key'
+  - 'per-partition keys: "spec_paths", "test_paths", "sandbox_paths"'
+  - 'top-level shorthand keys: "test_paths", "sandbox_paths"'
+preconditions:
+  - all other CTR-003 fields still validate
+  - "if `partitions` is present, ready / lint read spec_paths from `partitions[*].spec_paths` (flatten + dedupe); legacy `lint.spec_files` is ignored"
+  - "if `partitions` is absent, the configuration synthesizes a single-partition fallback using `lint.spec_files` (or `[spec_file]`), top-level `test_paths`, and top-level `sandbox_paths`"
+postconditions:
+  - "when `partitions` is absent, single-partition fallback preserves v0.1.0/v0.2.0 behaviour (zero change for existing repos)"
+error_taxonomy:
+  - '"config-invalid" with detail naming offending `partitions[*].*` field'
+compatibility_rules:
+  - "`partitions` key is additive at minor (was absent in v0.2.0)"
+  - sub-keys append-only
+  - "top-level `test_paths` / `sandbox_paths` shorthand additive at minor"
+  - "removing `partitions` from a v0.3.0+ config falls back to the flat shorthand (graceful degradation when only one partition exists)"
+  - 'multi-segment partition keys (e.g. "bridge:commands") additive at minor relative to the v0.2.0 single-segment shape; no v0.2.0 key is rejected by the widened pattern'
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: not_applicable
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-002
+test_obligations:
+  - to:sdd-cli:CTR-015:absent_falls_back_to_flat
+  - to:sdd-cli:CTR-015:explicit_partitions_used
+  - to:sdd-cli:CTR-015:invalid_subkey_rejected
+  - to:sdd-cli:CTR-015:cross_partition_no_implicit_credit
+  - to:sdd-cli:CTR-015:multi_segment_partition_key_accepted
 ---
 ```
 
@@ -2060,7 +2639,13 @@ test_obligation:
 id: sdd-cli:INV-005
 type: Invariant
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.530Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve refuses agent identities (self-approval ban)
 always: |
@@ -2104,8 +2689,8 @@ test_obligation:
     - custom blocklist
     - empty string and whitespace-only (edge cases)
   failure_scenarios:
-    - "Claude" passes through
-    - "BOT:tg-1" passes through (case sensitivity in prefix check)
+    - '"Claude" passes through'
+    - '"BOT:tg-1" passes through (case sensitivity in prefix check)'
     - blocklist short-circuit happens after rewrite
 ---
 ```
@@ -2115,7 +2700,13 @@ test_obligation:
 id: sdd-cli:INV-006
 type: Invariant
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.577Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd lint is read-only on consumer spec files
 always: |
@@ -2145,7 +2736,7 @@ test_obligation:
   test_template: integration (fs-readonly probe)
   boundary_classes:
     - 0 diagnostics
-    - >=1 error diagnostics
+    - "≥1 error diagnostics"
     - mixed warn + error
   failure_scenarios:
     - lint silently rewrites whitespace
@@ -2158,7 +2749,13 @@ test_obligation:
 id: sdd-cli:INV-007
 type: Invariant
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:09.273Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: sdd approve atomic per record — status flip implies approval_record
 always: |
@@ -2186,16 +2783,20 @@ negative_cases:
     a "secretly-approved proposed" record)
 test_obligation:
   predicate: |
-    For every fixture record with `lifecycle.status: proposed`, in both
-    input shapes — (a) placeholder `approval_record:
+    For every fixture record with status `proposed`, in both input
+    shapes — (a) placeholder `approval_record:
     not_applicable_for_proposed` present, and (b) no `approval_record`
-    field at all (SDD §7.6-conformant) — after `sdd approve`:
-      - `lifecycle.status` ∈ {approved, deprecated, removed}
+    field at all (SDD §7.6-conformant) — and in both YAML key shapes —
+    (i) flat `lifecycle.status: …`, and (ii) nested
+    `lifecycle:\n  status: …` (the canonical brownfield form used in
+    sdd-cli's own spec.md) — after `sdd approve`:
+      - the record's status field reads ∈ {approved, deprecated, removed}
       - `approval_record` parses as a YAML mapping with the six fields
         owner_role, approver_identity, timestamp, change_request, scope
-        (+ optional reviewed_test_oracle).
+        (+ optional reviewed_test_oracle), placed contiguously with the
+        flipped status field at the same indent family.
     Both invariants are checked together; failure of either fails the
-    record.
+    record. The atomicity contract is independent of the YAML key shape.
   test_template: integration (golden fixture + parsed assertions)
   boundary_classes:
     - exact id match
@@ -2203,11 +2804,128 @@ test_obligation:
     - reviewed_test_oracle present
     - input record has no approval_record field
       (SDD §7.6-conformant proposed input)
+    - flat `lifecycle.status:` form (compact YAML)
+    - nested `lifecycle:\n  status:` form (canonical brownfield)
   failure_scenarios:
     - status flip emitted without approval_record block
     - approval_record block emitted without status flip
     - approval_record absent from input and not inserted on rewrite
       (regression of the lift-and-flip bug fixed in v0.2.x)
+    - nested lifecycle form silently no-ops
+      (regression of the rewriter scoping its anchor to flat form only)
+---
+```
+
+```yaml
+---
+id: sdd-cli:INV-008
+type: Invariant
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.891Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready does not execute tests
+never: |
+  No invocation of `sdd ready` spawns a test runner, executes test
+  binaries, evaluates expressions inside test files, or otherwise
+  interprets test code beyond byte-level scanning for `@covers`
+  markers. The CLI's only file IO on `partitions[*].test_paths` is
+  a read of bytes for marker extraction.
+scope:
+  - src/features/ready/**
+evidence: public_api
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: not_applicable
+  time_source: none
+negative_cases:
+  - ready spawns `npm test` as a side effect of evaluating
+    `uncovered`/`orphan_covers`
+  - ready imports a test file via `require()` / `import()` and
+    triggers side-effects
+  - ready uses an AST parser instead of byte scanning
+out_of_scope:
+  - hypothetical future `sdd run` (not in v0.3.0; §19)
+test_obligation:
+  predicate: |
+    During every `sdd ready` invocation, no child process is
+    spawned other than `git` (used by aggregated `check`). No file
+    under `partitions[*].test_paths` is opened with anything but
+    a byte-level read — verified by an integration test that
+    points `test_paths` at a deliberately-broken JS/TS file and
+    asserts ready completes without surfacing the throw that an
+    `import()` would produce.
+  test_template: integration
+  boundary_classes:
+    - test_paths matches a deliberately-broken JS/TS file
+    - test_paths matches a binary file
+    - test_paths matches an empty file
+  failure_scenarios:
+    - ready spawns a test runner
+    - ready interprets a test file via `require()` / `import()`
+---
+```
+
+```yaml
+---
+id: sdd-cli:INV-009
+type: Invariant
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.940Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready is read-only on the working tree
+always: |
+  For every invocation of `sdd ready`, no file under <repo_root>
+  is modified. The working tree is byte-identical before and after
+  the run, regardless of how many violations are produced or
+  whether evaluation succeeded.
+scope:
+  - src/features/ready/**
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: not_applicable
+  time_source: none
+negative_cases:
+  - ready emits an Open-Q stub into spec.md on aggregated_lint
+  - ready normalises whitespace in scanned test files
+  - ready creates a `.sdd/cache` directory between runs
+test_obligation:
+  predicate: |
+    A snapshot of every tracked file in the repo (mtime + content
+    sha) taken before `sdd ready` is identical to the snapshot
+    taken after, in happy-path, violation-path, and
+    evaluate-failure fixtures.
+  test_template: integration (fs-readonly probe)
+  boundary_classes:
+    - exit 0 (no violations)
+    - exit 1 (≥1 violation)
+    - exit 2 (evaluate-failure)
+  failure_scenarios:
+    - ready writes a marker into a test file
+    - ready emits a stub into spec.md
+    - ready creates any new file under <repo_root>
 ---
 ```
 
@@ -2655,7 +3373,13 @@ test_obligation:
 id: sdd-cli:CST-006
 type: Constraint
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:09.322Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 constraint: |
   The glob expander used by `sdd lint` and `sdd approve` MUST be a
@@ -2685,6 +3409,86 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CST-007
+type: Constraint
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:13.990Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+constraint: |
+  `sdd ready` recognises traceability markers of the form
+    @covers <partition>:<id> [<key>=<value>]*
+  where:
+    - <partition> matches ^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)*$
+      (one or more lowercase tokens joined by ':'; single-segment
+      remains the default and is preserved bit-for-bit from v0.2.0)
+    - <id> matches ^[A-Z]+-\d+$
+    - <key>=<value> tail tokens are split on the first `=` per
+      whitespace-separated token; tokens whose key is not in the
+      v0.3.0 whitelist {`compatibility_action`} are silently ignored
+      (forward-compat for future v0.x keys; see OQ-016).
+  Parsing is two-stage to avoid the JS/TS regex foot-gun where a
+  single capture group with `*` keeps only the last match:
+    stage 1 — /@covers\s+([a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)*:[A-Z]+-\d+)([^\n\r]*)/g
+              captures <partition>:<id> as a single group and the raw
+              tail. Partition and id are split at the LAST `:` of the
+              capture (rightmost-`:` is unambiguous because the id
+              tail `[A-Z]+-\d+` contains no `:` — implementation MUST
+              use `lastIndexOf(":")`, not `indexOf(":")`).
+    stage 2 — tokenise the tail by whitespace, split each token on
+              first `=`, filter by the whitelist.
+  The scanner is language-agnostic: it reads bytes from files
+  matched by `partitions[*].test_paths` with no AST or syntax
+  awareness. Adopters in TS, Py, Go, and Rust all work the same way.
+rationale: |
+  Markers must remain greppable, IDE-friendly, and stable across
+  consumer languages. AST scanning would force per-language tooling
+  and add supply-chain surface (one parser per ecosystem). The
+  per-key whitelist keeps the v0.3.0 contract narrow while leaving
+  room to grow without breaking older specs. The multi-segment
+  partition grammar is a strict superset of v0.2.0: every v0.2.0-
+  valid marker remains valid; single-segment adopters see byte-
+  identical scanner output. Multi-segment support unblocks adopters
+  that namespace their partitions (e.g. `bridge:commands:CON-004`).
+scope:
+  - src/features/ready/domain/MarkerParser.ts
+test_obligation:
+  predicate: |
+    For every test file under `partitions[*].test_paths`, every
+    `@covers <p>:<id> [k=v ...]` line is detected; partitions/IDs
+    that do not match the documented charset are not detected; tail
+    tokens with keys outside the v0.3.0 whitelist do not contribute
+    to the parsed marker tail; multiple markers on the same line
+    are detected. The single-capture-group regex foot-gun is
+    explicitly ruled out by a test with three `key=value` pairs in
+    one tail. Multi-segment partition prefixes are split at the
+    rightmost `:` so that `@covers bridge:lock:BEH-001` yields
+    partition=`bridge:lock`, id=`BEH-001`.
+  test_template: unit
+  boundary_classes:
+    - happy-path single marker
+    - multiple markers per line
+    - mixed allowed / disallowed key in tail
+    - multiple `key=value` pairs in single tail (regex foot-gun probe)
+    - non-matching partition / ID charset
+    - single-segment partition (legacy form regression)
+    - two-segment partition prefix
+    - three-segment partition prefix (forward-compat)
+  failure_scenarios:
+    - regex captures only the last `key=value` pair
+    - whitelisted key silently dropped
+    - non-whitelisted key surfaces in parsed tail
+    - near-miss with uppercase in partition prefix is silently skipped (OQ-017 default a)
+---
+```
+
 ---
 
 ## 14. Migrations
@@ -2710,7 +3514,13 @@ behavioural extension; recorded below.
 id: sdd-cli:DLT-001
 type: Delta
 lifecycle:
-  status: proposed
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T14:03:12.626Z
+    change_request: approve sdd-cli v0.2.0 lint+approve surfaces (DLT-001 cohort)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: v0.1.0 → v0.2.0 — add `sdd lint` and `sdd approve` subcommands
 target_ids:
@@ -2757,15 +3567,108 @@ tests_new_behavior:
   - to:sdd-cli:INV-006
   - to:sdd-cli:INV-007
 caveats:
-  - BL-001's `freshness_token` is stale w.r.t. the v0.2.0 source tree
-    (added ~20 files under src/features/{lint,approve}/). A separate
-    `sdd refresh` run is required to regenerate the token; this Delta
-    documents the intent of the change but does not itself update
-    BL-001 (per SDD §6.5: a Delta authoring is allowed against a
-    pinned baseline_version even when the baseline is stale).
-  - v0.2.0 was released without an `approval_record` on these IDs.
-    Approval is the human owner's gate (SDD §7.5). Until approved
-    the IDs are `proposed` and not `implementation-valid`.
+  - "BL-001's `freshness_token` is stale w.r.t. the v0.2.0 source tree (added ~20 files under src/features/{lint,approve}/). A separate `sdd refresh` run is required to regenerate the token; this Delta documents the intent of the change but does not itself update BL-001 (per SDD §6.5: a Delta authoring is allowed against a pinned baseline_version even when the baseline is stale)."
+  - "v0.2.0 was released without an `approval_record` on these IDs. Approval is the human owner's gate (SDD §7.5). Until approved the IDs are `proposed` and not `implementation-valid`."
+---
+```
+
+```yaml
+---
+id: sdd-cli:DLT-002
+type: Delta
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-01T13:52:14.040Z
+    change_request: approve sdd-cli v0.3.0 ready surface incl. multi-segment partition prefix grammar (DLT-002 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: v0.2.0 → v0.3.0 — add `sdd ready` (gate-3 implementation-valid)
+target_ids:
+  - sdd-cli:SUR-008    # new — sdd-cli/ready
+  - sdd-cli:BEH-017
+  - sdd-cli:BEH-018
+  - sdd-cli:BEH-019
+  - sdd-cli:BEH-020
+  - sdd-cli:CTR-013
+  - sdd-cli:CTR-014
+  - sdd-cli:CTR-015    # extension to CTR-003 (partitions block)
+  - sdd-cli:INV-008
+  - sdd-cli:INV-009
+  - sdd-cli:CST-007
+kind: replace
+compatibility_action: ignore
+baseline_version: sdd-cli:BL-001@v0.2.0
+description: |
+  Adds one new CLI subcommand (`sdd ready`) without altering existing
+  token/check/refresh/lint/approve behaviour. The v0.1.0 surfaces
+  (SUR-001..SUR-005) and v0.2.0 surfaces (SUR-006, SUR-007) are
+  unchanged. A new optional `partitions` block is added to
+  `.sdd/config.json`; absence of the block preserves v0.2.0
+  behaviour (graceful degradation per CTR-015).
+
+  `sdd ready` is a strict superset of `sdd lint` and `sdd check`:
+  internally it reuses the same parsing/check engine (lifted into
+  `src/shared/domain/` for cross-slice reuse), but externally it is
+  the single authoritative command CI calls. Adding it as a required
+  check in protected-branch policy is sufficient to close the gate-3
+  (implementation-valid) hole described in SDD §three gates: every
+  `approved`/`deprecated` normative ID must have ≥1 executable test
+  with `@covers <partition>:<id>`, every `removed` ID must have a
+  `compatibility_action=…` test, no `proposed`/`draft` ID may exist
+  outside `sandbox_paths`, and aggregated `lint`/`check` blockers
+  (unresolved `Open-Q.blocking=yes`, weasel-words, missing
+  `approval_record`, stale `freshness_token`) surface under the
+  same envelope.
+
+  v0.3.0 also widens the partition-prefix grammar in CST-007 (and the
+  partition-name pattern in CTR-015) from one to one-or-more colon-
+  separated lowercase segments. Single-segment adopters (sdd-cli
+  itself) see byte-identical behaviour because `lastIndexOf(":")` on
+  a one-colon string equals `indexOf(":")`. Multi-segment adopters
+  (e.g. gatehouse) gain credit on existing
+  `@covers <a>:<b>:<TYPE>-<NNN>` markers as soon as the corresponding
+  `partitions["<a>:<b>"]` entry is declared in `.sdd/config.json`.
+
+  The change is purely additive at every Surface; existing v0.2.0
+  consumers see identical behaviour.
+tests_old_behavior:
+  - existing token/check/refresh/lint/approve integration tests stay
+    green (no behavioural regression in the v0.1.0 / v0.2.0
+    surfaces)
+  - existing argv unit tests stay green (v0.2.0 flag set is preserved)
+  - existing fs-readonly probe stays green for the new `sdd ready`
+    invocation path (extends to INV-009)
+tests_new_behavior:
+  - to:sdd-cli:BEH-017
+  - to:sdd-cli:BEH-018
+  - to:sdd-cli:BEH-019
+  - to:sdd-cli:BEH-020
+  - to:sdd-cli:INV-008
+  - to:sdd-cli:INV-009
+  - to:sdd-cli:CST-007
+caveats:
+  - BL-001's `freshness_token` is stale w.r.t. the v0.3.0 source
+    tree (added ~10 files under src/features/ready/ and a small lift
+    of pure-domain code from src/features/lint/ + src/features/check/
+    into src/shared/domain/). A separate `sdd refresh` run is
+    required to regenerate the token; this Delta documents the
+    intent of the change but does not itself update BL-001 (per
+    SDD §6.5).
+  - v0.3.0 ships these IDs in `proposed` status. Approval is the
+    human owner's gate (SDD §7.5). Until approved the IDs are
+    `proposed` and not `implementation-valid`.
+  - The lifted shared-kernel modules (SpecRecord, LintRules,
+    CheckOutcome) preserve identical observable behaviour for `sdd
+    lint` and `sdd check`. Re-export shims remain in the original
+    slices for backward compatibility within this PR; future PRs
+    may inline the shared-kernel imports and delete the shims.
+  - README gains the verbatim "verifies traceability presence, not
+    test fidelity" clause from the v0.3.0 design committee
+    transcript. README content is not normatively spec-tracked, so
+    this is documented here rather than as a separate normative ID.
 ---
 ```
 
@@ -3296,9 +4199,7 @@ binding:
   shared_domain:
     - src/shared/domain/Config.ts   # adds LintConfig type + lintConfig() parser
 authority: code_annotation
-verification_method: tests/unit/Config.test.ts (NB: extension tests are
-  authored alongside Phase-3 approval — current Config.test.ts asserts
-  v0.1.0 shape only)
+verification_method: "tests/unit/Config.test.ts (NB: extension tests are authored alongside Phase-3 approval — current Config.test.ts asserts v0.1.0 shape only)"
 ---
 ```
 
@@ -3317,8 +4218,7 @@ binding:
   composition_root:
     - src/cli.ts   # parseArgv extended; new subcommand union; new dispatchers
 authority: code_annotation
-verification_method: tests/unit/argv.test.ts (Phase-3 follow-up: extend
-  argv tests to cover the new flag matrix)
+verification_method: "tests/unit/argv.test.ts (Phase-3 follow-up: extend argv tests to cover the new flag matrix)"
 ---
 ```
 
@@ -3637,6 +4537,225 @@ blocking: no
 owner: cyberash
 default_if_unresolved: a
 review_by: 2026-07-01
+---
+```
+
+```yaml
+---
+id: sdd-cli:OQ-012
+type: Open-Q
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+question: |
+  When `partitions[*].test_paths` globs of two partitions overlap,
+  should a marker in a shared test file count as covering BOTH
+  partitions, or should the operator be required to list the same
+  file in each partition's test_paths array? v0.3.0 default: a
+  test counts toward partition X iff its file matches X's
+  test_paths glob — overlapping globs implicitly cross-credit; no
+  global cross-credit table.
+options:
+  - id: a
+    label: implicit_cross_credit_via_overlapping_globs
+    consequence: |
+      Operators relying on cross-partition coverage list the same
+      file in both partitions' test_paths (or use overlapping
+      globs). Implicit cross-credit is the documented mechanism;
+      matches v0.3.0 default and the issue §Config schema clause
+      "A cross-partition integration test that legitimately covers
+      IDs from both A and B must appear in both partitions'
+      test_paths."
+  - id: b
+    label: forbid_glob_overlap
+    consequence: |
+      Reject configs where two partitions' test_paths overlap;
+      operators must use explicit per-partition globs. Stricter
+      audit; more work for adopters of cross-partition tests.
+blocking: yes
+owner: cyberash
+default_if_unresolved: a
+---
+```
+
+```yaml
+---
+id: sdd-cli:OQ-013
+type: Open-Q
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+question: |
+  What is the canonical YAML form of a `Test obligation` declared
+  `not_applicable + reason`? Acceptance criterion #3 of `sdd ready`
+  requires it: an approved ID without a `@covers` marker is
+  exempted from the `uncovered` rule iff its `test_obligation` is
+  `not_applicable`. This convention is not yet used in this
+  repo's spec.
+options:
+  - id: a
+    label: nested_object_with_reason_token
+    consequence: |
+      `test_obligation: { not_applicable: <reason_token>, reason: "<text>" }`
+      mirrors the convention already used by `data_scope` and
+      `policy_refs` (see CTR-001 lines 1184-1188 and BEH-008
+      data_scope at line 712). Consistent with existing parser.
+  - id: b
+    label: separate_top_level_keys
+    consequence: |
+      Two flat keys: `test_obligation_not_applicable: <reason_token>`
+      plus `test_obligation_reason: "<text>"`. Loses the "this
+      field is conditional" framing already used elsewhere.
+blocking: yes
+owner: cyberash
+default_if_unresolved: a
+---
+```
+
+```yaml
+---
+id: sdd-cli:OQ-014
+type: Open-Q
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+question: |
+  Should `sdd ready` rules respect a per-ID `applicability` field
+  (skip an ID for partition X when its applicability excludes X),
+  or evaluate every rule uniformly across all configured partitions
+  in v0.3.0?
+options:
+  - id: a
+    label: uniform_evaluation
+    consequence: |
+      v0.3.0 evaluates every rule uniformly. An ID whose
+      `applicability` excludes a given partition still surfaces
+      violations in that partition. Simpler; matches issue §Out of
+      scope.
+  - id: b
+    label: applicability_aware
+    consequence: |
+      Skip an ID for a partition when applicability excludes it.
+      Adds a per-rule filter; risks silent gaps if applicability
+      drifts from real behaviour.
+blocking: yes
+owner: cyberash
+default_if_unresolved: a
+---
+```
+
+```yaml
+---
+id: sdd-cli:OQ-015
+type: Open-Q
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+question: |
+  Which severity classes of `sdd lint` diagnostics surface as
+  `aggregated_lint` violations under `sdd ready`? The issue text
+  lists weasel-words, missing approval_record, unresolved
+  Open-Q.blocking=yes, stale freshness_token — all error-severity
+  in current lint rules. Should warn-severity diagnostics also
+  surface as merge blockers?
+options:
+  - id: a
+    label: error_severity_only
+    consequence: |
+      `aggregated_lint` includes every Diagnostic with `severity:
+      "error"` and drops `severity: "warn"`. `sdd lint` standalone
+      preserves the warn-only-no-fail semantics; `sdd ready`
+      blocks merge on every error. Default; matches issue text
+      ("notably: unresolved Open-Q.blocking=yes, weasel-words,
+      missing approval_record, stale freshness_token").
+  - id: b
+    label: include_warns_as_blockers
+    consequence: |
+      All diagnostics surface as ready blockers. Stricter merge
+      gate; risks blocking on advisory issues that lint itself
+      does not block.
+blocking: yes
+owner: cyberash
+default_if_unresolved: a
+---
+```
+
+```yaml
+---
+id: sdd-cli:OQ-016
+type: Open-Q
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+question: |
+  When a `@covers` marker tail contains a `key=value` token whose
+  key is NOT in CST-007's v0.3.0 whitelist (currently only
+  `compatibility_action`), what does the scanner do?
+options:
+  - id: a
+    label: silently_ignore
+    consequence: |
+      Drop the unknown key/value pair from the parsed marker tail;
+      keep the marker. Forward-compatible for future v0.x keys —
+      older specs/tests can experimentally adopt new keys ahead
+      of the next sdd-cli version without breaking. v0.3.0
+      default.
+  - id: b
+    label: warn_via_aggregated_lint
+    consequence: |
+      Emit an aggregated_lint diagnostic on the marker line but
+      do not fail the gate. Surfaces typos to operators while
+      preserving forward-compat. Slightly more code.
+  - id: c
+    label: reject_as_evaluate_failure
+    consequence: |
+      Exit 2 evaluate-failure. Strictest; catches typos
+      immediately; breaks adopter repos that experimentally adopt
+      new keys.
+blocking: yes
+owner: cyberash
+default_if_unresolved: a
+---
+```
+
+```yaml
+---
+id: sdd-cli:OQ-017
+type: Open-Q
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+question: |
+  When a `@covers` line contains text that *almost* matches the
+  marker grammar but fails the lowercase-only partition charset
+  (e.g. `@covers bridge:Commands:CON-004` — uppercase in a partition
+  segment), what does sdd-cli do?
+options:
+  - id: a
+    label: silently_skip
+    consequence: |
+      Scanner does not emit a marker for the offending substring;
+      the left-to-right regex engine recovers at the next valid
+      partition-shaped token. Matches v0.2.0 behaviour bit-for-bit;
+      no advisory output. Default for v0.3.0 — adopters who already
+      relied on this in v0.2.0 see zero change.
+  - id: b
+    label: warn_via_aggregated_lint
+    consequence: |
+      Surface a near-miss diagnostic on the offending line at
+      severity=advisory under the `aggregated_lint` envelope. Helps
+      adopters catch typos without breaking the gate. Modest extra
+      code in MarkerParser + LintReport; requires a second-pass
+      scanner that recognises near-miss-shaped tokens.
+  - id: c
+    label: reject_as_evaluate_failure
+    consequence: |
+      Exit 2 evaluate-failure on first near-miss. Strictest; risks
+      breaking adopter repos that legitimately have non-marker
+      `@covers`-shaped text in comments or string literals.
+blocking: no
+owner: cyberash
+default_if_unresolved: a
 ---
 ```
 

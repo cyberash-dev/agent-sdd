@@ -60,6 +60,7 @@ test("CST-002: tsconfig + package.json reflect TypeScript NodeNext / ES2022 / de
 
 test("CST-004: yaml@^2 is the only YAML parser, no js-yaml", () => {
   // @covers sdd-cli:CST-004
+  // @covers sdd-cli:EXT-002
   const pkg = readJson<PackageJson>("package.json");
 
   const yamlRange = pkg.dependencies?.yaml;
@@ -74,4 +75,24 @@ test("CST-005: schema/sdd.config.schema.json mechanism enum is exactly [\"git_tr
   const schema = readJson<ConfigSchema>("schema/sdd.config.schema.json");
 
   assert.deepEqual(schema.properties?.mechanism?.enum, ["git_tree_hash_v1"]);
+});
+
+test("CST-006: no third-party glob library in runtime dependencies", () => {
+  // @covers sdd-cli:CST-006
+  // CST-006 mandates a hand-rolled glob expander (`*`, `?`, `**`, literal
+  // segments only). The runtime dep tree must stay {yaml}. This test pins
+  // the dep set so a future PR cannot silently add a glob library and
+  // widen the supply-chain footprint.
+  const pkg = readJson<PackageJson>("package.json");
+  const runtimeDeps = Object.keys(pkg.dependencies ?? {}).sort();
+
+  assert.deepEqual(
+    runtimeDeps,
+    ["yaml"],
+    `unexpected runtime dependency set: ${runtimeDeps.join(", ")}`,
+  );
+  for (const name of ["minimatch", "micromatch", "fast-glob", "glob", "globby", "picomatch"]) {
+    assert.equal(pkg.dependencies?.[name], undefined, `${name} must not be a runtime dependency (CST-006)`);
+    assert.equal(pkg.devDependencies?.[name], undefined, `${name} must not be a dev dependency (CST-006 — hand-rolled glob only)`);
+  }
 });

@@ -12,6 +12,9 @@ import { ChildProcessCheckGit } from "./features/check/adapters/outbound/ChildPr
 import { NodeCheckFileReader } from "./features/check/adapters/outbound/NodeCheckFileReader.js";
 import { CliLintHandler } from "./features/lint/adapters/inbound/CliLintHandler.js";
 import { NodeLintFileReader } from "./features/lint/adapters/outbound/NodeLintFileReader.js";
+import { CliReadyHandler } from "./features/ready/adapters/inbound/CliReadyHandler.js";
+import { ChildProcessReadyGit } from "./features/ready/adapters/outbound/ChildProcessReadyGit.js";
+import { NodeReadyFileSystem } from "./features/ready/adapters/outbound/NodeReadyFileSystem.js";
 import { CliRefreshHandler } from "./features/refresh/adapters/inbound/CliRefreshHandler.js";
 import { ChildProcessRefreshGit } from "./features/refresh/adapters/outbound/ChildProcessRefreshGit.js";
 import { NodeRefreshFileReader } from "./features/refresh/adapters/outbound/NodeRefreshFileReader.js";
@@ -21,13 +24,14 @@ import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildPr
 import { NodeTokenConfigReader } from "./features/token/adapters/outbound/NodeTokenConfigReader.js";
 import type { CommandResult, OutputFormat } from "./shared/domain/CliOutput.js";
 
-type Subcommand = "token" | "check" | "refresh" | "lint" | "approve";
+type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready";
 
 interface ParsedArgv {
   mode: "command" | "help" | "version" | "error";
   subcommand?: Subcommand;
   format?: OutputFormat;
   approve?: ApproveArgs;
+  ready?: ReadyArgs;
   message?: string;
 }
 
@@ -41,6 +45,10 @@ interface ApproveArgs {
   reviewedTestOracle?: string;
 }
 
+interface ReadyArgs {
+  partition?: string;
+}
+
 const TOP_LEVEL_HELP = `sdd
 
 Usage:
@@ -52,6 +60,7 @@ Usage:
               --owner-role <role> --change-request <url>
               [--scope <scope>] [--target-status approved|deprecated|removed]
               [--reviewed-test-oracle <ref>] [--format=json|human]
+  sdd ready   [--format=json|human] [--partition <name>]
   sdd --help
   sdd --version`;
 
@@ -61,6 +70,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   refresh: "Usage: sdd refresh [--format=json|human|yaml]",
   lint: "Usage: sdd lint [--format=json|human]",
   approve: "Usage: sdd approve --id <id-or-glob> --approver <human-id> --owner-role <role> --change-request <url> [--scope <scope>] [--target-status approved|deprecated|removed] [--reviewed-test-oracle <ref>] [--format=json|human]",
+  ready: "Usage: sdd ready [--format=json|human] [--partition <name>]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -105,6 +115,11 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
     const command = new CliApproveHandler({ clock: new SystemApproveClock(), config: files, files });
     return command.execute(cwd, req.value, parsed.format === "json" ? "json" : "human");
   }
+  if (parsed.subcommand === "ready") {
+    const fs = new NodeReadyFileSystem();
+    const command = new CliReadyHandler({ config: fs, files: fs, git: new ChildProcessReadyGit() });
+    return command.execute(cwd, parsed.format === "json" ? "json" : "human", parsed.ready?.partition);
+  }
   const refreshFiles = new NodeRefreshFileReader();
   const refreshCommand = new CliRefreshHandler({
     clock: new SystemRefreshClock(),
@@ -127,6 +142,9 @@ function parseArgv(argv: readonly string[]): ParsedArgv {
   if (subcommand === "approve") {
     return parseApproveArgv(rest);
   }
+  if (subcommand === "ready") {
+    return parseReadyArgv(rest);
+  }
   const defaultFormat = subcommand === "refresh" ? "yaml" : "human";
   let format: OutputFormat = defaultFormat;
   for (const arg of rest) {
@@ -140,6 +158,33 @@ function parseArgv(argv: readonly string[]): ParsedArgv {
     format = value;
   }
   return { mode: "command", subcommand, format };
+}
+
+function parseReadyArgv(args: readonly string[]): ParsedArgv {
+  const ready: ReadyArgs = {};
+  let format: OutputFormat = "human";
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg.startsWith("--format=")) {
+      const value = arg.slice("--format=".length);
+      if (!isFormat(value) || value === "yaml") {
+        return { mode: "error", message: `invalid format: ${value}` };
+      }
+      format = value;
+      continue;
+    }
+    if (arg === "--partition") {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --partition" };
+      }
+      ready.partition = next;
+      i++;
+      continue;
+    }
+    return { mode: "error", message: `unknown flag: ${arg}` };
+  }
+  return { mode: "command", subcommand: "ready", format, ready };
 }
 
 function parseApproveArgv(args: readonly string[]): ParsedArgv {
@@ -213,7 +258,7 @@ function packageVersion(): string {
 }
 
 function isSubcommand(value: string | undefined): value is Subcommand {
-  return value === "token" || value === "check" || value === "refresh" || value === "lint" || value === "approve";
+  return value === "token" || value === "check" || value === "refresh" || value === "lint" || value === "approve" || value === "ready";
 }
 
 function isFormat(value: string): value is OutputFormat {

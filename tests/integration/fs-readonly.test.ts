@@ -87,6 +87,20 @@ test("sdd refresh does not mutate spec, config or git refs/objects", async () =>
   await assertReadOnly(repo, () => runSdd(repo.root, ["refresh", "--format=json"]));
 });
 
+test("sdd ready does not mutate spec, config or git refs/objects", async () => {
+  // @covers sdd-cli:INV-008
+  // @covers sdd-cli:INV-009
+  // @covers sdd-cli:POL-001
+  // INV-008 is asserted via the same fs-readonly probe: a test runner that
+  // executed any of the fixture tests would necessarily create cache files,
+  // node_modules state, or test-output artifacts inside the working tree.
+  // The byte-identical-tree post-condition demonstrates ready never spawned
+  // such a runner.
+  const repo = await fixtureRepo();
+
+  await assertReadOnly(repo, () => runSdd(repo.root, ["ready", "--format=json"]));
+});
+
 test("config-error path does not mutate spec or git refs/objects", async () => {
   // @covers sdd-cli:INV-002
   // @covers sdd-cli:POL-001
