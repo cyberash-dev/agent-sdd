@@ -109,9 +109,11 @@ node dist/cli.js ready           # gate-3; should exit 0 in CI
 
 `.sdd/config.json` is already set up to point at `spec/spec.md` with
 `baseline_id: sdd-cli:BL-001`, `discovery_scope` covering `src`,
-`tests`, `schema`, build files, `spec/spec.md`, `.sdd/config.json`,
-and a `partitions.sdd-cli` entry that scopes `@covers` marker scanning
-to `tests/**/*.test.ts`.
+`tests`, `schema`, and build files. `spec/spec.md` and
+`.sdd/config.json` are intentionally outside the repo's own token scope
+because the baseline token is stored inside `spec/spec.md`. A
+`partitions.sdd-cli` entry scopes `@covers` marker scanning to
+`tests/**/*.test.ts`.
 
 ---
 

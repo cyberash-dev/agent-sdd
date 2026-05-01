@@ -7,9 +7,7 @@
     "tests",
     "schema",
     "package.json",
-    "tsconfig.json",
-    "spec/spec.md",
-    ".sdd/config.json"
+    "tsconfig.json"
   ],
   "footprint": {
     "binding_id_prefix": "IMP-",

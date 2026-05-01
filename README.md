@@ -122,8 +122,7 @@ example:
     "src",
     "tests",
     "package.json",
-    "tsconfig.json",
-    "spec/spec.md"
+    "tsconfig.json"
   ],
   "mechanism": "git_tree_hash_v1"
 }

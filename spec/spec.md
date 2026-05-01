@@ -17,13 +17,9 @@
 > them cannot self-approve; promotion to `approved` requires a separate
 > human-or-non-agent identity via `sdd approve` (see `DLT-001` and
 > `~/Projects/pipeline-state-mcp/spec/APPROVAL.md` for the workflow).
-> The v0.2.0 source tree (added ~20 files under
-> `src/features/{lint,approve}/`) is **not** yet reflected in `BL-001`'s
-> `freshness_token`; `sdd refresh` is the next step.
->
-> `BL-001` stays proposed until the first implementation PR records a
-> real baseline token; non-blocking Open-Q blocks stay proposed until
-> resolved.
+> `BL-001` records the current implementation/test/schema baseline.
+> It stays `proposed` until a non-agent owner explicitly approves the
+> baseline record.
 
 ---
 
@@ -108,28 +104,22 @@ discovery_scope:
   - schema
   - package.json
   - tsconfig.json
-  - spec/spec.md
-  - .sdd/config.json
 coverage_evidence:
-  - kind: planned_layout
-    reference: PLAN.md
+  - kind: git_tree_hash_v1
+    reference: 192f96a8a997917121222616df9f4fb56f720caf
     note: |
-      Greenfield repo. Until first commit there is no as-is to survey.
-      Layout in PLAN.md §Architecture is the planned source-of-truth.
-freshness_token:
-  not_applicable: empty_repo_pre_bootstrap
-  reason: |
-    Repo is not yet initialised. Token MUST be computed by the first
-    impl PR (verification step 7 of PLAN.md) and recorded here, after
-    which BL-001 transitions proposed → approved with an
-    approval_record from a non-agent identity.
-baseline_commit_sha:
-  not_applicable: empty_repo_pre_bootstrap
-  reason: same as freshness_token
+      Token covers implementation, tests, schema, and build metadata.
+      spec/spec.md and .sdd/config.json are intentionally outside this
+      repo's own Discovery scope because BL-001 stores the token inside
+      spec/spec.md; including that file would make the token
+      self-referential.
+freshness_token: 7a7cfd2500425e12f325225a52143a18fd7b0376d9a06403114389621cf2dcfb
+baseline_commit_sha: 192f96a8a997917121222616df9f4fb56f720caf
 mechanism: git_tree_hash_v1
 notes: |
-  Greenfield. Brownfield baseline carries no preserved as-is behavior;
-  there are no Delta or Migration entries in §14, §13.
+  Brownfield baseline carries no preserved as-is behavior by itself.
+  BL-001 lifecycle remains proposed until a non-agent owner records an
+  approval_record.
 ---
 ```
 
