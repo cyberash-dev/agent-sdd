@@ -8,8 +8,13 @@ import {
 } from "../../../shared/domain/LintReport.js";
 import {
   approvalRecordRules,
+  assumptionDowngradeApprovalRule,
+  baselineVersionRequiredRule,
+  deprecatedFieldsRequiredRule,
   fieldTypeRules,
+  generatedArtifactSurfaceRefRule,
   lifecycleStatusRules,
+  partitionDefaultPolicySetRule,
   REQUIRED_PARTITION_SECTIONS,
   sectionViolations,
   testObligationRules,
@@ -190,7 +195,7 @@ export async function runReady(cwd: string, input: ReadyInput, ports: RunReadyPo
   // (matches CTR-015's "partitions[*].spec_paths" precedence over
   // lint.spec_files).
   const lintSpecPaths = uniqueSpecPaths(evaluatedPartitions, config);
-  const lintReport = await aggregatedLintReport(cwd, ports.files, lintSpecPaths);
+  const lintReport = await aggregatedLintReport(cwd, ports.files, lintSpecPaths, config.lint.approverBlocklist);
   violations.push(...aggregatedLintViolations(lintReport.diagnostics));
 
   // 6. Aggregated check (only when git is available). Skipped silently if
@@ -215,6 +220,7 @@ async function aggregatedLintReport(
   cwd: string,
   files: ReadyFileReader,
   specPaths: readonly string[],
+  approverBlocklist: readonly string[],
 ): Promise<LintReport> {
   let report = emptyReport();
   if (specPaths.length === 0) return report;
@@ -225,12 +231,12 @@ async function aggregatedLintReport(
     return report;
   }
   for (const entry of entries) {
-    report = lintFileInto(report, entry);
+    report = lintFileInto(report, entry, approverBlocklist);
   }
   return report;
 }
 
-function lintFileInto(report: LintReport, entry: SpecFileEntry): LintReport {
+function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklist: readonly string[]): LintReport {
   let next = report;
   if (looksLikePartitionFile(entry.content)) {
     for (const v of sectionViolations(entry.content)) {
@@ -259,6 +265,11 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry): LintReport {
       ...approvalRecordRules(rec),
       ...testObligationRules(rec),
       ...fieldTypeRules(rec),
+      ...baselineVersionRequiredRule(rec),
+      ...deprecatedFieldsRequiredRule(rec),
+      ...assumptionDowngradeApprovalRule(rec, approverBlocklist),
+      ...partitionDefaultPolicySetRule(rec),
+      ...generatedArtifactSurfaceRefRule(rec),
     ]) {
       next = appendDiagnostic(next, d);
     }

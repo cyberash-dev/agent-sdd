@@ -1889,6 +1889,184 @@ test_obligation:
 ---
 ```
 
+### 6.10 `sdd lint` — cheap requiredness rules (P1)
+
+```yaml
+---
+id: sdd-cli:BEH-029
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags Delta and Migration records missing baseline_version (ENF-003)
+given: |
+  - a spec record with template ∈ {Delta, Migration}
+  - parsed.baseline_version is absent or empty
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1 (error)
+  - diagnostic { rule. "sdd:baseline-version-required", id, file, line }
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text; no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A fixture Delta without baseline_version triggers exactly one
+    sdd:baseline-version-required diagnostic; with baseline_version present,
+    none fire.
+  test_template: integration
+  boundary_classes: [Delta missing baseline_version, Migration missing baseline_version, both present]
+  failure_scenarios: [silent acceptance, false positive on non-Delta/Migration]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-030
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags deprecated records missing sunset_version or replacement_id (ENF-009)
+given: |
+  - a spec record with lifecycle.status == "deprecated"
+  - parsed.sunset_version OR parsed.replacement_id is missing
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1 (error)
+  - one or two diagnostics with rule sdd:deprecated-fields-required (one per missing field)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A deprecated record without sunset_version OR without replacement_id fires
+    the rule. A deprecated record with both fields fires nothing.
+  test_template: integration
+  boundary_classes: [missing sunset_version, missing replacement_id, both missing, both present]
+  failure_scenarios: [false positive on non-deprecated records]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-031
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags ASSUMPTION downgrade-to-advisory without human approval (ENF-010)
+given: |
+  - a spec record with template == "ASSUMPTION" AND parsed.blocking == "advisory"
+  - either approval_record is absent, or approver_identity is in the agent blocklist
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1 (error)
+  - diagnostic with rule sdd:assumption-downgrade-approval
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+notes: |
+  OQ-018 tracks the trigger predicate. The implementation matches the literal
+  `blocking == "advisory"` per upstream Plan 2 / methodology canonical. The
+  current sdd-cli spec uses `blocking: yes|no`, which is why P1.3 is vacuously
+  PASSing on spec.md today.
+test_obligation:
+  predicate: |
+    A blocking=advisory ASSUMPTION without approval_record fires the rule.
+    With approval_record by a human approver, none fire. With approval_record
+    by an agent identity (claude, codex, bot:*), the rule fires.
+  test_template: integration
+  boundary_classes:
+    - blocking=advisory + no approval_record
+    - blocking=advisory + agent approver
+    - blocking=advisory + human approver
+    - blocking=yes (rule does not fire)
+  failure_scenarios: [self-approval slips through]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-032
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags Partition records missing default_policy_set (ENF-011)
+given: |
+  - a spec record with template == "Partition"
+  - parsed.default_policy_set is absent or not an array
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1 (error)
+  - diagnostic with rule sdd:partition-default-policy-set
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A Partition without default_policy_set fires; one with default_policy_set as
+    an empty array fires nothing.
+  test_template: integration
+  boundary_classes: [missing field, present empty array, present non-empty]
+  failure_scenarios: [false positive on non-Partition templates]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-033
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags GeneratedArtifact records published as Surface but lacking surface_ref (ENF-012)
+given: |
+  - a spec record with template == "GeneratedArtifact"
+  - parsed.published_surface == "yes"
+  - parsed.surface_ref is absent or empty
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1 (error)
+  - diagnostic with rule sdd:generated-artifact-surface-ref
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A GeneratedArtifact with published_surface=yes and no surface_ref fires;
+    with surface_ref present, none fire; with published_surface=no, the rule
+    does not fire regardless.
+  test_template: integration
+  boundary_classes:
+    - "published_surface=yes + missing surface_ref"
+    - "published_surface=yes + surface_ref present"
+    - "published_surface=no"
+  failure_scenarios: [silent acceptance]
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -2904,6 +3082,12 @@ schema:
       - sdd:type-migration-mode
       - sdd:type-migration-runtime-state
       - sdd:type-surface-boundary-type
+      # P1 — cheap requiredness gaps (ENF-003/009/010/011/012)
+      - sdd:baseline-version-required
+      - sdd:deprecated-fields-required
+      - sdd:assumption-downgrade-approval
+      - sdd:partition-default-policy-set
+      - sdd:generated-artifact-surface-ref
     ready:
       - unapproved
       - uncovered
@@ -5400,6 +5584,34 @@ verification_method: tests/integration/doctor-rule-version.test.ts
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:IMP-026
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: P1 cheap-requiredness lint rules
+target_ids:
+  - sdd-cli:BEH-029
+  - sdd-cli:BEH-030
+  - sdd-cli:BEH-031
+  - sdd-cli:BEH-032
+  - sdd-cli:BEH-033
+binding:
+  shared_domain:
+    - src/shared/domain/LintRules.ts   # baselineVersionRequiredRule, deprecatedFieldsRequiredRule, assumptionDowngradeApprovalRule, partitionDefaultPolicySetRule, generatedArtifactSurfaceRefRule
+    - src/shared/domain/AgentBlocklist.ts   # shared with approve slice; consulted by ENF-010
+  feature_slice:
+    root: src/features/lint
+    application:
+      - src/features/lint/application/RunLint.ts
+authority: code_annotation
+verification_method: |
+  tests/integration/p1-cheap-requiredness.test.ts (one fixture pair per rule)
+---
+```
+
 ---
 
 ## 17. Open questions
@@ -5931,6 +6143,49 @@ options:
       Exit 2 evaluate-failure on first near-miss. Strictest; risks
       breaking adopter repos that legitimately have non-marker
       `@covers`-shaped text in comments or string literals.
+blocking: no
+owner: cyberash
+default_if_unresolved: a
+---
+```
+
+```yaml
+---
+id: sdd-cli:OQ-018
+type: Open-Q
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+question: |
+  ENF-010 (sdd:assumption-downgrade-approval) needs a precise trigger
+  predicate. The upstream Plan 2 / methodology canonical writes the trigger
+  as `parsed.blocking == "advisory"`. The current sdd-cli spec uses
+  `blocking: yes|no` — there is no `advisory` value in use. Possibilities:
+
+    a) the rule fires only on `blocking: advisory` (the Plan 2 literal),
+       and sdd-cli's existing spec is vacuously compliant (no records fire).
+       Future ASSUMPTIONs that downgrade themselves use `blocking: advisory`.
+    b) `blocking: no` itself is the downgrade signal — every existing
+       ASSUMPTION with `blocking: no` would need an approval_record by a
+       human approver, materially changing the discipline of the spec.
+options:
+  - id: a
+    label: literal_advisory_trigger
+    consequence: |
+      Implementation matches the Plan 2 literal. No spec churn for sdd-cli
+      until a downgrade actually happens. Mismatch with the prose of SDD §7.5
+      that talks about downgrading `blocking → advisory`.
+  - id: b
+    label: blocking_no_trigger
+    consequence: |
+      Every existing `blocking: no` ASSUMPTION now requires an approval_record
+      by a human approver. Captures the SDD §7.5 intent more directly but
+      adds spec-fix workload on every consumer adopting v0.4.x.
+  - id: c
+    label: both_trigger_with_severity_split
+    consequence: |
+      `blocking: advisory` triggers as `error`, `blocking: no` triggers as
+      `warn`. Compromise. Adds a new severity dimension to ENF-010.
 blocking: no
 owner: cyberash
 default_if_unresolved: a

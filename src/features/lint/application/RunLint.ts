@@ -4,8 +4,13 @@ export type { Diagnostic, LintReport };
 import { lintRecordsFromMarkdown } from "../domain/SpecParser.js";
 import {
   approvalRecordRules,
+  assumptionDowngradeApprovalRule,
+  baselineVersionRequiredRule,
+  deprecatedFieldsRequiredRule,
   fieldTypeRules,
+  generatedArtifactSurfaceRefRule,
   lifecycleStatusRules,
+  partitionDefaultPolicySetRule,
   REQUIRED_PARTITION_SECTIONS,
   sectionViolations,
   testObligationRules,
@@ -24,12 +29,12 @@ export async function runLint(cwd: string, ports: RunLintPorts): Promise<LintRep
   const entries = await ports.files.resolveSpecFiles(cwd, config.lint.specFiles);
   let report = emptyReport();
   for (const entry of entries) {
-    report = lintFileInto(report, entry);
+    report = lintFileInto(report, entry, config.lint.approverBlocklist);
   }
   return report;
 }
 
-function lintFileInto(report: LintReport, entry: SpecFileEntry): LintReport {
+function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklist: readonly string[]): LintReport {
   let next = report;
 
   // §2 — section presence (only for files that look like a partition spec
@@ -68,6 +73,12 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry): LintReport {
       ...approvalRecordRules(rec),
       ...testObligationRules(rec),
       ...fieldTypeRules(rec),
+      // P1 (ENF-003/009/010/011/012)
+      ...baselineVersionRequiredRule(rec),
+      ...deprecatedFieldsRequiredRule(rec),
+      ...assumptionDowngradeApprovalRule(rec, approverBlocklist),
+      ...partitionDefaultPolicySetRule(rec),
+      ...generatedArtifactSurfaceRefRule(rec),
     ]) {
       next = appendDiagnostic(next, d);
     }

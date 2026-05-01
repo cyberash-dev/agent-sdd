@@ -1,3 +1,5 @@
+import { isBlockedApprover } from "../../../shared/domain/AgentBlocklist.js";
+
 export type TargetStatus = "approved" | "deprecated" | "removed";
 
 export const VALID_TARGET_STATUS: ReadonlySet<TargetStatus> = new Set<TargetStatus>([
@@ -16,18 +18,10 @@ export const VALID_OWNER_ROLES: ReadonlySet<string> = new Set([
 ]);
 
 // Built-in agent identities that are forbidden as approvers per SDD §7.5.
+// Re-exported from src/shared/domain/AgentBlocklist.ts so both the approve
+// slice and the lint slice (P1.3 / ENF-010) can consult the same list.
 // `.sdd/config.json#lint.approver_blocklist` extends this set.
-export const BUILTIN_AGENT_BLOCKLIST: ReadonlySet<string> = new Set([
-  "agent",
-  "claude",
-  "claude-code",
-  "code-gen-agent",
-  "codex",
-  "pipeline-driver",
-  "spec-author-bot",
-  "spec-lint",
-  "sdd-cli",
-]);
+export { BUILTIN_AGENT_BLOCKLIST } from "../../../shared/domain/AgentBlocklist.js";
 
 export interface ApproveRequest {
   id: string;                        // exact ID or glob with `*`
@@ -45,9 +39,7 @@ export type ApproveRefusal =
   | { kind: "no-id-match"; id: string };
 
 export function classifyRefusal(req: ApproveRequest, extraBlocklist: readonly string[]): ApproveRefusal | null {
-  const lower = req.approver.toLowerCase();
-  if (BUILTIN_AGENT_BLOCKLIST.has(lower) || req.approver.startsWith("bot:") ||
-      extraBlocklist.map((s) => s.toLowerCase()).includes(lower)) {
+  if (isBlockedApprover(req.approver, extraBlocklist)) {
     return { kind: "agent-approver", approver: req.approver };
   }
   if (!VALID_OWNER_ROLES.has(req.ownerRole)) {
