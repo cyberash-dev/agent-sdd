@@ -5,10 +5,10 @@ import type { ReadyCommand } from "../../ports/inbound/ReadyCommand.js";
 export class CliReadyHandler implements ReadyCommand {
   constructor(private readonly ports: RunReadyPorts) {}
 
-  async execute(cwd: string, format: Exclude<OutputFormat, "yaml">, partition?: string): Promise<CommandResult> {
+  async execute(cwd: string, format: Exclude<OutputFormat, "yaml">, partition?: string, against?: string): Promise<CommandResult> {
     let envelope: ReadyEnvelope;
     try {
-      envelope = await runReady(cwd, { partitionFilter: partition }, this.ports);
+      envelope = await runReady(cwd, { partitionFilter: partition, against }, this.ports);
     } catch (error) {
       // Anything not converted into a ReadyError by RunReady itself is an
       // internal evaluate-failure (exit 2).

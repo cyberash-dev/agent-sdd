@@ -2297,6 +2297,60 @@ test_obligation:
 ---
 ```
 
+### 6.13 `sdd ready --against <ref>` — semver cascade (P2.3)
+
+```yaml
+---
+id: sdd-cli:BEH-040
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd ready --against detects Surface semver cascade violations (ENF-004A)
+given: |
+  - cwd is a git repository
+  - --against <ref> resolves to a parent commit, branch, or tag
+  - between <ref> and HEAD, at least one normative ID reachable from a
+    Surface has changed (predicate-bearing field OR content field)
+  - the Surface's declared version bump is below the cascade-required level
+when: |
+  user runs `sdd ready --against <ref>`
+then: |
+  - exits 1
+  - violation { kind: "surface_semver_cascade", id: <SUR-id>,
+                expected: "major" | "minor",
+                actual: "patch" | "minor",
+                remediation: <message naming the driving IDs> }
+  - the cascade pass runs only when --against is set; without it, ready
+    behaves exactly as in v0.3.x (no semver-cascade pass)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only diff over git history; no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+notes: |
+  v0.4.0 ships the cascade detector as a normal violation (exit 1 on
+  detection). The plan author originally suggested ramping severity from
+  warn → error; for sdd-cli we land it at error directly, since the
+  --against flag is opt-in and CI policies decide whether to gate on it.
+test_obligation:
+  predicate: |
+    With a fixture two-commit repo where commit B changes a Contract's
+    schema, ready --against A on B emits surface_semver_cascade for the
+    Surface that contains the Contract.
+  test_template: integration
+  boundary_classes:
+    - schema change (predicate_change → major required)
+    - notes change (content_change → minor required)
+    - no change (patch required, no violation)
+    - --against unset (no cascade pass at all)
+  failure_scenarios:
+    - cascade pass runs without --against
+    - silent acceptance of a major-required Surface bumped only minor
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -3348,6 +3402,8 @@ schema:
       - unknown_partition_covers
       - aggregated_lint
       - aggregated_check
+      # P2.3 — semver cascade (ENF-004A)
+      - surface_semver_cascade
 preconditions:
   not_applicable: contract_publishes_static_id_grammar
   reason: id grammar has no runtime preconditions
@@ -5910,6 +5966,34 @@ binding:
 authority: code_annotation
 verification_method: |
   tests/integration/p2-migration-consistency.test.ts (positive + negative per rule)
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-029
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: P2.3 semver cascade diff engine
+target_ids:
+  - sdd-cli:BEH-040
+binding:
+  feature_slice:
+    root: src/features/ready
+    application:
+      - src/features/ready/application/RunReady.ts   # semverCascadeViolations()
+    domain:
+      - src/features/ready/domain/SpecDiff.ts        # classifyDiff, requiredSurfaceBumps
+    outbound_ports:
+      - src/features/ready/ports/outbound/ReadyGitPort.ts   # readAtRef()
+authority: code_annotation
+verification_method: |
+  tests/unit/spec-diff.test.ts (classifier unit cases) + dogfood:
+  `node dist/cli.js ready --against HEAD~5` after a multi-commit run
+  surfaces the cascade violations that justify the SUR-007 major bump
+  scheduled in the Final task.
 ---
 ```
 

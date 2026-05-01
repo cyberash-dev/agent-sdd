@@ -66,6 +66,7 @@ interface ApproveArgs {
 
 interface ReadyArgs {
   partition?: string;
+  against?: string;
 }
 
 interface FinalizeArgs {
@@ -190,7 +191,12 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
   if (parsed.subcommand === "ready") {
     const fs = new NodeReadyFileSystem();
     const command = new CliReadyHandler({ config: fs, files: fs, git: new ChildProcessReadyGit() });
-    return command.execute(cwd, parsed.format === "json" ? "json" : "human", parsed.ready?.partition);
+    return command.execute(
+      cwd,
+      parsed.format === "json" ? "json" : "human",
+      parsed.ready?.partition,
+      parsed.ready?.against,
+    );
   }
   const refreshFiles = new NodeRefreshFileReader();
   const refreshCommand = new CliRefreshHandler({
@@ -260,6 +266,15 @@ function parseReadyArgv(args: readonly string[]): ParsedArgv {
         return { mode: "error", message: "missing value for --partition" };
       }
       ready.partition = next;
+      i++;
+      continue;
+    }
+    if (arg === "--against") {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --against" };
+      }
+      ready.against = next;
       i++;
       continue;
     }

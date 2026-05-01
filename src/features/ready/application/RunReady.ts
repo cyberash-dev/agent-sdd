@@ -28,6 +28,7 @@ import {
 } from "../../../shared/domain/LintRules.js";
 import { reachableBoundaryIds } from "../../../shared/domain/BoundaryReachability.js";
 import { lintRecordsFromMarkdown, type LintRecord } from "../../../shared/domain/SpecRecord.js";
+import { actualBump, bumpAtLeast, classifyDiff, requiredSurfaceBumps } from "../domain/SpecDiff.js";
 import { TOKEN_MECHANISM, token as computeToken } from "../../../shared/domain/Token.js";
 import {
   aggregatedCheckViolations,
@@ -214,8 +215,73 @@ export async function runReady(cwd: string, input: ReadyInput, ports: RunReadyPo
   }
   violations.push(...aggregatedCheckViolations(checkOutcome.outcome));
 
+  // 7. Semver cascade (P2.3, ENF-004A). Only when --against is set; classifies
+  //    diffs between current spec files and their counterparts at the
+  //    requested ref, computes required Surface bumps, and emits
+  //    surface_semver_cascade for any Surface whose declared version bump
+  //    is below the cascade-required level.
+  if (input.against !== undefined && ports.git !== undefined) {
+    const cascadeViolations = await semverCascadeViolations(
+      cwd,
+      input.against,
+      lintSpecPaths,
+      ports.files,
+      ports.git,
+    );
+    violations.push(...cascadeViolations);
+  }
+
   if (violations.length === 0) return emptyEnvelope();
   return { ok: false, error: null, violations };
+}
+
+async function semverCascadeViolations(
+  cwd: string,
+  ref: string,
+  specPaths: readonly string[],
+  files: ReadyFileReader,
+  git: ReadyGitPort,
+): Promise<ReadyViolation[]> {
+  if (!(await git.isGitRepo(cwd))) return [];
+  const repoRoot = await git.repoRoot(cwd);
+
+  let curr: SpecFileEntry[];
+  try {
+    curr = await files.resolveSpecFiles(cwd, specPaths);
+  } catch {
+    return [];
+  }
+
+  const currRecords: LintRecord[] = [];
+  for (const e of curr) currRecords.push(...lintRecordsFromMarkdown(e.path, e.content));
+
+  const prevRecords: LintRecord[] = [];
+  for (const e of curr) {
+    const prevContent = await git.readAtRef(repoRoot, ref, e.path);
+    if (prevContent === null) continue; // file new at HEAD — every record reads as additive content_change
+    prevRecords.push(...lintRecordsFromMarkdown(e.path, prevContent));
+  }
+
+  const diffs = classifyDiff(prevRecords, currRecords);
+  const bumps = requiredSurfaceBumps(prevRecords, currRecords, diffs);
+
+  const out: ReadyViolation[] = [];
+  for (const b of bumps) {
+    const actual = actualBump(b.prevDeclaredVersion, b.declaredVersion);
+    if (b.required === "patch") continue;
+    if (bumpAtLeast(actual, b.required)) continue;
+    const surfaceRec = currRecords.find((r) => r.id === b.surfaceId);
+    out.push({
+      kind: "surface_semver_cascade",
+      id: b.surfaceId,
+      file: surfaceRec?.file,
+      line: surfaceRec?.line,
+      expected: b.required,
+      actual: actual ?? "patch",
+      remediation: `Surface ${b.surfaceId} reachable change requires a ${b.required} bump (declared ${b.prevDeclaredVersion ?? "?"} → ${b.declaredVersion ?? "?"}). Driven by: ${b.drivenBy.map((d) => `${d.id} (${d.classification})`).slice(0, 4).join(", ")}${b.drivenBy.length > 4 ? "..." : ""}`,
+    });
+  }
+  return out;
 }
 
 function uniqueSpecPaths(evaluated: readonly Partition[], config: SddConfig): string[] {

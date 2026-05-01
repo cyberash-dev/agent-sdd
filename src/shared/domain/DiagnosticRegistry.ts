@@ -57,6 +57,8 @@ export const READY_VIOLATION_KINDS = [
   "unknown_partition_covers",
   "aggregated_lint",
   "aggregated_check",
+  // P2.3 — semver cascade (ENF-004A) shipped as severity:warn initially
+  "surface_semver_cascade",
 ] as const;
 
 export type ReadyViolationKindId = typeof READY_VIOLATION_KINDS[number];

@@ -58,6 +58,12 @@ export class ChildProcessReadyGit implements ReadyGitPort {
     }
     return nonEmptyLines(result.stdout.toString("utf8")).map((line) => porcelainPath(line)).sort();
   }
+
+  async readAtRef(repoRoot: string, ref: string, relativePath: string): Promise<string | null> {
+    const result = await runGit(repoRoot, ["show", `${ref}:${relativePath}`]);
+    if (result.code !== 0) return null;
+    return result.stdout.toString("utf8");
+  }
 }
 
 function runGit(cwd: string, args: readonly string[]): Promise<GitResult> {

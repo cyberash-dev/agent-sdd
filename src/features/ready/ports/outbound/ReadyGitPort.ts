@@ -7,4 +7,7 @@ export interface ReadyGitPort {
   treeBytes(repoRoot: string, scope: readonly string[]): Promise<Uint8Array>;
   treePaths(repoRoot: string, scope: readonly string[]): Promise<string[]>;
   dirtyPaths(repoRoot: string, scope: readonly string[]): Promise<string[]>;
+  /** Read a single file at a given ref (e.g. HEAD~5). Returns null if the
+   *  ref or file is missing. Used by P2.3 semver-cascade diff. */
+  readAtRef(repoRoot: string, ref: string, relativePath: string): Promise<string | null>;
 }
