@@ -22,18 +22,21 @@ content. The single exception is `sdd approve`, which atomically
 writes `lifecycle.status` + `approval_record` and refuses agent
 identities (SDD §7.5: self-approval is forbidden).
 
-> **Status**: v0.3.0, governed by `spec/spec.md`. The full normative
+> **Status**: v1.0.0, governed by `spec/spec.md`. The full normative
 > specification (Surfaces, Behaviors, Contracts, Invariants, Policies,
 > Constraints, External dependencies, Migrations, Deltas,
 > Implementation bindings) lives there. This README is the
 > consumer-facing manual — for spec details, read `spec/spec.md`.
 > Release notes: [CHANGELOG.md](CHANGELOG.md).
 >
-> **What's new in v0.3.0** — `sdd ready` (the single gate-3 / `implementation-valid`
-> command), a `partitions` block in `.sdd/config.json` (CTR-015), and
-> multi-segment partition prefixes in normative IDs and `@covers` markers
-> (CST-007 widening: `<a>:<b>:<TYPE>-<NNN>`). Single-segment adopters
-> see byte-identical behaviour from v0.2.0.
+> **What's new in v1.0.0** — sync to SDD methodology Plan 2: two-step
+> approval (`sdd approve` → `.sdd/plans/<plan_id>.yaml` attestation,
+> then `sdd finalize` for the atomic flip with prospective graph
+> validation), `sdd report --pr-summary`, debt-budget mechanics on
+> `Partition` (`unmodeled_budget`), semver cascade in `sdd ready`
+> (Policy / Invariant(contractual) → referencing Surface).
+> Legacy direct-rewrite path survives one minor as
+> `sdd approve --inline` (deprecated; removed in v1.1.0).
 
 ---
 
@@ -78,12 +81,18 @@ every SDD-following repo configures it through a small JSON file
 
 ## Installation
 
-`@cyberash/sdd-cli` is currently consumed via local path or `npm pack`
-tarball — npm-registry publication is out of scope for v1.
+### Option 1 — npm registry (recommended)
 
-### Option 1 — local path
+```sh
+npm install --save-dev @cyberash/sdd-cli
+```
 
-In your consumer repository:
+After install, `sdd` is on `node_modules/.bin/sdd` and runnable via
+`npx sdd ...` or your preferred package script.
+
+### Option 2 — local path
+
+When developing `sdd-cli` itself alongside a consumer repo:
 
 ```sh
 npm install --save-dev "file:../sdd-cli"
@@ -93,9 +102,9 @@ npm install --save-dev "file:../sdd-cli"
 This is the recommended layout when both repos sit side by side, since
 edits in `sdd-cli/` are picked up immediately after `npm run build`.
 
-### Option 2 — `npm pack` tarball
+### Option 3 — `npm pack` tarball
 
-If you want a frozen artefact:
+For a frozen artefact without registry access:
 
 ```sh
 # inside ~/Projects/sdd-cli
@@ -103,11 +112,8 @@ npm run build
 npm pack                              # produces cyberash-sdd-cli-<version>.tgz
 
 # inside the consumer repo
-npm install --save-dev /path/to/cyberash-sdd-cli-0.1.0.tgz
+npm install --save-dev /path/to/cyberash-sdd-cli-1.0.0.tgz
 ```
-
-After install, `sdd` is on `node_modules/.bin/sdd` and runnable via
-`npx sdd ...` or your preferred package script.
 
 ---
 
@@ -879,6 +885,7 @@ are no longer out of scope.
 | `spec/spec.md`    | The normative specification — single source of truth.                          |
 | `README.md`       | Consumer manual (this file).                                                   |
 | `CHANGELOG.md`    | Release notes per version, mapped to spec IDs.                                 |
+| `RELEASING.md`    | How to cut a release and publish to npm.                                       |
 | `CLAUDE.md`       | Project-specific instructions for Claude Code agents.                          |
 | `AGENTS.md`       | Repo-rooted, agent-agnostic rules of the road for any AI coding agent.        |
 | `LICENSE`         | MIT.                                                                           |

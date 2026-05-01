@@ -1,7 +1,6 @@
 {
   "name": "@cyberash/sdd-cli",
   "version": "1.0.0",
-  "private": true,
   "description": "Spec-Driven Development helper CLI: freshness tokens, scope drift stubs, spec-lint, approval ceremony.",
   "keywords": [
     "spec-driven-development",
@@ -40,13 +39,18 @@
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/cli.js",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "node --import tsx --test tests/unit/*.test.ts",
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "tsc": "tsc --noEmit",
-    "lint:spec": "node dist/cli.js lint"
+    "lint:spec": "node dist/cli.js lint",
+    "prepublishOnly": "npm run tsc && npm test && npm run build"
   },
   "dependencies": {
     "yaml": "^2.7.0"
