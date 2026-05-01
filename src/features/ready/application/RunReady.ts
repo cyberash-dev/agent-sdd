@@ -242,16 +242,17 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry): LintReport {
       });
     }
   }
-  for (const w of weaselFindings(entry.content)) {
+  const records = lintRecordsFromMarkdown(entry.path, entry.content);
+  for (const w of weaselFindings(entry.content, records)) {
+    const where = w.field !== undefined ? `normative field ${w.field}` : `normative section "${w.section}"`;
     next = appendDiagnostic(next, {
       severity: "error",
       rule: "sdd:weasel-word",
       file: entry.path,
       line: w.line,
-      message: `Banned phrase "${w.word}" in normative section "${w.section}" (SDD §5.1).`,
+      message: `Banned phrase "${w.word}" in ${where} (SDD §5.1).`,
     });
   }
-  const records = lintRecordsFromMarkdown(entry.path, entry.content);
   for (const rec of records) {
     for (const d of [
       ...lifecycleStatusRules(rec),

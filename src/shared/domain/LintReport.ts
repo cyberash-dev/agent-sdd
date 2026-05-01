@@ -1,10 +1,12 @@
 // Lint diagnostics shared between lint and ready slices.
 
+import type { LintDiagnosticId } from "./DiagnosticRegistry.js";
+
 export type DiagnosticSeverity = "error" | "warn";
 
 export interface Diagnostic {
   severity: DiagnosticSeverity;
-  rule: string;
+  rule: LintDiagnosticId;
   file: string;
   line?: number;
   message: string;

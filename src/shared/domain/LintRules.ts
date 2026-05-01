@@ -1,5 +1,11 @@
 import type { Diagnostic } from "./LintReport.js";
 import { NORMATIVE_TEMPLATES, VALID_LIFECYCLE_STATUS, type LintRecord } from "./SpecRecord.js";
+import { WEASEL_ABSOLUTE, WEASEL_MODAL_IN_NORMATIVE, WEASEL_WORDS as WEASEL_WORDS_SOT } from "./WeaselWords.js";
+
+// Diagnostic rule-IDs emitted below are members of CTR-016 / SUR-009 — see
+// src/shared/domain/DiagnosticRegistry.ts for the canonical list. INV-010
+// coverage test (tests/unit/diagnostic-registry-coverage.test.ts) asserts
+// every emitted literal is in the registry.
 
 // Pure rule functions. Each returns 0..N diagnostics for a single record.
 // No I/O. No globals. The caller wires Diagnostics together into a LintReport.
@@ -38,22 +44,10 @@ export const NORMATIVE_SECTIONS: ReadonlyArray<string> = [
   "15. Deltas",
 ];
 
-export const WEASEL_WORDS: ReadonlyArray<string> = [
-  "возможно",
-  "вероятно",
-  "обычно",
-  "as a rule",
-  "etc.",
-  "and so on",
-  "may be",
-  "might be",
-  "should usually",
-  "similar to",
-  "approximately",
-  "best-effort",
-  "best effort",
-  "informally",
-];
+// Re-exported from WeaselWords.ts for backward-compatibility with the lint
+// feature's domain shim. Two narrower exports are the new canonical names.
+export const WEASEL_WORDS: ReadonlyArray<string> = WEASEL_WORDS_SOT;
+export { WEASEL_ABSOLUTE, WEASEL_MODAL_IN_NORMATIVE };
 
 const VALID_EVIDENCE: ReadonlySet<string> = new Set(["public_api", "test_probe", "db_constraint", "operational_signal"]);
 const VALID_STABILITY: ReadonlySet<string> = new Set(["contractual", "internal"]);
@@ -313,17 +307,41 @@ function parseHeadings(markdown: string): string[] {
 
 // ---------------------------------------------------------------------------
 // Weasel-word scan (per file). Operates on raw markdown.
+//
+// Two passes (P0.5):
+//
+//  1. ABSOLUTE — words from WEASEL_ABSOLUTE trigger anywhere in a normative
+//     section (NORMATIVE_SECTIONS). Section-aware only; does not need to
+//     parse YAML records.
+//
+//  2. MODAL — words from WEASEL_MODAL_IN_NORMATIVE ("may be", "might be")
+//     are legitimate in `notes:`, `title:`, `test_obligation.predicate:` etc.
+//     They are weaselly only inside fields whose IS_NORMATIVE entry is
+//     `true`. Pass 2 needs the parsed LintRecord list to map each match line
+//     back to its owning record + top-level field. If `records` is omitted
+//     (legacy single-arg call form), Pass 2 is skipped — the function then
+//     behaves like the pre-P0.5 absolute-only scan.
 // ---------------------------------------------------------------------------
 
 export interface WeaselFinding {
   line: number;
   word: string;
   section: string;
+  /** Present only for modal-pass findings. Names the normative field where
+   *  the word was found, e.g. "Behavior.then". */
+  field?: string;
 }
 
-export function weaselFindings(markdown: string): WeaselFinding[] {
+import { isFieldNormative } from "./TemplateFieldMetadata.js";
+
+export function weaselFindings(
+  markdown: string,
+  records?: ReadonlyArray<LintRecord>,
+): WeaselFinding[] {
   const out: WeaselFinding[] = [];
   const lines = markdown.split(/\r?\n/);
+
+  // Pass 1: absolute weasels — section-aware only.
   let currentSection = "";
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -338,12 +356,86 @@ export function weaselFindings(markdown: string): WeaselFinding[] {
     if (/^-?\s*(id:|test_obligations:|to:|target_ids:|target_id:|source_open_q:)/.test(trimmed)) continue;
     if (/^to:[a-z\-]+:[a-z\-]+:/.test(trimmed)) continue;
     const lower = line.toLowerCase();
-    for (const w of WEASEL_WORDS) {
+    for (const w of WEASEL_ABSOLUTE) {
       if (lower.includes(w.toLowerCase())) {
         out.push({ line: i + 1, word: w, section: currentSection });
         break;
       }
     }
   }
+
+  // Pass 2: modal weasels — field-aware. Skipped when records is undefined.
+  if (records !== undefined && records.length > 0) {
+    currentSection = "";
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      const headingM = /^##\s+(.+?)\s*$/.exec(line);
+      if (headingM !== null) {
+        currentSection = headingM[1]!;
+        continue;
+      }
+      if (!NORMATIVE_SECTIONS.includes(currentSection)) continue;
+      const lower = line.toLowerCase();
+      let matched: string | null = null;
+      for (const w of WEASEL_MODAL_IN_NORMATIVE) {
+        if (lower.includes(w.toLowerCase())) {
+          matched = w;
+          break;
+        }
+      }
+      if (matched === null) continue;
+      const fieldInfo = findFieldAtLine(lines, records, i + 1);
+      if (fieldInfo === null) continue;
+      if (!isFieldNormative(fieldInfo.record.template, fieldInfo.field)) continue;
+      out.push({
+        line: i + 1,
+        word: matched,
+        section: currentSection,
+        field: `${fieldInfo.record.template}.${fieldInfo.field}`,
+      });
+    }
+  }
+
   return out;
+}
+
+/**
+ * Map a 1-based file line to the owning LintRecord + top-level YAML field.
+ *
+ * Top-level fields are unindented `<key>:` lines inside a YAML fence. The
+ * field that "owns" `line` is the most recent top-level key at or before
+ * `line`, bounded above by the closing ``` of the record's fence (or the
+ * next record's start).
+ */
+function findFieldAtLine(
+  lines: ReadonlyArray<string>,
+  records: ReadonlyArray<LintRecord>,
+  line: number,
+): { record: LintRecord; field: string } | null {
+  let owner: LintRecord | null = null;
+  for (const r of records) {
+    if (r.line <= line && (owner === null || r.line > owner.line)) owner = r;
+  }
+  if (owner === null) return null;
+
+  const ownerIdx = owner.line - 1;
+  let recordEndIdx = lines.length - 1;
+  for (let i = ownerIdx; i < lines.length; i++) {
+    if (i > ownerIdx && /^```\s*$/.test(lines[i]!)) {
+      recordEndIdx = i - 1;
+      break;
+    }
+  }
+  if (line - 1 > recordEndIdx) return null;
+
+  const topLevelRe = /^([a-z_][a-z0-9_]*)\s*:/i;
+  let currentField: string | null = null;
+  for (let i = ownerIdx; i <= recordEndIdx; i++) {
+    if (i > line - 1) break;
+    const m = topLevelRe.exec(lines[i]!);
+    if (m !== null) currentField = m[1]!;
+  }
+  if (currentField === null) return null;
+
+  return { record: owner, field: currentField };
 }

@@ -1,0 +1,21 @@
+{
+  "$schema_version": 1,
+  "absolute": [
+    "возможно",
+    "вероятно",
+    "обычно",
+    "as a rule",
+    "etc.",
+    "and so on",
+    "should usually",
+    "similar to",
+    "approximately",
+    "best-effort",
+    "best effort",
+    "informally"
+  ],
+  "modal_in_normative": [
+    "may be",
+    "might be"
+  ]
+}

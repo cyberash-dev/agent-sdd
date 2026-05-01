@@ -46,19 +46,22 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry): LintReport {
     }
   }
 
-  // §5.1 — weasel words in normative sections.
-  for (const w of weaselFindings(entry.content)) {
+  // ID-level rules + weasel scan share the parsed records (P0.5: weasel
+  // pass 2 needs them for field-aware modal-verb detection).
+  const records = lintRecordsFromMarkdown(entry.path, entry.content);
+
+  // §5.1 — weasel words in normative sections (Pass 1) + modal verbs in
+  // normative fields (Pass 2, P0.5).
+  for (const w of weaselFindings(entry.content, records)) {
+    const where = w.field !== undefined ? `normative field ${w.field}` : `normative section "${w.section}"`;
     next = appendDiagnostic(next, {
       severity: "error",
       rule: "sdd:weasel-word",
       file: entry.path,
       line: w.line,
-      message: `Banned phrase "${w.word}" in normative section "${w.section}" (SDD §5.1).`,
+      message: `Banned phrase "${w.word}" in ${where} (SDD §5.1).`,
     });
   }
-
-  // ID-level rules.
-  const records = lintRecordsFromMarkdown(entry.path, entry.content);
   for (const rec of records) {
     for (const d of [
       ...lifecycleStatusRules(rec),

@@ -335,6 +335,33 @@ notes: |
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:SUR-009
+type: Surface
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+name: sdd-cli/diagnostics
+version: "0.4.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-016
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.4.0 — promotes diagnostic identifiers (sdd lint rule names and
+  sdd ready violation kinds) from private string literals to a
+  published Surface with explicit semver. The strings consumers grep
+  for in CI logs and parse from `--format=json` output are the
+  external contract; CTR-016 enumerates the canonical list.
+  Append-only at minor: new lint rules and new ready violation kinds
+  may be added without bumping major. Renaming or removing a
+  diagnostic-ID is a major bump plus an alias_for entry retained for
+  ≥1 minor. Coverage is mechanically enforced by INV-010
+  (tests/unit/diagnostic-registry-coverage.test.ts).
+---
+```
+
 ---
 
 ## 6. Requirements
@@ -2435,6 +2462,90 @@ test_obligations:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CTR-016
+type: Contract
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd-cli/diagnostics — published diagnostic-ID grammar and members
+surface_ref: sdd-cli:SUR-009
+schema:
+  lint_rule_id_grammar: "^sdd:[a-z][a-z0-9-]*$"
+  ready_violation_kind_grammar: "^[a-z][a-z0-9_]*$"
+  members:
+    lint:
+      - sdd:section-presence
+      - sdd:section-order
+      - sdd:weasel-word
+      - sdd:lifecycle-status-present
+      - sdd:lifecycle-status-valid
+      - sdd:approval-record-required
+      - sdd:approval-record-forbidden
+      - sdd:test-obligation-required
+      - sdd:type-version-int
+      - sdd:type-invariant-evidence
+      - sdd:type-invariant-stability
+      - sdd:type-data-scope
+      - sdd:type-nfr-stage
+      - sdd:type-migration-direction
+      - sdd:type-migration-mode
+      - sdd:type-migration-runtime-state
+      - sdd:type-surface-boundary-type
+    ready:
+      - unapproved
+      - uncovered
+      - removed_no_compat_test
+      - removed_compat_action_mismatch
+      - surface_unapproved_ref
+      - orphan_covers
+      - unknown_partition_covers
+      - aggregated_lint
+      - aggregated_check
+preconditions:
+  not_applicable: contract_publishes_static_id_grammar
+  reason: id grammar has no runtime preconditions
+postconditions:
+  - members.lint and members.ready are append-only at minor on SUR-009
+  - renaming or removing a diagnostic-ID = major bump on SUR-009 + alias_for entry retained ≥1 minor
+external_identifiers:
+  - every diagnostic-ID listed under members.lint (these are the strings emitted as Diagnostic.rule and grepped in CI)
+  - every diagnostic-ID listed under members.ready (these are the strings emitted as ReadyViolation.kind)
+compatibility_rules:
+  - adding a new diagnostic-ID under members.* => minor bump on SUR-009
+  - renaming a diagnostic-ID requires an alias_for entry kept for ≥1 minor and a major bump on SUR-009
+  - removing a diagnostic-ID is a major bump on SUR-009
+error_taxonomy:
+  not_applicable: contract_describes_id_grammar_not_runtime_errors
+  reason: runtime errors are owned by the rule emitters (CTR-008 lint, CTR-013 ready)
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_id_grammar
+  reason: id grammar is content of the spec, not a runtime concurrency surface
+data_scope:
+  not_applicable: id_grammar_does_not_touch_persistent_state
+  reason: published-string contract has no data_at_rest
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Every string literal matching ^sdd:[a-z][a-z0-9-]*$ used as
+    Diagnostic.rule under src/, plus every distinct value of
+    ReadyViolation.kind, is present in members.lint or members.ready
+    respectively. Inverse: every member name is referenced ≥1 time by
+    a rule emitter under src/.
+  test_template: unit
+  boundary_classes:
+    - rogue diagnostic-ID added to product code without registry update
+    - registry member without a rule emitter
+  failure_scenarios:
+    - silent rename of a published diagnostic-ID
+    - new lint rule shipped without a registry entry
+---
+```
+
 ---
 
 ## 8. Invariants
@@ -2916,6 +3027,55 @@ test_obligation:
     - ready writes a marker into a test file
     - ready emits a stub into spec.md
     - ready creates any new file under <repo_root>
+---
+```
+
+```yaml
+---
+id: sdd-cli:INV-010
+type: Invariant
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: every published diagnostic-ID is a member of SUR-009
+always: |
+  For every string literal s used as the Diagnostic.rule field of a
+  lint diagnostic, OR as the ReadyViolation.kind field of a ready
+  violation, in product code under src/, s is listed in
+  CTR-016.schema.members.lint or CTR-016.schema.members.ready
+  respectively.
+scope:
+  - src/shared/domain/DiagnosticRegistry.ts
+  - src/shared/domain/LintRules.ts
+  - src/features/lint/**
+  - src/features/ready/**
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: invariant_is_static_over_source_tree
+  reason: this is a static-analysis property, not a runtime check
+negative_cases:
+  - new lint rule landed without DiagnosticRegistry update
+  - lint rule renamed in code while leaving the registry constant intact
+test_obligation:
+  predicate: |
+    A coverage test (tests/unit/diagnostic-registry-coverage.test.ts)
+    enumerates every string literal matching the grammars in CTR-016
+    across src/**/*.ts and asserts each ∈ DiagnosticRegistry.LINT_DIAGNOSTIC_IDS
+    or DiagnosticRegistry.READY_VIOLATION_KINDS. Inverse: every
+    constant in those tuples is referenced ≥1 time as a Diagnostic.rule
+    or ReadyViolation.kind under src/.
+  test_template: unit
+  boundary_classes:
+    - new lint rule added without registry update
+    - rule renamed in code but not in registry
+    - registry constant orphaned (no emitter)
+  failure_scenarios:
+    - rogue rule-ID slips into a Diagnostic.rule literal
+    - silent rename of a public diagnostic-ID without alias entry
 ---
 ```
 
@@ -4209,6 +4369,25 @@ binding:
     - src/cli.ts   # parseArgv extended; new subcommand union; new dispatchers
 authority: code_annotation
 verification_method: "tests/unit/argv.test.ts (Phase-3 follow-up: extend argv tests to cover the new flag matrix)"
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-021
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: DiagnosticRegistry — single source of truth for published diagnostic-IDs
+target_ids:
+  - sdd-cli:CTR-016
+  - sdd-cli:INV-010
+binding:
+  shared_domain:
+    - src/shared/domain/DiagnosticRegistry.ts
+authority: code_annotation
+verification_method: tests/unit/diagnostic-registry-coverage.test.ts
 ---
 ```
 
