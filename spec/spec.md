@@ -2067,6 +2067,153 @@ test_obligation:
 ---
 ```
 
+### 6.11 `sdd lint` — boundary requiredness (P2.1)
+
+```yaml
+---
+id: sdd-cli:BEH-034
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags boundary CTR/BEH lacking policy_refs (ENF-013)
+given: |
+  - a Contract or Behavior reachable from a Surface whose boundary_type ∈
+    {api, sdk, event_bus, cli, public_db, public_storage}
+  - parsed.policy_refs is empty AND parsed.policy_override.rationale is absent
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1
+  - diagnostic with rule sdd:boundary-policy-ref
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A boundary CTR with empty policy_refs fires the rule. With policy_refs set
+    or with policy_override.rationale, the rule is silent.
+  test_template: integration
+  boundary_classes:
+    - boundary CTR + empty policy_refs
+    - boundary CTR + policy_refs set
+    - boundary CTR + policy_override.rationale set
+    - non-boundary CTR (rule does not fire)
+  failure_scenarios: [false positive on non-boundary records]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-035
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags boundary CTR/BEH missing concurrency_model sub-fields (ENF-014)
+given: |
+  - a Contract or Behavior reachable from an external Surface
+  - parsed.concurrency_model is absent OR missing one of
+    {actor_concurrency, read_consistency, idempotency, time_source}
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1
+  - diagnostic with rule sdd:boundary-concurrency-model listing the missing fields
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A boundary CTR without concurrency_model fires; with concurrency_model
+    present and all four sub-fields set, the rule is silent.
+    `concurrency_model.not_applicable + reason` is also silent.
+  test_template: integration
+  boundary_classes:
+    - missing concurrency_model
+    - concurrency_model present, missing time_source
+    - concurrency_model present, all sub-fields
+    - concurrency_model.not_applicable + reason
+  failure_scenarios: [silent acceptance of partial concurrency_model]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-036
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags boundary CTR/BEH missing applicability (ENF-015)
+given: |
+  - a Contract or Behavior reachable from an external Surface
+  - parsed.applicability is absent
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1
+  - diagnostic with rule sdd:applicability-required
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A boundary record without applicability fires; with applicability set
+    (any axis combination, including invariant_to_all_axes: true), it is silent.
+  test_template: integration
+  boundary_classes:
+    - missing applicability
+    - applicability.invariant_to_all_axes: true
+    - applicability with feature_flag set
+  failure_scenarios: [false positive on non-boundary records]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-037
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags boundary CTR/BEH missing data_scope (ENF-016)
+given: |
+  - a Contract or Behavior reachable from an external Surface
+  - parsed.data_scope is absent
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1
+  - diagnostic with rule sdd:data-scope-required
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A boundary CTR with no data_scope fires; with data_scope set to a typed
+    value or {not_applicable, reason}, it is silent.
+  test_template: integration
+  boundary_classes:
+    - missing data_scope
+    - data_scope: all_data
+    - data_scope.not_applicable + reason
+  failure_scenarios: [silent acceptance]
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -2262,6 +2409,9 @@ compatibility_rules:
   - tightening a regex / minItems => major bump on SUR-002
 applicability:
   invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_config_shape
+  reason: config schema has no runtime concurrency dimension
 data_scope: all_data
 policy_refs:
   - sdd-cli:POL-001
@@ -2329,6 +2479,9 @@ compatibility_rules:
   - bumping format_version        => major bump on SUR-003
 applicability:
   invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_envelope_shape
+  reason: envelope shape has no runtime concurrency dimension
 data_scope: all_data
 policy_refs:
   - sdd-cli:POL-001
@@ -2390,6 +2543,9 @@ external_identifiers:
 compatibility_rules: same shape rules as CTR-004
 applicability:
   invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_envelope_shape
+  reason: envelope shape has no runtime concurrency dimension
 data_scope: all_data
 policy_refs:
   - sdd-cli:POL-001
@@ -2532,6 +2688,9 @@ compatibility_rules:
   - bumping the engines.node minimum          => major bump on SUR-005
 applicability:
   invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: package_metadata_is_build_time_state
+  reason: distribution surface has no runtime concurrency dimension
 data_scope:
   not_applicable: package_metadata_is_not_persistent_runtime_state
   reason: package.json is build-time metadata
@@ -3088,6 +3247,11 @@ schema:
       - sdd:assumption-downgrade-approval
       - sdd:partition-default-policy-set
       - sdd:generated-artifact-surface-ref
+      # P2.1 — boundary requiredness (ENF-013/014/015/016)
+      - sdd:boundary-policy-ref
+      - sdd:boundary-concurrency-model
+      - sdd:applicability-required
+      - sdd:data-scope-required
     ready:
       - unapproved
       - uncovered
@@ -5609,6 +5773,33 @@ binding:
 authority: code_annotation
 verification_method: |
   tests/integration/p1-cheap-requiredness.test.ts (one fixture pair per rule)
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-027
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: P2.1 boundary-requiredness lint rules + reachability helper
+target_ids:
+  - sdd-cli:BEH-034
+  - sdd-cli:BEH-035
+  - sdd-cli:BEH-036
+  - sdd-cli:BEH-037
+binding:
+  shared_domain:
+    - src/shared/domain/BoundaryReachability.ts   # reachableBoundaryIds()
+    - src/shared/domain/LintRules.ts   # boundaryPolicyRefRule, boundaryConcurrencyModelRule, applicabilityRequiredRule, dataScopeRequiredRule
+  feature_slice:
+    root: src/features/lint
+    application:
+      - src/features/lint/application/RunLint.ts
+authority: code_annotation
+verification_method: |
+  tests/integration/p2-boundary-requiredness.test.ts (positive + negative per rule)
 ---
 ```
 

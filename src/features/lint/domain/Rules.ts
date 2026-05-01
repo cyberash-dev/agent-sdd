@@ -1,9 +1,13 @@
 // Re-export shim — content lives in src/shared/domain/LintRules.ts.
 
 export {
+  applicabilityRequiredRule,
   approvalRecordRules,
   assumptionDowngradeApprovalRule,
   baselineVersionRequiredRule,
+  boundaryConcurrencyModelRule,
+  boundaryPolicyRefRule,
+  dataScopeRequiredRule,
   deprecatedFieldsRequiredRule,
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,

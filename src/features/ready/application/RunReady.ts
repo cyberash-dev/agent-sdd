@@ -7,9 +7,13 @@ import {
   type LintReport,
 } from "../../../shared/domain/LintReport.js";
 import {
+  applicabilityRequiredRule,
   approvalRecordRules,
   assumptionDowngradeApprovalRule,
   baselineVersionRequiredRule,
+  boundaryConcurrencyModelRule,
+  boundaryPolicyRefRule,
+  dataScopeRequiredRule,
   deprecatedFieldsRequiredRule,
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
@@ -20,6 +24,7 @@ import {
   testObligationRules,
   weaselFindings,
 } from "../../../shared/domain/LintRules.js";
+import { reachableBoundaryIds } from "../../../shared/domain/BoundaryReachability.js";
 import { lintRecordsFromMarkdown, type LintRecord } from "../../../shared/domain/SpecRecord.js";
 import { TOKEN_MECHANISM, token as computeToken } from "../../../shared/domain/Token.js";
 import {
@@ -249,6 +254,7 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
     }
   }
   const records = lintRecordsFromMarkdown(entry.path, entry.content);
+  const boundaryIds = reachableBoundaryIds(records);
   for (const w of weaselFindings(entry.content, records)) {
     const where = w.field !== undefined ? `normative field ${w.field}` : `normative section "${w.section}"`;
     next = appendDiagnostic(next, {
@@ -270,6 +276,10 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
       ...assumptionDowngradeApprovalRule(rec, approverBlocklist),
       ...partitionDefaultPolicySetRule(rec),
       ...generatedArtifactSurfaceRefRule(rec),
+      ...boundaryPolicyRefRule(rec, boundaryIds),
+      ...boundaryConcurrencyModelRule(rec, boundaryIds),
+      ...applicabilityRequiredRule(rec, boundaryIds),
+      ...dataScopeRequiredRule(rec, boundaryIds),
     ]) {
       next = appendDiagnostic(next, d);
     }

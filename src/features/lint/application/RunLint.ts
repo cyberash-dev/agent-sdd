@@ -3,9 +3,13 @@ import { appendDiagnostic, emptyReport, type Diagnostic, type LintReport } from 
 export type { Diagnostic, LintReport };
 import { lintRecordsFromMarkdown } from "../domain/SpecParser.js";
 import {
+  applicabilityRequiredRule,
   approvalRecordRules,
   assumptionDowngradeApprovalRule,
   baselineVersionRequiredRule,
+  boundaryConcurrencyModelRule,
+  boundaryPolicyRefRule,
+  dataScopeRequiredRule,
   deprecatedFieldsRequiredRule,
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
@@ -16,6 +20,7 @@ import {
   testObligationRules,
   weaselFindings,
 } from "../domain/Rules.js";
+import { reachableBoundaryIds } from "../../../shared/domain/BoundaryReachability.js";
 import type { LintConfigPort } from "../ports/outbound/LintConfigPort.js";
 import type { LintFileReader, SpecFileEntry } from "../ports/outbound/LintFileReader.js";
 
@@ -54,6 +59,7 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
   // ID-level rules + weasel scan share the parsed records (P0.5: weasel
   // pass 2 needs them for field-aware modal-verb detection).
   const records = lintRecordsFromMarkdown(entry.path, entry.content);
+  const boundaryIds = reachableBoundaryIds(records);
 
   // §5.1 — weasel words in normative sections (Pass 1) + modal verbs in
   // normative fields (Pass 2, P0.5).
@@ -79,6 +85,11 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
       ...assumptionDowngradeApprovalRule(rec, approverBlocklist),
       ...partitionDefaultPolicySetRule(rec),
       ...generatedArtifactSurfaceRefRule(rec),
+      // P2.1 — boundary requiredness (ENF-013/014/015/016)
+      ...boundaryPolicyRefRule(rec, boundaryIds),
+      ...boundaryConcurrencyModelRule(rec, boundaryIds),
+      ...applicabilityRequiredRule(rec, boundaryIds),
+      ...dataScopeRequiredRule(rec, boundaryIds),
     ]) {
       next = appendDiagnostic(next, d);
     }

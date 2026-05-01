@@ -35,6 +35,11 @@ export const LINT_DIAGNOSTIC_IDS = [
   "sdd:assumption-downgrade-approval",
   "sdd:partition-default-policy-set",
   "sdd:generated-artifact-surface-ref",
+  // P2.1 — boundary requiredness (ENF-013/014/015/016)
+  "sdd:boundary-policy-ref",
+  "sdd:boundary-concurrency-model",
+  "sdd:applicability-required",
+  "sdd:data-scope-required",
 ] as const;
 
 export type LintDiagnosticId = typeof LINT_DIAGNOSTIC_IDS[number];
