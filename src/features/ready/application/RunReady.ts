@@ -14,6 +14,7 @@ import {
   boundaryConcurrencyModelRule,
   boundaryPolicyRefRule,
   dataScopeRequiredRule,
+  debtBudgetFormRule,
   deprecatedFieldsRequiredRule,
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
@@ -215,11 +216,9 @@ export async function runReady(cwd: string, input: ReadyInput, ports: RunReadyPo
   }
   violations.push(...aggregatedCheckViolations(checkOutcome.outcome));
 
-  // 7. Semver cascade (P2.3, ENF-004A). Only when --against is set; classifies
-  //    diffs between current spec files and their counterparts at the
-  //    requested ref, computes required Surface bumps, and emits
-  //    surface_semver_cascade for any Surface whose declared version bump
-  //    is below the cascade-required level.
+  // 7. Semver cascade (P2.3, ENF-004A) and debt-budget monotonicity (P3.2,
+  //    ENF-020). Both run only when --against is set; without it, ready
+  //    behaves exactly as in v0.3.x.
   if (input.against !== undefined && ports.git !== undefined) {
     const cascadeViolations = await semverCascadeViolations(
       cwd,
@@ -229,10 +228,107 @@ export async function runReady(cwd: string, input: ReadyInput, ports: RunReadyPo
       ports.git,
     );
     violations.push(...cascadeViolations);
+    const debtViolations = await debtBudgetMonotonicityViolations(
+      cwd,
+      input.against,
+      lintSpecPaths,
+      ports.files,
+      ports.git,
+    );
+    violations.push(...debtViolations);
   }
 
   if (violations.length === 0) return emptyEnvelope();
   return { ok: false, error: null, violations };
+}
+
+async function debtBudgetMonotonicityViolations(
+  cwd: string,
+  ref: string,
+  specPaths: readonly string[],
+  files: ReadyFileReader,
+  git: ReadyGitPort,
+): Promise<ReadyViolation[]> {
+  if (!(await git.isGitRepo(cwd))) return [];
+  const repoRoot = await git.repoRoot(cwd);
+
+  let curr: SpecFileEntry[];
+  try {
+    curr = await files.resolveSpecFiles(cwd, specPaths);
+  } catch {
+    return [];
+  }
+
+  const currRecords: LintRecord[] = [];
+  for (const e of curr) currRecords.push(...lintRecordsFromMarkdown(e.path, e.content));
+  const prevRecordsByFile = new Map<string, LintRecord[]>();
+  for (const e of curr) {
+    const prevContent = await git.readAtRef(repoRoot, ref, e.path);
+    if (prevContent === null) continue;
+    prevRecordsByFile.set(e.path, lintRecordsFromMarkdown(e.path, prevContent));
+  }
+  const prevRecords: LintRecord[] = [];
+  for (const arr of prevRecordsByFile.values()) prevRecords.push(...arr);
+
+  const out: ReadyViolation[] = [];
+  for (const part of currRecords.filter((r) => r.template === "Partition")) {
+    const currBudget = readDebtBudget(part);
+    if (currBudget === null) continue;
+    const prevPart = prevRecords.find((r) => r.id === part.id);
+    if (prevPart === undefined) continue;
+    const prevBudget = readDebtBudget(prevPart);
+    if (prevBudget === null) continue;
+    const violationKind = compareBudgets(currBudget, prevBudget);
+    if (violationKind === null) continue;
+    out.push({
+      kind: "debt_budget_increased",
+      id: part.id,
+      file: part.file,
+      line: part.line,
+      expected: violationKind.expected,
+      actual: violationKind.actual,
+      remediation: `Partition ${part.id} unmodeled_budget.current=${currBudget.current} (was ${prevBudget.current} at ${ref}, trend=${currBudget.trend}); ${violationKind.remediation}`,
+    });
+  }
+  return out;
+}
+
+interface DebtBudget {
+  current: number;
+  trend: "monotonic_non_increasing" | "monotonic_decreasing";
+}
+
+function readDebtBudget(rec: LintRecord): DebtBudget | null {
+  const b = rec.parsed.unmodeled_budget;
+  if (typeof b !== "object" || b === null || Array.isArray(b)) return null;
+  const obj = b as Record<string, unknown>;
+  const current = obj.current;
+  const trend = obj.trend;
+  if (typeof current !== "number") return null;
+  if (trend !== "monotonic_non_increasing" && trend !== "monotonic_decreasing") return null;
+  return { current, trend };
+}
+
+function compareBudgets(curr: DebtBudget, prev: DebtBudget): { expected: string; actual: string; remediation: string } | null {
+  if (curr.trend === "monotonic_non_increasing") {
+    if (curr.current > prev.current) {
+      return {
+        expected: `<= ${prev.current}`,
+        actual: String(curr.current),
+        remediation: "trend=monotonic_non_increasing requires current <= previous current; reduce debt or weaken the trend",
+      };
+    }
+    return null;
+  }
+  // monotonic_decreasing
+  if (curr.current >= prev.current) {
+    return {
+      expected: `< ${prev.current}`,
+      actual: String(curr.current),
+      remediation: "trend=monotonic_decreasing requires current < previous current; reduce debt this PR",
+    };
+  }
+  return null;
 }
 
 async function semverCascadeViolations(
@@ -350,6 +446,7 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
       ...dataScopeRequiredRule(rec, boundaryIds),
       ...migrationEnforcementStageRule(rec, records),
       ...migrationCrossPartitionRule(rec),
+      ...debtBudgetFormRule(rec),
     ]) {
       next = appendDiagnostic(next, d);
     }

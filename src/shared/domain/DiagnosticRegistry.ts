@@ -43,6 +43,8 @@ export const LINT_DIAGNOSTIC_IDS = [
   // P2.2 — migration consistency (ENF-017/018)
   "sdd:migration-enforcement-stage",
   "sdd:migration-cross-partition",
+  // P3.1 — debt budget form (ENF-020)
+  "sdd:debt-budget-form",
 ] as const;
 
 export type LintDiagnosticId = typeof LINT_DIAGNOSTIC_IDS[number];
@@ -59,6 +61,8 @@ export const READY_VIOLATION_KINDS = [
   "aggregated_check",
   // P2.3 — semver cascade (ENF-004A) shipped as severity:warn initially
   "surface_semver_cascade",
+  // P3.2 — debt-budget monotonicity check (ENF-020 runtime side)
+  "debt_budget_increased",
 ] as const;
 
 export type ReadyViolationKindId = typeof READY_VIOLATION_KINDS[number];

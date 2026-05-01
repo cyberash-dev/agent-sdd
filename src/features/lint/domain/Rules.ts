@@ -9,6 +9,7 @@ export {
   boundaryPolicyRefRule,
   dataScopeRequiredRule,
   deprecatedFieldsRequiredRule,
+  debtBudgetFormRule,
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
   lifecycleStatusRules,

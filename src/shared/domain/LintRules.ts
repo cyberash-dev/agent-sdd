@@ -546,6 +546,69 @@ export function migrationEnforcementStageRule(
   }];
 }
 
+/** ENF-020 (P3.1): every Partition record must carry an `unmodeled_budget`
+ *  block with required sub-fields (current ≥ 0, baseline_at ISO date,
+ *  baseline_value ≥ 0, trend ∈ {monotonic_non_increasing,
+ *  monotonic_decreasing}). */
+export function debtBudgetFormRule(rec: LintRecord): Diagnostic[] {
+  if (rec.template !== "Partition") return [];
+  const budget = rec.parsed.unmodeled_budget;
+  if (!isObject(budget)) {
+    return [{
+      severity: "error",
+      rule: "sdd:debt-budget-form",
+      file: rec.file,
+      line: rec.line,
+      message: `Partition "${rec.id}" is missing unmodeled_budget block (must declare current, baseline_at, baseline_value, trend) (SDD §3 — debt budget).`,
+    }];
+  }
+  const out: Diagnostic[] = [];
+  const obj = budget as Record<string, unknown>;
+  const current = obj.current;
+  const baselineAt = obj.baseline_at;
+  const baselineValue = obj.baseline_value;
+  const trend = obj.trend;
+  const validTrends = new Set(["monotonic_non_increasing", "monotonic_decreasing"]);
+
+  if (typeof current !== "number" || !Number.isFinite(current) || current < 0) {
+    out.push({
+      severity: "error",
+      rule: "sdd:debt-budget-form",
+      file: rec.file,
+      line: rec.line,
+      message: `Partition "${rec.id}" unmodeled_budget.current must be an integer >= 0 (SDD §3 — debt budget).`,
+    });
+  }
+  if (typeof baselineAt !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(baselineAt)) {
+    out.push({
+      severity: "error",
+      rule: "sdd:debt-budget-form",
+      file: rec.file,
+      line: rec.line,
+      message: `Partition "${rec.id}" unmodeled_budget.baseline_at must be an ISO date (SDD §3 — debt budget).`,
+    });
+  }
+  if (typeof baselineValue !== "number" || !Number.isFinite(baselineValue) || baselineValue < 0) {
+    out.push({
+      severity: "error",
+      rule: "sdd:debt-budget-form",
+      file: rec.file,
+      line: rec.line,
+      message: `Partition "${rec.id}" unmodeled_budget.baseline_value must be an integer >= 0 (SDD §3 — debt budget).`,
+    });
+  }
+  if (typeof trend !== "string" || !validTrends.has(trend)) {
+    out.push({
+      severity: "error",
+      rule: "sdd:debt-budget-form",
+      file: rec.file,
+      line: rec.line,
+      message: `Partition "${rec.id}" unmodeled_budget.trend must be in {monotonic_non_increasing, monotonic_decreasing} (SDD §3 — debt budget).`,
+    });
+  }
+  return out;
+}
+
 /** ENF-018: a Migration whose target_ids reference IDs from more than one
  *  partition MUST declare partition_slice[] entries with coordinator_id set. */
 export function migrationCrossPartitionRule(rec: LintRecord): Diagnostic[] {

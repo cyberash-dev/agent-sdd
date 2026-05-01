@@ -84,6 +84,11 @@ default_policy_set:
   - sdd-cli:POL-001
   - sdd-cli:POL-002
 id_namespace: sdd-cli
+unmodeled_budget:
+  current: 0
+  baseline_at: "2026-05-01"
+  baseline_value: 0
+  trend: monotonic_non_increasing
 ---
 ```
 
@@ -2319,6 +2324,93 @@ test_obligation:
 ---
 ```
 
+### 6.15 `sdd lint` — debt budget form (P3.1) and `sdd ready --against` debt monotonicity (P3.2)
+
+```yaml
+---
+id: sdd-cli:BEH-042
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd lint flags Partition records missing the unmodeled_budget block (ENF-020 form)
+given: |
+  - a Partition record with parsed.unmodeled_budget absent OR missing one of
+    {current, baseline_at, baseline_value, trend} OR with values outside the
+    typed shape (negative current/baseline_value, non-ISO baseline_at, trend
+    not in the documented enum)
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1
+  - one or more sdd:debt-budget-form diagnostics with the specific defect
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Partition without unmodeled_budget fires once. Partition with all four
+    sub-fields well-typed fires nothing. Each field-level defect produces
+    a distinct diagnostic message.
+  test_template: integration
+  boundary_classes:
+    - missing block
+    - present, current = -1
+    - present, baseline_at not ISO
+    - present, trend = "unknown_value"
+    - present, all sub-fields valid
+  failure_scenarios: [silent acceptance of a missing block]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-043
+type: Behavior
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: sdd ready --against flags debt budget increase violating the trend (ENF-020 runtime)
+given: |
+  - cwd is a git repo
+  - --against <ref> resolves to a parent commit
+  - between <ref> and HEAD, a Partition's unmodeled_budget.current grew in
+    a way that violates trend:
+      * monotonic_non_increasing: current > previous current
+      * monotonic_decreasing: current >= previous current
+when: |
+  user runs `sdd ready --against <ref>`
+then: |
+  - exits 1
+  - violation { kind: "debt_budget_increased", id: <PRT-id>,
+                expected: "<= <prev>" | "< <prev>",
+                actual: "<curr>",
+                remediation: <message> }
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: read-only diff over git history
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Partition with current=10 vs prev's 5 and trend=monotonic_non_increasing
+    fires. With current=3 vs prev's 5, no fire. With current=5 vs prev's 5
+    and trend=monotonic_decreasing, fires (>= violates the strict trend).
+  test_template: integration
+  boundary_classes:
+    - non_increasing: current > prev (fires)
+    - non_increasing: current == prev (silent)
+    - non_increasing: current < prev (silent)
+    - decreasing: current >= prev (fires)
+    - decreasing: current < prev (silent)
+  failure_scenarios: [silent acceptance of debt growth on monotonic trend]
+---
+```
+
 ### 6.14 `sdd report --pr-summary` (P2.4)
 
 ```yaml
@@ -3564,6 +3656,8 @@ schema:
       # P2.2 — migration consistency (ENF-017/018)
       - sdd:migration-enforcement-stage
       - sdd:migration-cross-partition
+      # P3.1 — debt budget form (ENF-020)
+      - sdd:debt-budget-form
     ready:
       - unapproved
       - uncovered
@@ -3576,6 +3670,8 @@ schema:
       - aggregated_check
       # P2.3 — semver cascade (ENF-004A)
       - surface_semver_cascade
+      # P3.2 — debt budget monotonicity (ENF-020 runtime side)
+      - debt_budget_increased
 preconditions:
   not_applicable: contract_publishes_static_id_grammar
   reason: id grammar has no runtime preconditions
@@ -6191,6 +6287,29 @@ binding:
       - src/features/report/ports/outbound/ReportConfigPort.ts
 authority: code_annotation
 verification_method: tests/integration/report-pr-summary.test.ts
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-031
+type: ImplementationBinding
+lifecycle:
+  status: proposed
+partition_id: sdd-cli
+title: P3 debt budget rules — form (lint) + monotonicity (ready --against)
+target_ids:
+  - sdd-cli:BEH-042
+  - sdd-cli:BEH-043
+binding:
+  shared_domain:
+    - src/shared/domain/LintRules.ts   # debtBudgetFormRule
+  feature_slice:
+    root: src/features/ready
+    application:
+      - src/features/ready/application/RunReady.ts   # debtBudgetMonotonicityViolations()
+authority: code_annotation
+verification_method: tests/integration/p3-debt-budget.test.ts
 ---
 ```
 

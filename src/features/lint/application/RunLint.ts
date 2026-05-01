@@ -10,6 +10,7 @@ import {
   boundaryConcurrencyModelRule,
   boundaryPolicyRefRule,
   dataScopeRequiredRule,
+  debtBudgetFormRule,
   deprecatedFieldsRequiredRule,
   fieldTypeRules,
   generatedArtifactSurfaceRefRule,
@@ -95,6 +96,8 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
       // P2.2 — migration consistency (ENF-017/018)
       ...migrationEnforcementStageRule(rec, records),
       ...migrationCrossPartitionRule(rec),
+      // P3.1 — debt budget form (ENF-020)
+      ...debtBudgetFormRule(rec),
     ]) {
       next = appendDiagnostic(next, d);
     }
