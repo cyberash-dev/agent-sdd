@@ -10,7 +10,7 @@ export class CliCheckHandler implements CheckCommand {
     try {
       const outcome = await checkBaseline(cwd, this.ports);
       if (outcome.kind === "dirty") {
-        return driftResult(format, "baseline-dirty", outcome.recordedToken, null, outcome.baselineCommitSha, outcome.currentCommitSha, outcome.dirtyPaths);
+        return driftResult(format, "baseline-dirty", "", null, "", outcome.currentCommitSha, outcome.dirtyPaths);
       }
       if (outcome.kind === "stale") {
         return driftResult(format, "baseline-stale", outcome.recordedToken, outcome.recomputedToken, outcome.baselineCommitSha, outcome.currentCommitSha, []);

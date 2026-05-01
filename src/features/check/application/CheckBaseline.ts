@@ -17,8 +17,6 @@ export type CheckOutcome =
     }
   | {
       kind: "dirty";
-      recordedToken: string;
-      baselineCommitSha: string;
       currentCommitSha: string;
       dirtyPaths: string[];
     }
@@ -41,19 +39,18 @@ export async function checkBaseline(cwd: string, ports: CheckBaselinePorts): Pro
   const currentCommitSha = await ports.git.headSha(repoRoot);
   const config = await ports.config.config(repoRoot);
   await assertGlobMatches(ports.git, repoRoot, config.discoveryScope);
-  const loadedSpec = await ports.spec.spec(repoRoot, config);
-  const recorded = baseline(loadedSpec.path, loadedSpec.blocks, config.baselineId);
 
   const dirtyPaths = await ports.git.dirtyPaths(repoRoot, config.discoveryScope);
   if (dirtyPaths.length > 0) {
     return {
       kind: "dirty",
-      recordedToken: recorded.freshnessToken,
-      baselineCommitSha: recorded.baselineCommitSha,
       currentCommitSha,
       dirtyPaths,
     };
   }
+
+  const loadedSpec = await ports.spec.spec(repoRoot, config);
+  const recorded = baseline(loadedSpec.path, loadedSpec.blocks, config.baselineId);
 
   const recomputedToken = token(await ports.git.treeBytes(repoRoot, config.discoveryScope));
   const comparison = baselineComparison(recorded.freshnessToken, recomputedToken);

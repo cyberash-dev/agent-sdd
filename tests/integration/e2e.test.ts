@@ -145,6 +145,23 @@ test("check reports baseline-dirty when scope is dirty regardless of token", asy
   assert.equal(body.recomputed_token, null);
 });
 
+test("check reports baseline-dirty before validating recorded token", async () => {
+  // @covers sdd-cli:BEH-005
+  const repo = await fixtureRepo();
+  await writeFile(
+    join(repo.root, "spec", "spec.md"),
+    specText("\n  not_applicable: bootstrap\n  reason: bootstrap", repo.baselineCommitSha),
+  );
+  await writeFile(join(repo.root, "src", "foo.ts"), "export const value = 7;\n");
+
+  const result = await runSdd(repo.root, ["check", "--format=json"]);
+  const body = JSON.parse(result.stdout) as { reason: string; recomputed_token: string | null };
+
+  assert.equal(result.code, 1);
+  assert.equal(body.reason, "baseline-dirty");
+  assert.equal(body.recomputed_token, null);
+});
+
 test("check reports duplicate baseline block as config error", async () => {
   // @covers sdd-cli:BEH-009
   // @covers sdd-cli:ASM-002
