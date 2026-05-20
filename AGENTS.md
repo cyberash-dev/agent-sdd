@@ -70,7 +70,7 @@ approver, which writes a typed `approval_record` block atomically
 ```
 src/
   cli.ts                                 # composition root (DI only)
-  features/{token,check,refresh,lint,approve,ready,record,…}/
+  features/{token,check,refresh,lint,approve,ready,record,install,…}/
     domain/                              # pure logic
     application/                         # use cases
     ports/{inbound,outbound}/            # interfaces
@@ -116,6 +116,11 @@ node dist/cli.js record list                # index: id · type · status · tit
 node dist/cli.js record get <id>            # one record, verbatim
 node dist/cli.js record set <id> --from-file body.yaml      # draft/proposed only
 node dist/cli.js record add --after <id> --content "$BODY"  # new draft/proposed record
+
+# distribute the SDD methodology rules (+ Claude hooks) into the agent config
+node dist/cli.js install all --dry-run      # preview, write nothing
+node dist/cli.js install claude             # ~/.claude (@import, skill, 2 hooks)
+node dist/cli.js install codex              # ~/.codex/sdd + AGENTS.md reference
 ```
 
 CI runs `tsc && test:unit && test:integration && build && sdd lint && sdd ready`.

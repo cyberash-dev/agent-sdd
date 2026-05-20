@@ -19,7 +19,11 @@ coverage + sandbox isolation + lint/check aggregation). It also lets an
 agent navigate and edit a large spec one record at a time via `sdd
 record` (`list`/`get` are read-only; `set`/`add` write a single
 draft/proposed record atomically) instead of reading or rewriting the
-whole file.
+whole file. Finally, `sdd install <all|claude|codex>` makes the repo the
+distribution point for the SDD methodology: it writes the rules under
+`rules/` (and, for Claude, PreToolUse hooks) into the user-level agent
+config — the only surface that writes outside the repo working tree
+(`INV-016` / `POL-003`), driven by `rules/manifest.json` (`CST-008`).
 
 The full normative specification is `spec/spec.md`. **It is the source
 of truth.** Every code change must be reflected in the spec first. The
@@ -37,7 +41,7 @@ Vertical Slice + Hexagonal, enforced by
 src/
   cli.ts                        # composition root only
   features/
-    {token,check,refresh,lint,approve,ready}/
+    {token,check,refresh,lint,approve,ready,record,install}/
       domain/                   # pure logic, no node:* (except Token.ts)
       application/              # use cases, depend on ports + domain
       ports/{inbound,outbound}/ # interfaces only
@@ -116,6 +120,12 @@ node dist/cli.js record list --partition sdd-cli
 node dist/cli.js record get sdd-cli:INV-002   # one record, verbatim
 node dist/cli.js record set sdd-cli:BEH-001 --from-file body.yaml   # draft/proposed only
 node dist/cli.js record add --after sdd-cli:BEH-001 --content "$BODY"
+
+# install the SDD rules + Claude hooks into the user-level agent config
+node dist/cli.js install all --dry-run     # preview the file ops, write nothing
+node dist/cli.js install claude            # ~/.claude: @import block, skill, 2 hooks
+node dist/cli.js install codex             # ~/.codex/sdd + AGENTS.md reference block
+#   $SDD_INSTALL_HOME overrides the home root (used by the integration tests)
 ```
 
 `.sdd/config.json` is already set up to point at `spec/spec.md` with
@@ -190,6 +200,14 @@ because the baseline token is stored inside `spec/spec.md`. A
 - `sdd ready` does NOT execute tests (`INV-008`); it byte-scans test
   files for `@covers` markers and is read-only on the working tree
   (`INV-009`).
+- `sdd install` is the one command that writes **outside** the repo: only
+  under `~/.claude/**` and `~/.codex/**` (or `$SDD_INSTALL_HOME`), never
+  inside `<repo_root>` (`INV-016` / `POL-003`). It is plan-then-apply (a
+  missing packaged source aborts before any write) and idempotent
+  (managed blocks replaced in place, hooks deduped by matcher+command).
+  The artifact list lives in `rules/manifest.json`, never hardcoded in
+  `src/features/install/` (`CST-008`). The package must ship `rules/`
+  (`package.json#files`).
 
 ---
 

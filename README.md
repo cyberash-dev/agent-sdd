@@ -54,7 +54,9 @@ spec's baseline still describes the actual repository. Without a
 mechanical token, an agent has no way to detect that the source tree
 drifted from the baseline since the last review.
 
-`sdd-cli` provides six subcommands that automate this loop:
+`sdd-cli` provides these subcommands — the first six automate the
+freshness/spec loop, `sdd record` navigates the spec, and `sdd install`
+distributes the methodology rules into your agent config:
 
 | Command       | Purpose                                                            |
 |---------------|--------------------------------------------------------------------|
@@ -64,6 +66,8 @@ drifted from the baseline since the last review.
 | `sdd lint`    | Run SDD spec-lint rules over your `lint.spec_files`; exit 1 on errors. |
 | `sdd approve` | Promote a `proposed` ID to `approved` with a typed `approval_record`. Refuses agent identities (SDD §7.5). |
 | `sdd ready`   | The single CI gate-3 (`implementation-valid`) check: marker coverage, sandbox isolation, lint + check aggregation. |
+| `sdd record`  | Navigate/edit `spec.md` one record at a time (read-only `list`/`get`; atomic `set`/`add` for draft/proposed). |
+| `sdd install` | Install the SDD methodology rules (+ Claude hooks) into the user-level agent config (`~/.claude`, `~/.codex`). |
 
 The mechanism is fixed (`git_tree_hash_v1`), but the tool is generic:
 every SDD-following repo configures it through a small JSON file
@@ -514,6 +518,46 @@ the structural gate.
 `duplicate-id` / `record-protected` / get-miss · 2 `invalid-body`
 (no `id:`, unparseable, both/neither input flag, or set id≠body id).
 
+### `sdd install`
+
+Make `sdd-cli` the distribution point for the SDD methodology rules
+(shipped under `rules/`). Installs them into the **user-level** agent
+config so any project can follow the discipline.
+
+```sh
+sdd install all                 # both targets below
+sdd install claude              # ~/.claude
+sdd install codex               # ~/.codex
+sdd install all --dry-run       # print the planned file ops, write nothing
+sdd install claude --format=json
+```
+
+What lands per target:
+
+- **`claude`** — the minimal TDD+SDD context rules are copied to
+  `~/.claude/sdd/` and `@import`-ed from a managed block in
+  `~/.claude/CLAUDE.md`; the full reference is installed as an on-demand
+  skill at `~/.claude/skills/spec-driven-development/SKILL.md`; and two
+  `PreToolUse` hooks are merged into `~/.claude/settings.json` — a lint
+  reminder and a **spec-read guard** that denies reading `spec/*.md` in
+  any project carrying `.sdd/config.json` (forcing `sdd record` instead).
+- **`codex`** — every rule is copied to `~/.codex/sdd/` and listed in a
+  managed block in `~/.codex/AGENTS.md` (Codex has no `@import` / hook
+  host, so hooks are reported as skipped).
+
+The artifact set is data-driven by `rules/manifest.json` (`CST-008`).
+Install is **idempotent** (managed blocks are replaced in place, hook
+entries deduped by matcher+command, pre-existing user hooks preserved)
+and the only command that writes outside the repo: only under the agent
+home roots, never inside `<repo_root>` (`INV-016` / `POL-003`).
+`$SDD_INSTALL_HOME` overrides the home root.
+
+| Exit | Reason              | Meaning                                              |
+|------|---------------------|------------------------------------------------------|
+| 0    | —                   | Install (or `--dry-run` plan) completed.             |
+| 1    | `manifest-missing` / `manifest-invalid` / `artifact-missing` | A packaged rule file or the manifest could not be read; nothing is written. |
+| 2    | —                   | argv error (missing/unknown target, unknown flag).   |
+
 ### Output formats summary
 
 | Subcommand    | `human`        | `json` | `yaml` |
@@ -525,6 +569,7 @@ the structural gate.
 | `sdd approve` | yes (default)  | yes    | —      |
 | `sdd ready`   | yes (default)  | yes    | —      |
 | `sdd record`  | yes (default)  | yes    | —      |
+| `sdd install` | yes (default)  | yes    | —      |
 
 JSON outputs carry `format_version: 1` and are stable per the
 contracts in `spec/spec.md` §7. Human-format output is a one-line
@@ -924,7 +969,10 @@ are no longer out of scope. `sdd record` (read-only `list`/`get`, plus
 `set`/`add` writing a single draft/proposed record) is the one
 sanctioned writer of `spec.md` — the blanket "no auto-write" above is
 specifically about `sdd refresh` stubs; record writes are governed by
-`INV-015`.
+`INV-015`. `sdd install` (`SUR-016`) is in scope and distinct from the
+out-of-scope `sdd init` scaffolding: it writes the methodology rules and
+Claude hooks into the user-level agent config, never into the repo
+working tree (`INV-016` / `POL-003`).
 
 ---
 
