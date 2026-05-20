@@ -70,7 +70,7 @@ approver, which writes a typed `approval_record` block atomically
 ```
 src/
   cli.ts                                 # composition root (DI only)
-  features/{token,check,refresh,lint,approve,ready}/
+  features/{token,check,refresh,lint,approve,ready,record,…}/
     domain/                              # pure logic
     application/                         # use cases
     ports/{inbound,outbound}/            # interfaces
@@ -110,10 +110,23 @@ node dist/cli.js check
 node dist/cli.js refresh
 node dist/cli.js lint        # MUST exit 0 in CI
 node dist/cli.js ready       # SHOULD exit 0 in CI (gate-3)
+
+# navigate / edit the spec one record at a time (no whole-file read)
+node dist/cli.js record list                # index: id · type · status · title
+node dist/cli.js record get <id>            # one record, verbatim
+node dist/cli.js record set <id> --from-file body.yaml      # draft/proposed only
+node dist/cli.js record add --after <id> --content "$BODY"  # new draft/proposed record
 ```
 
 CI runs `tsc && test:unit && test:integration && build && sdd lint && sdd ready`.
 Make all six green before you stop.
+
+**Prefer `sdd record` over `Read`/`Edit` on `spec/spec.md`.** Use
+`record list`/`get` to find and read individual records (read-only,
+`INV-002`) instead of loading the whole file, and `record set`/`add` to
+change one draft/proposed record atomically (`INV-015`) instead of
+hand-editing. `set`/`add` refuse `approved`/`deprecated`/`removed`
+records — those still go through a `Delta` + `sdd approve`/`sdd finalize`.
 
 ---
 

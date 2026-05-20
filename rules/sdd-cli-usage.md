@@ -17,6 +17,26 @@ this file is the *trigger* layer (when to run what).
 | When promoting `proposed → approved` | `sdd approve --id <X> --approver <human> ...` then `sdd finalize` | 0 + 0 | If `sdd finalize` exits 1 with `proposed-references` — promote referenced IDs first or include them in the same plan |
 | On new checkout / version drift | `sdd doctor --rule-version --rules rules/enforcement_registry.md` | 0 | Investigate `version_mismatch` / `missing_diagnostic` / `stale_diagnostic`; either bump CLI or update `enforcement_registry.md` |
 | Before opening PR | `sdd report --pr-summary --against <base>` | 0 | Paste output into PR description; expand «Internal decisions» section manually (mechanical part is just a skeleton) |
+| Locating / inspecting a record in a large spec | `sdd record list [--partition <p>]` / `sdd record get <id>` | 0 | Read-only (INV-002); use instead of opening the whole spec file |
+| Editing / adding a single draft\|proposed record | `sdd record set <id> …` / `sdd record add --after <id> …` | 0 | Then `sdd lint` MUST be 0; refuses approved/deprecated/removed records |
+
+## Navigating and editing the spec (`sdd record`)
+
+Spec files grow to thousands of lines. **Do not read or hand-edit the whole file** to work on one record — use `sdd record`, which keeps the agent's context scoped to the records that matter and edits a single record atomically.
+
+| Goal | Command | Notes |
+|---|---|---|
+| Compact index of every record | `sdd record list [--partition <name>] [--format=json\|human]` | One row per record: `id` · `type` · `lifecycle.status` · derived title (`title`, else Surface `name`, else blank). `--partition` keeps only records whose partition component (id minus its trailing `:<ID-tail>`) equals `<name>`. Read-only (INV-002). |
+| Read ONE record verbatim | `sdd record get <id> [--format=json\|human]` | Prints the record's exact source body (round-trips into `set`); JSON adds `file` + `start_line`/`end_line`. Exit 1 if not found. |
+| Replace a record body in place | `sdd record set <id> (--from-file <p> \| --content <s>)` | Edits a **draft/proposed** record; surrounding fence and `---` are preserved. Body may be bare (as `get` emits) or wrapped in a ```yaml fence — both are normalised. |
+| Insert a new record | `sdd record add --after <id> (--from-file <p> \| --content <s>)` | Inserts a new ```yaml-fenced record immediately after the anchor's fence. Body `id` must be new; status `draft`/`proposed`. |
+
+Rules:
+- **Prefer `sdd record list`/`get` over `Read`** to find or inspect records in a large spec — `Read` only when you genuinely need broad surrounding context.
+- **Prefer `sdd record set`/`add` over `Edit`/`Write`** for single-record changes. The write is atomic and scoped to `lint.spec_files` (INV-015); `get → edit → set` round-trips byte-for-byte.
+- **`set`/`add` refuse `approved`/`deprecated`/`removed` records** (exit 1, `record-protected`). Changing a governed record is a `Delta` + `sdd approve`/`sdd finalize` job — never a `set`.
+- **Pass multi-line YAML via `--from-file <path>`** (use `--content` only for one-liners); never inline multi-line YAML through the shell.
+- **`set`/`add` are not a lint substitute** — the body is spliced verbatim. Always run `sdd lint` afterwards (it MUST be 0), then the normal gates.
 
 ## Universal rules
 
@@ -26,6 +46,7 @@ this file is the *trigger* layer (when to run what).
 4. **`sdd lint` is read-only.** It never modifies spec files. Diagnostics with `--format=json` are stable per `Surface: diagnostics` semver — pin against `compatible_sdd_cli` from `enforcement_registry.md`.
 5. **`sdd refresh` writes only to stdout.** Apply emitted Delta/Open-Q stubs by hand; review every stub before pasting into spec.
 6. **Never hand-craft a `--plan <plan_id>` for `sdd approve`.** The id must match the minted grammar `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z-[a-z0-9]{5}$` (e.g. `2026-05-20T210159Z-038af`); an arbitrary string is accepted on first write but the CLI throws on the next append/parse. Prefer omitting `--plan` so the CLI mints a valid id and writes `.sdd/plans/.active` (subsequent `approve` calls without `--plan` append to it; `sdd finalize` without `--plan` consumes it). To approve N IDs that reference each other (e.g. a `Surface` and its member `Contract`s), queue all N into **one** plan, then a single `sdd finalize` flips them atomically — piecemeal finalize fails with `proposed-references`.
+7. **Use `sdd record` to navigate and edit large specs.** `record list`/`get` are read-only (INV-002) and keep context scoped to single records — prefer them over `Read` on big spec files. `record set`/`add` edit one record atomically (INV-015) and only touch `draft`/`proposed` — prefer them over `Edit`/`Write`, and never use them on `approved`/`deprecated`/`removed` records (that's a `Delta` + `sdd approve`/`finalize`). After any `set`/`add`, `sdd lint` MUST be 0.
 
 ## Exit-code taxonomy (across commands)
 
@@ -48,6 +69,9 @@ Spec files that trigger `sdd lint` reminders are anything matching `**/spec/**/*
 | `sdd ready` flags `[unapproved]` | A `proposed`/`draft` ID lives outside `sandbox_paths` | Move the spec file under `partitions[*].sandbox_paths` OR promote via `sdd approve` + `sdd finalize` |
 | `sdd ready` flags `[unknown_partition_covers]` | Marker `@covers <prefix>:<id>` uses a partition not declared in config | Add the partition to `.sdd/config.json#partitions`, or fix the marker prefix |
 | `sdd approve` throws `plan_id "..." does not match grammar` | Hand-crafted `--plan <id>` that isn't `YYYY-MM-DDTHHMMSSZ-<5 lowercase alnum>` (first `approve` wrote the file; the next append re-parses and throws) | Delete the stale `.sdd/plans/<bad-id>.yaml`, then re-run omitting `--plan` (CLI mints a valid id) or pass a grammar-valid id. No spec mutation occurred — `approve` only queues; `finalize` flips |
+| `sdd record set/add` exits 1 `record-protected` | Target (or supplied body) is `approved`/`deprecated`/`removed` | Don't edit governed records via `set`/`add`; author a `Delta` and use `sdd approve` + `sdd finalize` |
+| `sdd record set/add` exits 1 `record-not-found` / `anchor-not-found` / `duplicate-id` | id missing, `--after` anchor missing, or the new body `id` already exists | Verify ids with `sdd record list`; for `add` pick an existing `--after` anchor and a fresh `id` |
+| `sdd record set/add` exits 2 `invalid-body` | Body has no `id:`, doesn't parse, both/neither `--from-file`/`--content`, or (set) the body `id` ≠ `<id>` | Provide exactly one input flag; ensure the body parses as one YAML mapping whose `id:` matches |
 | `sdd ready` flags `[surface_semver_cascade]` | Policy/Invariant(contractual) referenced by a Surface changed predicate, but Surface declared bump < required | Bump the Surface major (predicate change) or minor (content change); see `enforcement_registry.md#ENF-004A` |
 | `sdd ready` flags `[generated_artifact_structural_diff_unbumped]` | GeneratedArtifact emission has structural-breaking diff but its Surface bump is < major | Bump the generated Surface major; see ENF-019 |
 | `sdd ready` flags `[debt_budget_increased]` | `Partition.unmodeled_budget.current` exceeds `--against <ref>` value | Reduce `current` (close `unmodeled` items) or adjust `baseline_at`/`baseline_value` with explicit owner approval |

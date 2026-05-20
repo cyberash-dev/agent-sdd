@@ -469,6 +469,51 @@ cross-credit is not provided.
 > Major-bump correctness (oracle/assertion summary, input classes,
 > negative oracle) is human review per SDD §three gates.
 
+### `sdd record`
+
+Navigate and edit a large `spec.md` one record at a time, without
+reading or rewriting the whole file — designed for AI agents whose
+context window is the scarce resource. Four subcommands:
+
+```sh
+sdd record list                           # compact index of every record
+sdd record list --partition my-partition  # filter to one partition
+sdd record get my-partition:BEH-001        # one record, verbatim
+sdd record set my-partition:BEH-001 --from-file body.yaml
+sdd record set my-partition:BEH-001 --content "$BODY"
+sdd record add --after my-partition:BEH-001 --from-file new.yaml
+```
+
+- **`list`** — one row per record: `id` · `type` · `lifecycle.status` ·
+  derived title (the record's `title`, else a Surface's `name`, else
+  blank). `--partition <name>` keeps only records whose partition
+  component (the id minus its trailing `:<ID-tail>`) equals `<name>`.
+  Read-only.
+- **`get <id>`** — prints the record's exact source body (round-trips
+  straight back into `set`). `--format=json` adds `file`,
+  `start_line`, `end_line`. Exit 1 if the id is not found.
+- **`set <id>`** — replaces the body of an existing **`draft`/`proposed`**
+  record in place; the surrounding fence and `---` markers are
+  preserved. The body comes from `--from-file <path>` or `--content
+  <string>`, supplied either bare (as `get` emits) or wrapped in a
+  ```` ```yaml ```` fence — both are normalised.
+- **`add --after <id>`** — inserts a new ```` ```yaml ````-fenced record
+  immediately after the anchor's fence. The body's `id` must be new and
+  its status `draft`/`proposed`.
+
+`set`/`add` **refuse `approved`/`deprecated`/`removed` records** (exit
+1) — changing a governed record is a `Delta` + `sdd approve`/`sdd
+finalize` job. The write is atomic (temp-file + rename) and touches
+only the `lint.spec_files` file that holds the record; everything else
+in the file, plus `.sdd/config.json` and `.git/`, is left byte-identical
+(`INV-015`). `list`/`get` never write at all (`INV-002`). Run `sdd lint`
+after any `set`/`add` — the body is spliced verbatim, so lint remains
+the structural gate.
+
+**Exit codes**: 0 success · 1 `record-not-found` / `anchor-not-found` /
+`duplicate-id` / `record-protected` / get-miss · 2 `invalid-body`
+(no `id:`, unparseable, both/neither input flag, or set id≠body id).
+
 ### Output formats summary
 
 | Subcommand    | `human`        | `json` | `yaml` |
@@ -479,6 +524,7 @@ cross-credit is not provided.
 | `sdd lint`    | yes (default)  | yes    | —      |
 | `sdd approve` | yes (default)  | yes    | —      |
 | `sdd ready`   | yes (default)  | yes    | —      |
+| `sdd record`  | yes (default)  | yes    | —      |
 
 JSON outputs carry `format_version: 1` and are stable per the
 contracts in `spec/spec.md` §7. Human-format output is a one-line
@@ -874,7 +920,11 @@ installs the tarball into a fresh consumer to verify the `bin` wiring
   [`OQ-017`](spec/spec.md) for the deferred decision.
 
 `sdd lint` shipped in v0.2.0 and `sdd ready` shipped in v0.3.0 — both
-are no longer out of scope.
+are no longer out of scope. `sdd record` (read-only `list`/`get`, plus
+`set`/`add` writing a single draft/proposed record) is the one
+sanctioned writer of `spec.md` — the blanket "no auto-write" above is
+specifically about `sdd refresh` stubs; record writes are governed by
+`INV-015`.
 
 ---
 

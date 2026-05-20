@@ -15,7 +15,11 @@ the spec's Brownfield-baseline block, emits stubs (`Delta` / `Open-Q`)
 on drift, runs SDD spec-lint rules over normative IDs, rewrites
 `lifecycle.status` + `approval_record` blocks via `sdd approve`, and
 gates the `implementation-valid` step in CI via `sdd ready` (marker
-coverage + sandbox isolation + lint/check aggregation).
+coverage + sandbox isolation + lint/check aggregation). It also lets an
+agent navigate and edit a large spec one record at a time via `sdd
+record` (`list`/`get` are read-only; `set`/`add` write a single
+draft/proposed record atomically) instead of reading or rewriting the
+whole file.
 
 The full normative specification is `spec/spec.md`. **It is the source
 of truth.** Every code change must be reflected in the spec first. The
@@ -105,6 +109,13 @@ node dist/cli.js check
 node dist/cli.js refresh
 node dist/cli.js lint            # must exit 0 in CI
 node dist/cli.js ready           # gate-3; should exit 0 in CI
+
+# navigate / edit the spec one record at a time (no whole-file read)
+node dist/cli.js record list                 # compact index: id · type · status · title
+node dist/cli.js record list --partition sdd-cli
+node dist/cli.js record get sdd-cli:INV-002   # one record, verbatim
+node dist/cli.js record set sdd-cli:BEH-001 --from-file body.yaml   # draft/proposed only
+node dist/cli.js record add --after sdd-cli:BEH-001 --content "$BODY"
 ```
 
 `.sdd/config.json` is already set up to point at `spec/spec.md` with
