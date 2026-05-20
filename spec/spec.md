@@ -560,13 +560,15 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/record
-version: "0.1.0"
+version: "0.2.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-026
   - sdd-cli:CTR-027
 consumer_compat_policy: semver_per_surface
 notes: |
+  v0.2.0 — additive: `sdd record list` accepts an optional `--partition
+  <name>` filter (BEH-058). Existing argv shapes are unchanged.
   v0.1.0 — `sdd record list` and `sdd record get <id>` give agents a
   compact index of, and verbatim access to, individual normative records
   without reading the whole spec file into context. Both are read-only
@@ -3570,6 +3572,61 @@ test_obligation:
     - get without id
   failure_scenarios:
     - missing id silently lists all records
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-058
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:21:26.859Z
+    change_request: approve sdd record --partition filter
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record list --partition filters by partition
+given: |
+  - .sdd/config.json validates against CTR-003
+  - the spec files contain records from one or more partitions
+when: user runs `sdd record list --partition <name>` (with optional --format=json|human)
+then: |
+  - exits 0
+  - only records whose partition component equals <name> are listed
+  - a record's partition component is its id minus the trailing `:<ID-tail>`
+    (rightmost-colon split, CST-007); a bare partition-name id (no colon)
+    matches when it equals <name>
+  - --format=json => CTR-026 envelope whose count and records[] reflect the
+    filtered set
+negative_cases:
+  - <name> matches no partition => exits 0 with count 0 and empty records
+  - --partition passed to `sdd record get` => exit 2 (see BEH-057)
+out_of_scope:
+  - mutating any spec file (record list is read-only — see INV-002)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: record list operates on spec text; no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    For a spec with records in partitions A and B, `sdd record list
+    --partition A` exits 0 and lists exactly the partition-A records; an
+    unknown partition yields count 0; a bare partition-name record is
+    included when it equals A.
+  test_template: integration
+  boundary_classes:
+    - single-segment partition
+    - bare partition-name record (no colon)
+    - unknown partition (empty result)
+    - --partition rejected on `record get`
+  failure_scenarios:
+    - records from another partition leak into the filtered list
+    - --partition silently ignored
 ---
 ```
 

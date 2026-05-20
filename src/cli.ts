@@ -57,6 +57,7 @@ interface ParsedArgv {
 interface RecordArgs {
   subcommand: "list" | "get";
   id?: string;
+  partition?: string;
 }
 
 interface ReportArgs {
@@ -112,7 +113,7 @@ Usage:
   sdd doctor    --rule-version [--rules <path>] [--format=json|human]
   sdd report    --pr-summary [--against <ref>] [--format=json|human]
   sdd ready    [--format=json|human] [--partition <name>]
-  sdd record list           [--format=json|human]
+  sdd record list           [--partition <name>] [--format=json|human]
   sdd record get <id>       [--format=json|human]
   sdd --help
   sdd --version`;
@@ -128,7 +129,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   plan: "Usage: sdd plan show [--plan <plan_id>] [--format=json|human]",
   doctor: "Usage: sdd doctor --rule-version [--rules <path>] [--format=json|human]",
   report: "Usage: sdd report --pr-summary [--against <ref>] [--format=json|human]",
-  record: "Usage: sdd record list | sdd record get <id> [--format=json|human]",
+  record: "Usage: sdd record list [--partition <name>] | sdd record get <id> [--format=json|human]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -235,7 +236,7 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
     const command = new CliRecordHandler({ config: files, files });
     const action: RecordAction = parsed.record.subcommand === "get"
       ? { kind: "get", id: parsed.record.id! }
-      : { kind: "list" };
+      : { kind: "list", partition: parsed.record.partition };
     return command.execute(cwd, action, parsed.format === "json" ? "json" : "human");
   }
   if (parsed.subcommand === "ready") {
@@ -498,15 +499,26 @@ function parseRecordArgv(args: readonly string[]): ParsedArgv {
   }
 
   let format: OutputFormat = "human";
-  for (const arg of rest) {
-    if (!arg.startsWith("--format=")) {
-      return { mode: "error", message: `unknown flag: ${arg}` };
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i]!;
+    if (arg.startsWith("--format=")) {
+      const value = arg.slice("--format=".length);
+      if (!isFormat(value) || value === "yaml") {
+        return { mode: "error", message: `invalid format: ${value}` };
+      }
+      format = value;
+      continue;
     }
-    const value = arg.slice("--format=".length);
-    if (!isFormat(value) || value === "yaml") {
-      return { mode: "error", message: `invalid format: ${value}` };
+    if (arg === "--partition" && sub === "list") {
+      const next = rest[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --partition" };
+      }
+      record.partition = next;
+      i++;
+      continue;
     }
-    format = value;
+    return { mode: "error", message: `unknown flag: ${arg}` };
   }
   return { mode: "command", subcommand: "record", format, record };
 }

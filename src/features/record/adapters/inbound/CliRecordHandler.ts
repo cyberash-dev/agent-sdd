@@ -12,7 +12,7 @@ export class CliRecordHandler implements RecordCommand {
   async execute(cwd: string, action: RecordAction, format: Format): Promise<CommandResult> {
     try {
       if (action.kind === "list") {
-        const records = await listRecords(cwd, this.ports);
+        const records = await listRecords(cwd, this.ports, action.partition);
         return format === "json" ? listJson(records) : listHuman(records);
       }
       const matches = await getRecord(cwd, action.id, this.ports);

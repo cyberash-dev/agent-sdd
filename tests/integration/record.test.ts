@@ -163,3 +163,105 @@ test("BEH-057: invalid record invocation exits 2", async () => {
   assert.equal(getNoId.code, 2);
   assert.match(getNoId.stderr, /record/);
 });
+
+const MULTI_PARTITION_SPEC = [
+  "# fixture",
+  "",
+  "```yaml",
+  "---",
+  "id: alpha:BEH-001",
+  "type: Behavior",
+  "lifecycle:",
+  "  status: proposed",
+  "title: alpha behavior",
+  "---",
+  "```",
+  "",
+  "```yaml",
+  "---",
+  "id: alpha:INV-001",
+  "type: Invariant",
+  "lifecycle:",
+  "  status: proposed",
+  "never: nothing",
+  "---",
+  "```",
+  "",
+  "```yaml",
+  "---",
+  "id: beta:BEH-001",
+  "type: Behavior",
+  "lifecycle:",
+  "  status: proposed",
+  "title: beta behavior",
+  "---",
+  "```",
+  "",
+  "```yaml",
+  "---",
+  "id: alpha",
+  "type: Partition",
+  "lifecycle:",
+  "  status: proposed",
+  "---",
+  "```",
+  "",
+].join("\n");
+
+async function partitionFixture(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "sdd-record-part-"));
+  await mkdir(join(root, ".sdd"));
+  await mkdir(join(root, "spec"));
+  await writeFile(join(root, ".sdd", "config.json"), JSON.stringify({
+    spec_file: "spec/spec.md",
+    baseline_id: "fixture:BL-001",
+    discovery_scope: ["src"],
+    mechanism: "git_tree_hash_v1",
+  }, null, 2));
+  await writeFile(join(root, "spec", "spec.md"), MULTI_PARTITION_SPEC);
+  return root;
+}
+
+test("BEH-058: record list --partition keeps only the named partition (incl. bare id)", async () => {
+  // @covers sdd-cli:BEH-058
+  const root = await partitionFixture();
+
+  const r = await runSdd(root, ["record", "list", "--partition", "alpha", "--format=json"]);
+
+  assert.equal(r.code, 0);
+  const body = JSON.parse(r.stdout) as ListBody;
+  assert.deepEqual(body.records.map((x) => x.id).sort(), ["alpha", "alpha:BEH-001", "alpha:INV-001"]);
+  assert.equal(body.count, 3);
+});
+
+test("BEH-058: record list --partition selects a single-member partition", async () => {
+  // @covers sdd-cli:BEH-058
+  const root = await partitionFixture();
+
+  const r = await runSdd(root, ["record", "list", "--partition", "beta", "--format=json"]);
+
+  assert.equal(r.code, 0);
+  const body = JSON.parse(r.stdout) as ListBody;
+  assert.deepEqual(body.records.map((x) => x.id), ["beta:BEH-001"]);
+});
+
+test("BEH-058: record list --partition with no match yields count 0", async () => {
+  // @covers sdd-cli:BEH-058
+  const root = await partitionFixture();
+
+  const r = await runSdd(root, ["record", "list", "--partition", "gamma", "--format=json"]);
+
+  assert.equal(r.code, 0);
+  const body = JSON.parse(r.stdout) as ListBody;
+  assert.equal(body.count, 0);
+  assert.deepEqual(body.records, []);
+});
+
+test("BEH-058: --partition is rejected on record get", async () => {
+  // @covers sdd-cli:BEH-058
+  const root = await partitionFixture();
+
+  const r = await runSdd(root, ["record", "get", "alpha:BEH-001", "--partition", "alpha"]);
+
+  assert.equal(r.code, 2);
+});
