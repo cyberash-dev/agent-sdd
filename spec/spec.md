@@ -560,13 +560,18 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/record
-version: "0.2.0"
+version: "0.3.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-026
   - sdd-cli:CTR-027
+  - sdd-cli:CTR-028
 consumer_compat_policy: semver_per_surface
 notes: |
+  v0.3.0 — additive: `sdd record set <id>` and `sdd record add --after
+  <id>` write a single record body into a `lint.spec_files` file
+  (BEH-059..064, CTR-028). The write is the only carve-out from the
+  read-only INV-002 — see INV-015. Existing read commands unchanged.
   v0.2.0 — additive: `sdd record list` accepts an optional `--partition
   <name>` filter (BEH-058). Existing argv shapes are unchanged.
   v0.1.0 — `sdd record list` and `sdd record get <id>` give agents a
@@ -3630,6 +3635,285 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:BEH-059
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:03.568Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record set <id> — replace a draft/proposed record body
+given: |
+  - .sdd/config.json validates against CTR-003
+  - <id> matches exactly one record in a lint.spec_files file whose
+    current lifecycle.status is draft or proposed
+  - the body is supplied via --from-file <path> or --content <string>,
+    either as the bare record body (as `sdd record get` emits) or wrapped
+    in a ```yaml fence; the CLI normalises both to the bare body
+when: user runs `sdd record set <id> (--from-file <p> | --content <s>)`
+then: |
+  - the record's body lines are replaced in place; the surrounding fence
+    and `---` markers and every other byte of the file are unchanged
+  - the write targets only the file containing <id> and is atomic (INV-015)
+  - exits 0; --format=json => CTR-028 envelope with action "set"
+negative_cases:
+  - body `id:` differs from <id> => exit 2 (see BEH-064)
+  - current OR new lifecycle.status is approved/deprecated/removed => see BEH-060
+  - <id> matches no record => see BEH-061
+out_of_scope:
+  - promoting lifecycle.status (that is `sdd approve` + `sdd finalize`)
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Setting a draft/proposed record with a new body (bare or fenced,
+    via --from-file and --content) replaces exactly that record's body,
+    leaves all other bytes intact, exits 0, and `sdd record get <id>`
+    then returns the new body.
+  test_template: integration
+  boundary_classes:
+    - bare body via --from-file
+    - fenced body via --content
+    - body equal to current (idempotent)
+  failure_scenarios:
+    - adjacent records are mutated
+    - fence/--- wrappers are dropped
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-060
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:03.636Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record set — refuses protected lifecycle status
+given: |
+  - the target record's current lifecycle.status is approved, deprecated,
+    or removed; OR the supplied body declares one of those statuses
+when: user runs `sdd record set <id> ...`
+then: |
+  - exits 1; stderr explains the record is governed and must go through
+    `sdd approve` / `sdd finalize`
+  - no byte of any file changes
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    set against an approved/deprecated/removed record exits 1 and writes
+    nothing; set whose new body declares a protected status exits 1 and
+    writes nothing; a draft→proposed edit is allowed.
+  test_template: integration
+  boundary_classes:
+    - current status approved
+    - new body status approved
+    - draft → proposed (allowed)
+  failure_scenarios:
+    - a governed record is silently rewritten
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-061
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:03.704Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record set — unknown or ambiguous id
+given: |
+  - <id> matches zero records, or matches more than one record
+when: user runs `sdd record set <id> ...`
+then: |
+  - exits 1; stderr reports `record not found: <id>` (zero) or that the
+    id is ambiguous (more than one)
+  - no byte of any file changes
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    set against a non-existent id exits 1 with `record not found`; against
+    a duplicated id exits 1 reporting ambiguity; neither writes a byte.
+  test_template: integration
+  boundary_classes:
+    - zero matches
+    - two matches
+  failure_scenarios:
+    - a wrong record is overwritten on ambiguity
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-062
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:03.776Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record add --after <id> — insert a new record
+given: |
+  - .sdd/config.json validates against CTR-003
+  - --after <id> names an existing record; <id>'s enclosing ```yaml fence
+    is located in a lint.spec_files file
+  - the supplied body (bare or fenced) declares a new id not already
+    present in any spec file, with lifecycle.status draft or proposed
+when: user runs `sdd record add --after <id> (--from-file <p> | --content <s>)`
+then: |
+  - a new ```yaml-fenced record block is inserted immediately after the
+    anchor's enclosing fence, separated by a blank line
+  - the write targets only the anchor's file and is atomic (INV-015)
+  - exits 0; --format=json => CTR-028 envelope with action "add"
+negative_cases:
+  - body id already exists => see BEH-063
+  - --after omitted, or body status protected => see BEH-063
+out_of_scope:
+  - choosing the §-section by heuristic (placement is the explicit anchor)
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    add --after <id> with a fresh draft/proposed body inserts one new
+    fenced record right after the anchor's fence, leaves all prior bytes
+    intact, exits 0, and `sdd record get <new-id>` then returns the body.
+  test_template: integration
+  boundary_classes:
+    - anchor mid-file
+    - anchor is the last record in the file
+    - bare body and fenced body
+  failure_scenarios:
+    - the new record lands in the wrong place
+    - an existing record is overwritten
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-063
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:03.847Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record add — refuses duplicate id, protected status, or missing anchor
+given: |
+  - --after is omitted; OR --after names no record; OR the body id already
+    exists; OR the body declares a protected lifecycle status
+when: user runs `sdd record add ...`
+then: |
+  - exits 1 (duplicate id, unknown anchor, protected status) or exit 2
+    (missing --after); stderr explains the cause
+  - no byte of any file changes
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    add with an existing body id exits 1; with an unknown --after exits 1;
+    with a protected body status exits 1; with --after absent exits 2; none
+    writes a byte.
+  test_template: integration
+  boundary_classes:
+    - duplicate id
+    - unknown anchor
+    - protected status
+    - missing --after
+  failure_scenarios:
+    - a duplicate id is appended, breaking ID uniqueness
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-064
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:03.920Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record set/add — invalid input exits 2
+given: |
+  - neither --from-file nor --content is given, or both are; OR the body
+    does not parse as a single YAML mapping; OR the body has no `id:`; OR
+    (set only) the body `id:` differs from the positional <id>
+when: the CLI parses argv / reads the body
+then: |
+  - exits 2; stderr explains the input error
+  - no byte of any file changes
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: input validation occurs before any spec write
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    Missing/both input flags, unparseable YAML, a body without `id:`, and
+    (set) an id/body mismatch each exit 2 and write nothing.
+  test_template: integration
+  boundary_classes:
+    - neither --from-file nor --content
+    - both flags
+    - unparseable YAML
+    - body without id
+    - set id/body mismatch
+  failure_scenarios:
+    - malformed input is written into the spec
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -5280,6 +5564,70 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CTR-028
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:03.991Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record set/add JSON output schema
+surface_ref: sdd-cli:SUR-015
+schema:
+  format_version: 1
+  on_success:
+    type: object
+    required: [format_version, ok, action, id, file, start_line, end_line]
+    properties:
+      format_version: { const: 1 }
+      ok:             { const: true }
+      action:         { enum: [set, add] }
+      id:             { type: string }
+      file:           { type: string }
+      start_line:     { type: integer }
+      end_line:       { type: integer }
+preconditions:
+  - --format=json was passed
+  - the write succeeded
+postconditions:
+  - stdout is exactly one JSON object terminated by LF
+  - start_line/end_line bound the written record body after the edit
+external_identifiers:
+  - field names; values of the `action` enum; format_version
+compatibility_rules:
+  - renaming any field        => major bump on SUR-015
+  - adding an optional field  => minor bump on SUR-015
+  - removing a field          => major bump on SUR-015
+  - bumping format_version    => major bump on SUR-015
+error_taxonomy:
+  - failures use the shared CLI failure envelope (CTR-002 exit codes);
+    not-found/protected/duplicate => exit 1, input errors => exit 2
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    JSON output validates against this schema for the set happy path
+    (BEH-059) and the add happy path (BEH-062).
+  test_template: contract
+  boundary_classes: [action set, action add]
+  failure_scenarios: [missing field, extra field, wrong action value]
+---
+```
+
 ---
 
 ## 8. Invariants
@@ -6017,6 +6365,65 @@ test_obligation:
     - declared bump > required (silent)
   failure_scenarios:
     - ready writes to a spec file during the cascade pass
+---
+```
+
+```yaml
+---
+id: sdd-cli:INV-015
+type: Invariant
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:41:04.057Z
+    change_request: approve sdd record set/add write commands
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record set/add write only spec files, only draft/proposed, atomically
+never: |
+  `sdd record set` and `sdd record add` never write to any path other than
+  the single `lint.spec_files` file that holds the targeted record (set) or
+  the `--after` anchor (add). They never touch <repo_root>/.sdd/config.json
+  or any file under <repo_root>/.git/. They never create, modify, or delete
+  a record whose lifecycle.status is approved, deprecated, or removed. The
+  write is atomic: on any validation failure no byte of any file changes.
+scope:
+  - src/features/record/**
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+negative_cases:
+  - set rewrites an approved record in place
+  - add appends a record with lifecycle.status approved
+  - a failed set leaves a partially written file
+  - set/add write to .sdd/config.json or .git/
+out_of_scope:
+  - lifecycle promotion (governed by `sdd approve` + `sdd finalize`, INV-011)
+  - the read-only commands list/get (covered by INV-002)
+test_obligation:
+  predicate: |
+    For every set/add fixture, only the target spec file changes (config and
+    .git byte-identical); a refused protected-status or invalid-input run
+    leaves the entire tree byte-identical; a successful set/add leaves the
+    file parseable with exactly the intended record change.
+  test_template: integration (fs-readonly probe + round-trip)
+  boundary_classes:
+    - successful set (only target file changes)
+    - successful add (only target file changes)
+    - refused protected status (tree byte-identical)
+    - invalid input (tree byte-identical)
+  failure_scenarios:
+    - a write lands outside lint.spec_files
+    - a governed record is mutated
 ---
 ```
 

@@ -1,16 +1,24 @@
 import type { Dirent } from "node:fs";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { configFromJson, type SddConfig } from "../../../../shared/domain/Config.js";
 import { configFailure } from "../../../../shared/domain/Errors.js";
 import type { RecordConfigPort } from "../../ports/outbound/RecordConfigPort.js";
 import type { RecordFileReader, SpecFileEntry } from "../../ports/outbound/RecordFileReader.js";
+import type { RecordFileWriter } from "../../ports/outbound/RecordFileWriter.js";
 
-export class NodeRecordFileReader implements RecordConfigPort, RecordFileReader {
+export class NodeRecordFileSystem implements RecordConfigPort, RecordFileReader, RecordFileWriter {
   async config(repoRoot: string): Promise<SddConfig> {
     const configPath = join(repoRoot, ".sdd", "config.json");
     const text = await readConfig(configPath);
     return configFromJson(parseConfigJson(text, configPath), configPath);
+  }
+
+  async writeSpecFile(repoRoot: string, relativePath: string, content: string): Promise<void> {
+    const abs = resolve(repoRoot, relativePath);
+    const tmp = `${abs}.tmp.${process.pid}.${Date.now()}`;
+    await writeFile(tmp, content, "utf8");
+    await rename(tmp, abs);
   }
 
   async resolveSpecFiles(repoRoot: string, patterns: readonly string[]): Promise<SpecFileEntry[]> {

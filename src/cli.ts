@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, realpathSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { CliApproveHandler } from "./features/approve/adapters/inbound/CliApproveHandler.js";
@@ -31,7 +31,7 @@ import { ChildProcessRefreshGit } from "./features/refresh/adapters/outbound/Chi
 import { NodeRefreshFileReader } from "./features/refresh/adapters/outbound/NodeRefreshFileReader.js";
 import { SystemRefreshClock } from "./features/refresh/adapters/outbound/SystemRefreshClock.js";
 import { CliRecordHandler } from "./features/record/adapters/inbound/CliRecordHandler.js";
-import { NodeRecordFileReader } from "./features/record/adapters/outbound/NodeRecordFileReader.js";
+import { NodeRecordFileSystem } from "./features/record/adapters/outbound/NodeRecordFileSystem.js";
 import type { RecordAction } from "./features/record/ports/inbound/RecordCommand.js";
 import { CliTokenHandler } from "./features/token/adapters/inbound/CliTokenHandler.js";
 import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildProcessTokenGit.js";
@@ -55,9 +55,12 @@ interface ParsedArgv {
 }
 
 interface RecordArgs {
-  subcommand: "list" | "get";
+  subcommand: "list" | "get" | "set" | "add";
   id?: string;
+  afterId?: string;
   partition?: string;
+  content?: string;
+  fromFile?: string;
 }
 
 interface ReportArgs {
@@ -115,6 +118,8 @@ Usage:
   sdd ready    [--format=json|human] [--partition <name>]
   sdd record list           [--partition <name>] [--format=json|human]
   sdd record get <id>       [--format=json|human]
+  sdd record set <id>       (--from-file <p> | --content <s>) [--format=json|human]
+  sdd record add --after <id> (--from-file <p> | --content <s>) [--format=json|human]
   sdd --help
   sdd --version`;
 
@@ -129,7 +134,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   plan: "Usage: sdd plan show [--plan <plan_id>] [--format=json|human]",
   doctor: "Usage: sdd doctor --rule-version [--rules <path>] [--format=json|human]",
   report: "Usage: sdd report --pr-summary [--against <ref>] [--format=json|human]",
-  record: "Usage: sdd record list [--partition <name>] | sdd record get <id> [--format=json|human]",
+  record: "Usage: sdd record list [--partition <name>] | get <id> | set <id> (--from-file <p>|--content <s>) | add --after <id> (--from-file <p>|--content <s>) [--format=json|human]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -232,12 +237,26 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
     if (parsed.record === undefined) {
       return { exitCode: 2, stdout: "", stderr: `${COMMAND_HELP.record}\n` };
     }
-    const files = new NodeRecordFileReader();
-    const command = new CliRecordHandler({ config: files, files });
-    const action: RecordAction = parsed.record.subcommand === "get"
-      ? { kind: "get", id: parsed.record.id! }
-      : { kind: "list", partition: parsed.record.partition };
-    return command.execute(cwd, action, parsed.format === "json" ? "json" : "human");
+    const fs = new NodeRecordFileSystem();
+    const command = new CliRecordHandler({ config: fs, files: fs, writer: fs });
+    const format = parsed.format === "json" ? "json" : "human";
+    const sub = parsed.record.subcommand;
+
+    if (sub === "list") {
+      return command.execute(cwd, { kind: "list", partition: parsed.record.partition }, format);
+    }
+    if (sub === "get") {
+      return command.execute(cwd, { kind: "get", id: parsed.record.id! }, format);
+    }
+
+    const bodyResult = resolveRecordBody(parsed.record, cwd);
+    if (bodyResult.error !== undefined) {
+      return { exitCode: 2, stdout: "", stderr: `${bodyResult.error}\n` };
+    }
+    const action: RecordAction = sub === "set"
+      ? { kind: "set", id: parsed.record.id!, body: bodyResult.body }
+      : { kind: "add", afterId: parsed.record.afterId!, body: bodyResult.body };
+    return command.execute(cwd, action, format);
   }
   if (parsed.subcommand === "ready") {
     const fs = new NodeReadyFileSystem();
@@ -483,16 +502,16 @@ function isSubcommand(value: string | undefined): value is Subcommand {
 
 function parseRecordArgv(args: readonly string[]): ParsedArgv {
   const sub = args[0];
-  if (sub !== "list" && sub !== "get") {
-    return { mode: "error", message: "expected: sdd record list | sdd record get <id>" };
+  if (sub !== "list" && sub !== "get" && sub !== "set" && sub !== "add") {
+    return { mode: "error", message: "expected: sdd record list | get <id> | set <id> | add --after <id>" };
   }
 
   const record: RecordArgs = { subcommand: sub };
   let rest = args.slice(1);
-  if (sub === "get") {
+  if (sub === "get" || sub === "set") {
     const id = rest[0];
     if (id === undefined || id.startsWith("--")) {
-      return { mode: "error", message: "expected: sdd record get <id>" };
+      return { mode: "error", message: `expected: sdd record ${sub} <id>` };
     }
     record.id = id;
     rest = rest.slice(1);
@@ -518,9 +537,58 @@ function parseRecordArgv(args: readonly string[]): ParsedArgv {
       i++;
       continue;
     }
+    if (arg === "--after" && sub === "add") {
+      const next = rest[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --after" };
+      }
+      record.afterId = next;
+      i++;
+      continue;
+    }
+    if (arg === "--content" && (sub === "set" || sub === "add")) {
+      const next = rest[i + 1];
+      if (next === undefined) {
+        return { mode: "error", message: "missing value for --content" };
+      }
+      record.content = next;
+      i++;
+      continue;
+    }
+    if (arg === "--from-file" && (sub === "set" || sub === "add")) {
+      const next = rest[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        return { mode: "error", message: "missing value for --from-file" };
+      }
+      record.fromFile = next;
+      i++;
+      continue;
+    }
     return { mode: "error", message: `unknown flag: ${arg}` };
   }
+
+  if (sub === "add" && record.afterId === undefined) {
+    return { mode: "error", message: "sdd record add requires --after <id>" };
+  }
+  if (sub === "set" || sub === "add") {
+    const hasContent = record.content !== undefined;
+    const hasFile = record.fromFile !== undefined;
+    if (hasContent === hasFile) {
+      return { mode: "error", message: "provide exactly one of --from-file <path> or --content <body>" };
+    }
+  }
   return { mode: "command", subcommand: "record", format, record };
+}
+
+function resolveRecordBody(record: RecordArgs, cwd: string): { body: string; error?: undefined } | { error: string } {
+  if (record.content !== undefined) {
+    return { body: record.content };
+  }
+  try {
+    return { body: readFileSync(resolve(cwd, record.fromFile!), "utf8") };
+  } catch {
+    return { error: `cannot read --from-file: ${record.fromFile}` };
+  }
 }
 
 function parseReportArgv(args: readonly string[]): ParsedArgv {
