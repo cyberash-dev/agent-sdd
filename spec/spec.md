@@ -330,7 +330,7 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/ready
-version: "0.4.0"
+version: "0.5.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-013
@@ -2364,6 +2364,48 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:BEH-053
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T20:18:38.052Z
+    change_request: oq-017 covers near-miss advisory
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready surfaces near-miss @covers markers as non-blocking advisories (OQ-017)
+given: |
+  - a scanned test file contains an `@covers`-shaped token ending in a valid
+    id tail (`<TYPE>-<num>`) whose prefix fails the partition grammar
+    (e.g. an uppercase segment)
+when: |
+  user runs `sdd ready`
+then: |
+  - the envelope `advisories[]` array carries a `covers_near_miss` entry
+    naming the offending text, file, and line
+  - the advisory NEVER affects the exit code (gate unchanged)
+  - strictly-valid markers produce no advisory
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: ready scans text, no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    A test file with an uppercase-segment @covers token yields one
+    covers_near_miss advisory and does not raise the exit code; a strictly
+    valid marker yields none; non-marker @covers-shaped prose yields none.
+  test_template: integration
+  boundary_classes: [uppercase segment near-miss, valid marker, non-marker prose]
+  failure_scenarios: [near-miss flips exit code, valid marker flagged as near-miss]
+---
+```
+
 ### 6.11 `sdd lint` — boundary requiredness (P2.1)
 
 ```yaml
@@ -4190,6 +4232,7 @@ schema:
     ok: bool
     error: ReadyError | null
     violations: array of ReadyViolation
+    advisories: array of advisory entries (kind=covers_near_miss; file, line, text, remediation) — non-blocking, never affects exit code (OQ-017 / BEH-053)
   ReadyError:
     kind: enum [spec_parse_failed, config_invalid, unreadable_test_paths, internal]
     message: string
@@ -4206,11 +4249,13 @@ schema:
     remediation: string | absent
     source: string | absent          # lint rule id when kind == aggregated_lint
 external_identifiers:
-  - top-level keys: ok, error, violations
+  - top-level keys: ok, error, violations, advisories
   - error key set: kind, message, file
   - violation key set: kind, id, partition, status, file, line, expected, actual, remediation, source
+  - advisory key set: kind, file, line, text, remediation
   - violation kind enum (9 values)
   - error kind enum (4 values)
+  - advisory kind enum (1 value: covers_near_miss)
 preconditions: not_applicable
 postconditions: not_applicable
 error_taxonomy: not_applicable

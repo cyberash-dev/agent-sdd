@@ -31,20 +31,31 @@ export interface ReadyError {
   file?: string;
 }
 
+/** Non-blocking advisory (OQ-011/OQ-017): surfaced in the ready envelope but
+ *  never affects exit code. */
+export interface ReadyAdvisory {
+  kind: "covers_near_miss";
+  file: string;
+  line: number;
+  text: string;
+  remediation: string;
+}
+
 export interface ReadyEnvelope {
   ok: boolean;
   error: ReadyError | null;
   violations: ReadyViolation[];
+  advisories: ReadyAdvisory[];
 }
 
 export function emptyEnvelope(): ReadyEnvelope {
-  return { ok: true, error: null, violations: [] };
+  return { ok: true, error: null, violations: [], advisories: [] };
 }
 
 export function envelopeFromError(error: ReadyError): ReadyEnvelope {
-  return { ok: false, error, violations: [] };
+  return { ok: false, error, violations: [], advisories: [] };
 }
 
 export function envelopeFromViolations(violations: ReadyViolation[]): ReadyEnvelope {
-  return { ok: violations.length === 0, error: null, violations };
+  return { ok: violations.length === 0, error: null, violations, advisories: [] };
 }

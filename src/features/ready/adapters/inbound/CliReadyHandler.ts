@@ -13,7 +13,7 @@ export class CliReadyHandler implements ReadyCommand {
       // Anything not converted into a ReadyError by RunReady itself is an
       // internal evaluate-failure (exit 2).
       const message = error instanceof Error ? error.message : String(error);
-      envelope = { ok: false, error: { kind: "internal", message }, violations: [] };
+      envelope = { ok: false, error: { kind: "internal", message }, violations: [], advisories: [] };
     }
     const exitCode = envelope.error !== null ? 2 : envelope.violations.length > 0 ? 1 : 0;
     if (format === "json") {
@@ -31,12 +31,17 @@ function humanResult(envelope: ReadyEnvelope, exitCode: 0 | 1 | 2): CommandResul
       stderr: `${envelope.error.kind}: ${envelope.error.message}${envelope.error.file !== undefined ? ` (${envelope.error.file})` : ""}\n`,
     };
   }
-  if (envelope.violations.length === 0) {
-    return { exitCode: 0, stdout: "sdd ready: 0 violation(s).\n", stderr: "" };
-  }
   const lines: string[] = [];
   for (const v of envelope.violations) {
     lines.push(formatViolationLine(v));
+  }
+  for (const a of envelope.advisories) {
+    lines.push(`[advisory:${a.kind}] ${a.file}:${a.line}  ${truncate(a.remediation, 200)}`);
+  }
+  if (envelope.violations.length === 0) {
+    lines.push("sdd ready: 0 violation(s).");
+    if (envelope.advisories.length > 0) lines.push(`sdd ready: ${envelope.advisories.length} advisory(ies).`);
+    return { exitCode: 0, stdout: `${lines.join("\n")}\n`, stderr: "" };
   }
   lines.push("");
   lines.push(`sdd ready: ${envelope.violations.length} violation(s).`);

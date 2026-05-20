@@ -42,7 +42,7 @@ import {
   aggregatedLintViolations,
   type AggregatedCheckOutcome,
 } from "../domain/AggregatedRules.js";
-import { parseMarkers, type Marker } from "../domain/MarkerParser.js";
+import { parseMarkers, parseNearMisses, type Marker } from "../domain/MarkerParser.js";
 import {
   ruleOrphanCovers,
   ruleRemovedCompatActionMismatch,
@@ -56,8 +56,8 @@ import {
 } from "../domain/Rules.js";
 import type { ReadyInput } from "../domain/ReadyInput.js";
 import {
-  emptyEnvelope,
   envelopeFromError,
+  type ReadyAdvisory,
   type ReadyEnvelope,
   type ReadyError,
   type ReadyViolation,
@@ -123,6 +123,7 @@ export async function runReady(cwd: string, input: ReadyInput, ports: RunReadyPo
   // once per partition that lists it; markers carry the file path, so the
   // partition->credited mapping is computed lazily during rule evaluation.
   const markersByPartition = new Map<string, Marker[]>();
+  const nearMissByKey = new Map<string, ReadyAdvisory>();
   for (const p of partitions) {
     if (p.testPaths.length === 0) {
       markersByPartition.set(p.name, []);
@@ -140,9 +141,19 @@ export async function runReady(cwd: string, input: ReadyInput, ports: RunReadyPo
     const markers: Marker[] = [];
     for (const entry of entries) {
       markers.push(...parseMarkers(entry.content, entry.path));
+      for (const nm of parseNearMisses(entry.content, entry.path)) {
+        nearMissByKey.set(`${nm.file}:${nm.line}:${nm.text}`, {
+          kind: "covers_near_miss",
+          file: nm.file,
+          line: nm.line,
+          text: nm.text,
+          remediation: `\`@covers ${nm.text}\` looks like a marker but fails the partition grammar (lowercase segments only); fix the prefix or remove the stray @covers text`,
+        });
+      }
     }
     markersByPartition.set(p.name, markers);
   }
+  const advisories = [...nearMissByKey.values()];
 
   // 3. Per-partition rule evaluation.
   const violations: ReadyViolation[] = [];
@@ -244,8 +255,7 @@ export async function runReady(cwd: string, input: ReadyInput, ports: RunReadyPo
     violations.push(...debtViolations);
   }
 
-  if (violations.length === 0) return emptyEnvelope();
-  return { ok: false, error: null, violations };
+  return { ok: violations.length === 0, error: null, violations, advisories };
 }
 
 async function debtBudgetMonotonicityViolations(

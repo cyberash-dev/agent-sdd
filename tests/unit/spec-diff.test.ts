@@ -79,6 +79,13 @@ test("classifyDiff: modifying an existing schema leaf outside a zone stays predi
   assert.equal(out[0]!.classification, "predicate_change");
 });
 
+test("classifyDiff: adding an output field inside a schema `json` envelope is content_change (CTR-014 append-only)", () => {
+  const prev = rec("p:CTR-14", "Contract", { schema: { json: { ok: "bool", violations: "array" } } });
+  const curr = rec("p:CTR-14", "Contract", { schema: { json: { ok: "bool", violations: "array", advisories: "array" } } });
+  const out = classifyDiff([prev], [curr]);
+  assert.equal(out[0]!.classification, "content_change");
+});
+
 test("classifyDiff: removing a schema.members entry stays predicate_change", () => {
   const prev = rec("p:CTR-16", "Contract", { schema: { members: { ready: ["x", "y"] } } });
   const curr = rec("p:CTR-16", "Contract", { schema: { members: { ready: ["x"] } } });

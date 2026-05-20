@@ -254,8 +254,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 /** Names of schema sub-trees whose contents are append-only at minor (their
  *  owning Contract's own compatibility_rules say so): CTR-016 `members`,
- *  CTR-012 lint `fields`. */
-const APPEND_ONLY_ZONE_KEYS: ReadonlySet<string> = new Set(["members", "fields"]);
+ *  CTR-012 lint `fields`, the CTR-014/CTR-012 `json` envelope/config shape
+ *  (field set additive at minor). */
+const APPEND_ONLY_ZONE_KEYS: ReadonlySet<string> = new Set(["members", "fields", "json"]);
 
 /** True when a `schema` change is confined to pure additions inside an
  *  append-only zone (`members`/`fields`): no key/element removed, no existing

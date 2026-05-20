@@ -107,6 +107,7 @@ Each row carries:
 | ENF-057 | — | `sdd ready` aggregates upstream `sdd lint` violations | aggregate-gate | sdd ready | implementation-valid | aggregated_lint | implemented | — | — |
 | ENF-058 | — | `sdd ready` aggregates baseline (`sdd check`) violations | aggregate-gate | sdd ready | implementation-valid | aggregated_check | implemented | — | — |
 | ENF-059 | — | Unresolved `Open-Q.blocking=yes` blocks spec-valid (§0) | structural-lint | sdd lint | spec-valid | sdd:open-q-blocking | implemented | — | — |
+| ENF-060 | — | Near-miss `@covers` markers surface as non-blocking `advisories[]` in the ready envelope (never affect exit code) | report-evidence | sdd ready | implementation-valid | — | implemented | — | — |
 
 ## Maturity transitions
 

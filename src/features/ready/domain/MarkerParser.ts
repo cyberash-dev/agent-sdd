@@ -23,6 +23,33 @@ const MARKER_RE = new RegExp(
   "g",
 );
 
+export interface NearMissMarker {
+  text: string;
+  file: string;
+  line: number;
+}
+
+// Loose recogniser for `@covers`-shaped tokens that end in a valid id tail
+// (`<TYPE>-<num>`) but whose prefix violates the strict partition grammar
+// (e.g. uppercase segment). Used to surface near-miss advisories (OQ-017).
+const NEAR_MISS_RE = new RegExp(`@covers\\s+([A-Za-z0-9_:-]+:[A-Z]+-\\d+)`, "g");
+const STRICT_TARGET_RE = new RegExp(`^${PARTITION_PREFIX_RE_SRC}:${ID_TAIL_RE_SRC}$`);
+
+/** `@covers`-shaped tokens that look like a marker attempt (valid id tail) but
+ *  fail the strict partition grammar. Strictly-valid markers are excluded. */
+export function parseNearMisses(text: string, file: string): NearMissMarker[] {
+  const out: NearMissMarker[] = [];
+  const lineStarts = lineStartOffsets(text);
+  NEAR_MISS_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = NEAR_MISS_RE.exec(text)) !== null) {
+    const target = match[1]!;
+    if (STRICT_TARGET_RE.test(target)) continue;
+    out.push({ text: target, file, line: lineNumberOf(lineStarts, match.index) });
+  }
+  return out;
+}
+
 export function parseMarkers(text: string, file: string): Marker[] {
   const out: Marker[] = [];
   const lineStarts = lineStartOffsets(text);

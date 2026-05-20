@@ -1,6 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ALLOWED_MARKER_KEYS, parseMarkers } from "../../src/features/ready/domain/MarkerParser.js";
+import { ALLOWED_MARKER_KEYS, parseMarkers, parseNearMisses } from "../../src/features/ready/domain/MarkerParser.js";
+
+test("parseNearMisses flags an uppercase partition segment (BEH-053 / OQ-017)", () => {
+  // @covers sdd-cli:BEH-053
+  const text = "// @cov" + "ers gatehouse:Commands:CON-004\n";
+  const out = parseNearMisses(text, "tests/foo.test.ts");
+
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.text, "gatehouse:Commands:CON-004");
+  assert.equal(out[0]!.line, 1);
+});
+
+test("parseNearMisses does NOT flag a strictly-valid marker", () => {
+  // @covers sdd-cli:BEH-053
+  const text = "// @cov" + "ers gatehouse:lock:BEH-001\n";
+  assert.deepEqual(parseNearMisses(text, "f.ts"), []);
+});
+
+test("parseNearMisses ignores non-marker @covers-shaped prose", () => {
+  // @covers sdd-cli:BEH-053
+  const text = "// @cov" + "ers see the doc above\n";
+  assert.deepEqual(parseNearMisses(text, "f.ts"), []);
+});
 
 test("parseMarkers detects a happy-path single marker", () => {
   // @covers sdd-cli:CST-007
@@ -70,7 +92,7 @@ test("parseMarkers rejects partition/ID outside the documented charset", () => {
   // @covers sdd-cli:CST-007
   // Partition must start with [a-z]; ID neutral part must be uppercase
   // letters; suffix must be digits.
-  const text = "@covers UPPER:BEH-001\n@covers fixture:lower-1\n@covers fixture:BEH-abc\n";
+  const text = "@cov" + "ers UPPER:BEH-001\n@cov" + "ers fixture:lower-1\n@cov" + "ers fixture:BEH-abc\n";
   const out = parseMarkers(text, "f.ts");
 
   assert.equal(out.length, 0);
@@ -133,7 +155,7 @@ test("parseMarkers silently skips a near-miss with uppercase in partition prefix
   // that single `@covers` anchor; without a second `@covers` token the engine
   // produces zero markers (silent skip). Asserting this explicitly so a future
   // grammar change cannot drift the OQ-017 default-a behaviour silently.
-  const out1 = parseMarkers("@covers bridge:Commands:CON-004\n", "f.ts");
+  const out1 = parseMarkers("@cov" + "ers bridge:Commands:CON-004\n", "f.ts");
   assert.equal(out1.length, 0);
 
   // A subsequent valid `@covers` on the same line still parses — the near-miss
