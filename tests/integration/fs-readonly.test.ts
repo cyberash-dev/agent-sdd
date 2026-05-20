@@ -101,6 +101,17 @@ test("sdd ready does not mutate spec, config or git refs/objects", async () => {
   await assertReadOnly(repo, () => runSdd(repo.root, ["ready", "--format=json"]));
 });
 
+test("sdd record list/get do not mutate spec, config or git refs/objects", async () => {
+  // @covers sdd-cli:INV-002
+  // @covers sdd-cli:POL-001
+  const repo = await fixtureRepo();
+
+  await assertReadOnly(repo, async () => {
+    await runSdd(repo.root, ["record", "list", "--format=json"]);
+    await runSdd(repo.root, ["record", "get", "fixture:BL-001", "--format=json"]);
+  });
+});
+
 test("config-error path does not mutate spec or git refs/objects", async () => {
   // @covers sdd-cli:INV-002
   // @covers sdd-cli:POL-001

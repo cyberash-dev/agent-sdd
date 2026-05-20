@@ -177,7 +177,7 @@ function yamlScalar(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-function findMatches(lines: readonly string[], idOrGlob: string): IdMatch[] {
+export function findMatches(lines: readonly string[], idOrGlob: string): IdMatch[] {
   const out: IdMatch[] = [];
   let inFence = false;
   let fenceStart = -1;

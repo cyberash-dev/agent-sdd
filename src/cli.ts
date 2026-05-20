@@ -30,12 +30,15 @@ import { CliRefreshHandler } from "./features/refresh/adapters/inbound/CliRefres
 import { ChildProcessRefreshGit } from "./features/refresh/adapters/outbound/ChildProcessRefreshGit.js";
 import { NodeRefreshFileReader } from "./features/refresh/adapters/outbound/NodeRefreshFileReader.js";
 import { SystemRefreshClock } from "./features/refresh/adapters/outbound/SystemRefreshClock.js";
+import { CliRecordHandler } from "./features/record/adapters/inbound/CliRecordHandler.js";
+import { NodeRecordFileReader } from "./features/record/adapters/outbound/NodeRecordFileReader.js";
+import type { RecordAction } from "./features/record/ports/inbound/RecordCommand.js";
 import { CliTokenHandler } from "./features/token/adapters/inbound/CliTokenHandler.js";
 import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildProcessTokenGit.js";
 import { NodeTokenConfigReader } from "./features/token/adapters/outbound/NodeTokenConfigReader.js";
 import type { CommandResult, OutputFormat } from "./shared/domain/CliOutput.js";
 
-type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan" | "doctor" | "report";
+type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan" | "doctor" | "report" | "record";
 
 interface ParsedArgv {
   mode: "command" | "help" | "version" | "error";
@@ -47,7 +50,13 @@ interface ParsedArgv {
   plan?: PlanArgs;
   doctor?: DoctorArgs;
   report?: ReportArgs;
+  record?: RecordArgs;
   message?: string;
+}
+
+interface RecordArgs {
+  subcommand: "list" | "get";
+  id?: string;
 }
 
 interface ReportArgs {
@@ -103,6 +112,8 @@ Usage:
   sdd doctor    --rule-version [--rules <path>] [--format=json|human]
   sdd report    --pr-summary [--against <ref>] [--format=json|human]
   sdd ready    [--format=json|human] [--partition <name>]
+  sdd record list           [--format=json|human]
+  sdd record get <id>       [--format=json|human]
   sdd --help
   sdd --version`;
 
@@ -117,6 +128,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   plan: "Usage: sdd plan show [--plan <plan_id>] [--format=json|human]",
   doctor: "Usage: sdd doctor --rule-version [--rules <path>] [--format=json|human]",
   report: "Usage: sdd report --pr-summary [--against <ref>] [--format=json|human]",
+  record: "Usage: sdd record list | sdd record get <id> [--format=json|human]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -215,6 +227,17 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
       against: parsed.report.against,
     }, parsed.format === "json" ? "json" : "human");
   }
+  if (parsed.subcommand === "record") {
+    if (parsed.record === undefined) {
+      return { exitCode: 2, stdout: "", stderr: `${COMMAND_HELP.record}\n` };
+    }
+    const files = new NodeRecordFileReader();
+    const command = new CliRecordHandler({ config: files, files });
+    const action: RecordAction = parsed.record.subcommand === "get"
+      ? { kind: "get", id: parsed.record.id! }
+      : { kind: "list" };
+    return command.execute(cwd, action, parsed.format === "json" ? "json" : "human");
+  }
   if (parsed.subcommand === "ready") {
     const fs = new NodeReadyFileSystem();
     const command = new CliReadyHandler({ config: fs, files: fs, git: new ChildProcessReadyGit() });
@@ -261,6 +284,9 @@ function parseArgv(argv: readonly string[]): ParsedArgv {
   }
   if (subcommand === "report") {
     return parseReportArgv(rest);
+  }
+  if (subcommand === "record") {
+    return parseRecordArgv(rest);
   }
   const defaultFormat = subcommand === "refresh" ? "yaml" : "human";
   let format: OutputFormat = defaultFormat;
@@ -451,7 +477,38 @@ function packageVersion(): string {
 function isSubcommand(value: string | undefined): value is Subcommand {
   return value === "token" || value === "check" || value === "refresh" || value === "lint"
     || value === "approve" || value === "ready" || value === "finalize" || value === "plan"
-    || value === "doctor" || value === "report";
+    || value === "doctor" || value === "report" || value === "record";
+}
+
+function parseRecordArgv(args: readonly string[]): ParsedArgv {
+  const sub = args[0];
+  if (sub !== "list" && sub !== "get") {
+    return { mode: "error", message: "expected: sdd record list | sdd record get <id>" };
+  }
+
+  const record: RecordArgs = { subcommand: sub };
+  let rest = args.slice(1);
+  if (sub === "get") {
+    const id = rest[0];
+    if (id === undefined || id.startsWith("--")) {
+      return { mode: "error", message: "expected: sdd record get <id>" };
+    }
+    record.id = id;
+    rest = rest.slice(1);
+  }
+
+  let format: OutputFormat = "human";
+  for (const arg of rest) {
+    if (!arg.startsWith("--format=")) {
+      return { mode: "error", message: `unknown flag: ${arg}` };
+    }
+    const value = arg.slice("--format=".length);
+    if (!isFormat(value) || value === "yaml") {
+      return { mode: "error", message: `invalid format: ${value}` };
+    }
+    format = value;
+  }
+  return { mode: "command", subcommand: "record", format, record };
 }
 
 function parseReportArgv(args: readonly string[]): ParsedArgv {

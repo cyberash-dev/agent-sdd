@@ -146,13 +146,16 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/cli
-version: "0.2.0"
+version: "0.3.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-001
   - sdd-cli:CTR-002
 consumer_compat_policy: semver_per_surface
 notes: |
+  v0.3.0 — additive: new subcommand `record` (`record list`,
+  `record get <id>`) joins the existing set. Existing argv shapes are
+  unchanged.
   v0.2.0 — additive: new subcommands `finalize`, `plan show`, `doctor`,
   `report` join `token`/`check`/`refresh`/`lint`/`approve`/`ready`. Existing
   argv shapes are unchanged.
@@ -540,6 +543,34 @@ notes: |
   (closed test obligations, internal decisions placeholder,
   ASSUMPTIONs touched, Open-Q residuals, debt budget delta) suitable
   for pasting into a PR description. Read-only on the working tree.
+---
+```
+
+```yaml
+---
+id: sdd-cli:SUR-015
+type: Surface
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:08:04.995Z
+    change_request: approve sdd record read-only commands (list/get)
+    scope: first-time-approval
+partition_id: sdd-cli
+name: sdd-cli/record
+version: "0.1.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-026
+  - sdd-cli:CTR-027
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.1.0 — `sdd record list` and `sdd record get <id>` give agents a
+  compact index of, and verbatim access to, individual normative records
+  without reading the whole spec file into context. Both are read-only
+  on the working tree (INV-002).
 ---
 ```
 
@@ -3351,6 +3382,197 @@ test_obligation:
 ---
 ```
 
+### 6.16 `sdd record`
+
+```yaml
+---
+id: sdd-cli:BEH-054
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:08:05.200Z
+    change_request: approve sdd record read-only commands (list/get)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record list — index of every normative record
+given: |
+  - .sdd/config.json validates against CTR-003
+  - every spec file matched by lint.spec_files parses
+when: user runs `sdd record list` (with optional --format=json|human)
+then: |
+  - exits 0
+  - one row per normative record carrying its id, type, lifecycle.status,
+    derived title, file and line
+  - --format=json => single JSON object per CTR-026 (format_version 1,
+    count, records[])
+negative_cases:
+  - .sdd/config.json missing or invalid => see BEH-009
+out_of_scope:
+  - mutating any spec file (record list is read-only — see INV-002)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: record list operates on spec text; no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    For a spec snapshot with N normative records, `sdd record list` exits 0
+    and emits exactly N rows; --format=json validates against CTR-026 with
+    count == N. Each row carries the record's id, type and lifecycle.status.
+  test_template: integration
+  boundary_classes:
+    - human format
+    - json format
+    - record with a title field
+    - record without a title (Surface name fallback, then null)
+  failure_scenarios:
+    - a record is omitted from the index
+    - title derivation throws on a record lacking title and name
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-055
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:08:05.274Z
+    change_request: approve sdd record read-only commands (list/get)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record get <id> — verbatim single record
+given: |
+  - .sdd/config.json validates against CTR-003
+  - <id> matches exactly one record in a lint.spec_files spec file
+when: user runs `sdd record get <id>` (with optional --format=json|human)
+then: |
+  - exits 0
+  - human format => the record's source block is printed verbatim
+    (byte-for-byte, preserving formatting and comments)
+  - --format=json => single JSON object per CTR-027 (found true, id, file,
+    start_line, end_line, raw)
+negative_cases:
+  - <id> matches no record => see BEH-056
+  - <id> argument absent => see BEH-057
+out_of_scope:
+  - mutating any spec file (record get is read-only — see INV-002)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: record get operates on spec text; no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    For an existing <id>, `sdd record get <id>` exits 0 and the emitted block
+    equals the exact source lines of that record; --format=json validates
+    against CTR-027 with found == true and raw equal to the human output.
+  test_template: integration
+  boundary_classes:
+    - record in canonical `---`-separated form
+    - record with a nested lifecycle block
+    - human format
+    - json format
+  failure_scenarios:
+    - emitted block omits or reorders source lines
+    - adjacent record bytes leak into the slice
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-056
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:08:05.349Z
+    change_request: approve sdd record read-only commands (list/get)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record get — unknown id exits 1
+given: |
+  - <id> matches no record in any lint.spec_files spec file
+when: user runs `sdd record get <id>`
+then: |
+  - exits 1
+  - stderr reports `record not found: <id>`
+  - --format=json => single JSON object per CTR-027 with found false
+out_of_scope:
+  - mutating any spec file (record get is read-only — see INV-002)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: record get operates on spec text; no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    `sdd record get <unknown-id>` exits 1 and emits `record not found:
+    <unknown-id>` on stderr; --format=json yields found false and exit 1.
+  test_template: integration
+  boundary_classes:
+    - human format
+    - json format
+  failure_scenarios:
+    - unknown id exits 0
+    - partial-id match returns an unrelated record
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-057
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:08:05.420Z
+    change_request: approve sdd record read-only commands (list/get)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record — invalid invocation exits 2
+given: |
+  - user invokes `sdd record` with no subcommand, an unknown subcommand,
+    or `sdd record get` with no <id>
+when: the CLI parses argv
+then: |
+  - exits 2
+  - stderr prints the `sdd record` usage line
+out_of_scope:
+  - mutating any spec file (see INV-002)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: argv handling occurs before any fs access
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    `sdd record`, `sdd record bogus`, and `sdd record get` (no id) each exit 2
+    with the record usage line on stderr.
+  test_template: integration
+  boundary_classes:
+    - no subcommand
+    - unknown subcommand
+    - get without id
+  failure_scenarios:
+    - missing id silently lists all records
+---
+```
+
 ---
 
 ## 7. Data contracts
@@ -4870,6 +5092,137 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CTR-026
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:08:05.061Z
+    change_request: approve sdd record read-only commands (list/get)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record list JSON output schema
+surface_ref: sdd-cli:SUR-015
+schema:
+  format_version: 1
+  on_success:
+    type: object
+    required: [format_version, count, records]
+    properties:
+      format_version: { const: 1 }
+      count:           { type: integer }
+      records:
+        type: array
+        items:
+          type: object
+          required: [id, type, status, title, file, line]
+          properties:
+            id:     { type: string }
+            type:   { type: [string, "null"] }
+            status: { type: [string, "null"] }
+            title:  { type: [string, "null"] }
+            file:   { type: string }
+            line:   { type: integer }
+preconditions:
+  - --format=json was passed
+postconditions:
+  - stdout is exactly one JSON object terminated by LF
+external_identifiers:
+  - field names; format_version
+notes: |
+  `title` is derived by a fixed fallback chain: the record's `title` field;
+  else its `name` field (Surface records); else null. It is a display
+  summary, not a normative field of the source record.
+compatibility_rules:
+  - renaming any field        => major bump on SUR-015
+  - adding an optional field  => minor bump on SUR-015
+  - removing a field          => major bump on SUR-015
+  - bumping format_version    => major bump on SUR-015
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_envelope_shape
+  reason: envelope shape has no runtime concurrency dimension
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: JSON output validates against this schema for every BEH-054 path.
+  test_template: contract
+  boundary_classes: [success, empty spec, record without title]
+  failure_scenarios: [missing field, extra field, wrong type]
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-027
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T21:08:05.130Z
+    change_request: approve sdd record read-only commands (list/get)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd record get JSON output schema
+surface_ref: sdd-cli:SUR-015
+schema:
+  format_version: 1
+  on_found:
+    type: object
+    required: [format_version, found, id, file, start_line, end_line, raw]
+    properties:
+      format_version: { const: 1 }
+      found:          { const: true }
+      id:             { type: string }
+      file:           { type: string }
+      start_line:     { type: integer }
+      end_line:       { type: integer }
+      raw:            { type: string }
+  on_not_found:
+    type: object
+    required: [format_version, found, id]
+    properties:
+      format_version: { const: 1 }
+      found:          { const: false }
+      id:             { type: string }
+preconditions:
+  - --format=json was passed
+postconditions:
+  - stdout is exactly one JSON object terminated by LF
+  - on found, `raw` is the byte-for-byte source block of the record
+external_identifiers:
+  - field names; format_version
+compatibility_rules:
+  - renaming any field        => major bump on SUR-015
+  - adding an optional field  => minor bump on SUR-015
+  - removing a field          => major bump on SUR-015
+  - bumping format_version    => major bump on SUR-015
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: schema_describes_static_envelope_shape
+  reason: envelope shape has no runtime concurrency dimension
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    JSON output validates against this schema for the found path (BEH-055)
+    and the not-found path (BEH-056).
+  test_template: contract
+  boundary_classes: [found, not-found]
+  failure_scenarios: [missing field, extra field, wrong type]
+---
+```
+
 ---
 
 ## 8. Invariants
@@ -4960,11 +5313,13 @@ out_of_scope:
   - hypothetical future `sdd apply` command (not in v1; §18)
 test_obligation:
   predicate: |
-    After every BEH-001..010 run, mtime/inode/size of <spec_file>,
+    After every BEH-001..010 run, and after `sdd record list` and
+    `sdd record get` (BEH-054..057), mtime/inode/size of <spec_file>,
     .sdd/config.json, and .git/* are unchanged.
   test_template: integration
   boundary_classes:
     - each BEH path × each --format mode
+    - record list / record get × each --format mode
   failure_scenarios:
     - any byte of spec_file changes
 ---
