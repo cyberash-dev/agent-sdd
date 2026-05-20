@@ -7256,7 +7256,7 @@ verification_method: |
 id: sdd-cli:OQ-001
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   When a discovery_scope entry is a glob that resolves to zero files at
@@ -7285,7 +7285,7 @@ default_if_unresolved: a   # see ASM-001
 id: sdd-cli:OQ-002
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   When <spec_file> contains MULTIPLE blocks whose `id` equals
@@ -7311,7 +7311,7 @@ default_if_unresolved: a   # see ASM-002; reflected in CTR-002 reason set
 id: sdd-cli:OQ-003
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   What is the exact shape of the `binding` field in IMP-* blocks?
@@ -7371,7 +7371,7 @@ default_if_unresolved: a   # see ASM-004
 id: sdd-cli:OQ-005
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   Should the human-format output of `sdd refresh` include the
@@ -7397,7 +7397,7 @@ default_if_unresolved: a   # see ASM-005
 id: sdd-cli:OQ-006
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   Should every v1 machine-readable output schema pin
@@ -7425,7 +7425,7 @@ default_if_unresolved: a   # see ASM-006
 id: sdd-cli:OQ-007
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   How should the spec block scanner distinguish normative YAML blocks
@@ -7453,7 +7453,7 @@ default_if_unresolved: a   # see ASM-007
 id: sdd-cli:OQ-008
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   How should untracked files inside discovery_scope participate in
@@ -7481,7 +7481,7 @@ default_if_unresolved: a   # see ASM-008
 id: sdd-cli:OQ-009
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   What should `sdd --version` print in v1?
@@ -7506,6 +7506,8 @@ default_if_unresolved: a   # see ASM-009
 ---
 id: sdd-cli:OQ-010
 type: Open-Q
+lifecycle:
+  status: removed   # superseded 2026-05-20: transitive check enforced in `sdd finalize` (proposed-references, ENF-002B)
 partition_id: sdd-cli
 question: |
   Should `sdd approve` refuse to promote a Surface to `approved` when one
@@ -7570,7 +7572,7 @@ review_by: 2026-07-01
 id: sdd-cli:OQ-012
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   When `partitions[*].test_paths` globs of two partitions overlap,
@@ -7608,7 +7610,7 @@ default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 defaul
 id: sdd-cli:OQ-013
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   What is the canonical YAML form of a `Test obligation` declared
@@ -7642,7 +7644,7 @@ default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 defaul
 id: sdd-cli:OQ-014
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   Should `sdd ready` rules respect a per-ID `applicability` field
@@ -7674,7 +7676,7 @@ default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 defaul
 id: sdd-cli:OQ-015
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   Which severity classes of `sdd lint` diagnostics surface as
@@ -7710,7 +7712,7 @@ default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 defaul
 id: sdd-cli:OQ-016
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   When a `@covers` marker tail contains a `key=value` token whose
@@ -7789,7 +7791,7 @@ default_if_unresolved: a
 id: sdd-cli:OQ-018
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: owner-confirmed option a
 partition_id: sdd-cli
 question: |
   ENF-010 (sdd:assumption-downgrade-approval) needs a precise trigger
