@@ -199,7 +199,7 @@ Without this rule, a breaking change in a centralized Policy would land as `mino
 
 Self-approval ban applies to step 1 (the attestation must come from a non-agent identity). Step 2 is purely mechanical — it writes nothing of its own substance, only what step 1 attested.
 
-This separation removes the previous race between `approve` and `ready`: there is no transient state where a Surface is `approved` while a referenced Contract is still `proposed`. Mechanical enforcement: ENF-002 in `rules/enforcement_registry.md` (executor `sdd finalize`, diagnostic `surface_unapproved_ref`).
+This separation removes the previous race between `approve` and `ready`: there is no transient state where a Surface is `approved` while a referenced Contract is still `proposed`. Mechanical enforcement: ENF-002 in `rules/enforcement_registry.md` — split into ENF-002A (executor `sdd ready`, diagnostic `surface_unapproved_ref`) and ENF-002B (executor `sdd finalize`, envelope reason `proposed-references`).
 
 ---
 
@@ -513,7 +513,7 @@ sdd check  # exit 0
 ### B.6 Cross-version drift detection
 
 ```sh
-sdd doctor --rule-version --rules ~/.claude/rules/enforcement_registry.md
+sdd doctor --rule-version --rules rules/enforcement_registry.md
 # Exit 0 — CLI version, declared compatible range, and registry diagnostic
 # coverage all align.
 # Exit 1 with drift[]:
@@ -539,7 +539,7 @@ sdd report --pr-summary --against <base-ref>
 
 ### B.8 Common pitfalls
 
-- **`sdd approve --inline` deprecation.** The `--inline` flag (legacy mode that writes `approval_record` directly into spec) prints a deprecation warning and is removed in v0.5.0 of the diagnostic Surface. Switch to plan mode (default) to avoid breaking changes.
+- **`sdd approve --inline` deprecation.** The `--inline` flag (legacy mode that writes `approval_record` directly into spec) prints a deprecation warning and is removed in v1.1.0 of the CLI Surface. Switch to plan mode (default) to avoid breaking changes.
 - **Self-approval.** `sdd approve --approver <agent-id>` (Claude, Codex, `bot:*`, `sdd-cli`) is rejected with `agent-approver` reason. Always use a human identity.
 - **`sdd refresh` writes nothing.** It emits stubs to stdout; apply manually. Auto-application would violate INV-002 («CLI is read-only on spec»).
 - **Plan files in `.sdd/plans/`.** By default not committed (`*.yaml` belongs in `.gitignore`). For git-audited consumers, commit explicitly.

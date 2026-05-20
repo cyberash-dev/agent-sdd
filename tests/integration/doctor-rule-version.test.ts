@@ -12,13 +12,14 @@
 // DiagnosticRegistry. Read-only on the working tree.
 
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { runSdd } from "./_helpers.js";
 
 import {
+  DOCTOR_DRIFT_KINDS,
   LINT_DIAGNOSTIC_IDS,
   READY_VIOLATION_KINDS,
 } from "../../src/shared/domain/DiagnosticRegistry.js";
@@ -34,16 +35,18 @@ function buildRegistry(opts: { compatRange: string; rows: RegistryRow[] }): stri
   const lines: string[] = [];
   lines.push("# Enforcement Registry");
   lines.push("");
-  lines.push("## Compatibility");
+  lines.push("## Compatibility metadata");
   lines.push("");
-  lines.push(`compatible_sdd_cli: "${opts.compatRange}"`);
+  lines.push("| Field | Value |");
+  lines.push("|---|---|");
+  lines.push(`| compatible_sdd_cli | ${opts.compatRange} |`);
   lines.push("");
   lines.push("## Registry");
   lines.push("");
-  lines.push("| enf_id | rule_id | maturity | diagnostic_id |");
-  lines.push("|--------|---------|----------|---------------|");
+  lines.push("| id | parent_id | requirement | enforcement_class | executor | gate | diagnostic_id | maturity | process_owner | review_trigger |");
+  lines.push("|----|-----------|-------------|-------------------|----------|------|---------------|----------|---------------|----------------|");
   for (const r of opts.rows) {
-    lines.push(`| ${r.enfId} | ${r.ruleName} | ${r.maturity} | ${r.diagnosticId ?? "—"} |`);
+    lines.push(`| ${r.enfId} | — | ${r.ruleName} | structural-lint | sdd lint | spec-valid | ${r.diagnosticId ?? "—"} | ${r.maturity} | — | — |`);
   }
   return lines.join("\n") + "\n";
 }
@@ -60,6 +63,14 @@ function fullCoverageRows(): RegistryRow[] {
     });
   }
   for (const id of READY_VIOLATION_KINDS) {
+    rows.push({
+      enfId: `ENF-${String(i++).padStart(3, "0")}`,
+      ruleName: id,
+      maturity: "implemented",
+      diagnosticId: id,
+    });
+  }
+  for (const id of DOCTOR_DRIFT_KINDS) {
     rows.push({
       enfId: `ENF-${String(i++).padStart(3, "0")}`,
       ruleName: id,
@@ -201,6 +212,21 @@ test("doctor reports planned-maturity rows as not declared, not as drift (BEH-02
 
   const result = await runSdd(cwd, ["doctor", "--rule-version", "--rules", registryPath, "--format=json"]);
   assert.equal(result.code, 0, `stdout=${result.stdout}`);
+  const body = JSON.parse(result.stdout) as { ok: boolean; drift: unknown[] };
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.drift, []);
+});
+
+test("doctor defaults --rules to repo-local rules/enforcement_registry.md (resolved against cwd)", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "sdd-doctor-default-"));
+  await mkdir(join(cwd, "rules"));
+  await writeFile(
+    join(cwd, "rules", "enforcement_registry.md"),
+    buildRegistry({ compatRange: ">=0.1 <2.0", rows: fullCoverageRows() }),
+  );
+
+  const result = await runSdd(cwd, ["doctor", "--rule-version", "--format=json"]);
+  assert.equal(result.code, 0, `stdout=${result.stdout}\nstderr=${result.stderr}`);
   const body = JSON.parse(result.stdout) as { ok: boolean; drift: unknown[] };
   assert.equal(body.ok, true);
   assert.deepEqual(body.drift, []);

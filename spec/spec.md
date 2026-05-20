@@ -371,12 +371,17 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/diagnostics
-version: "0.4.0"
+version: "0.5.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-016
 consumer_compat_policy: semver_per_surface
 notes: |
+  v0.5.0 — adds the already-shipped ready violation kind
+  `generated_artifact_structural_diff_unbumped` (ENF-019) to
+  members.ready, which was emitted by the CLI since v1.0.0 but
+  omitted from the published member list. Minor bump per the
+  append-only rule.
   v0.4.0 — promotes diagnostic identifiers (sdd lint rule names and
   sdd ready violation kinds) from private string literals to a
   published Surface with explicit semver. The strings consumers grep
@@ -487,16 +492,19 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/doctor
-version: "0.4.0"
+version: "0.5.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-021
   - sdd-cli:CTR-022
 consumer_compat_policy: semver_per_surface
 notes: |
+  v0.5.0 — default `--rules` path corrected to the repo-local
+  `rules/enforcement_registry.md` (resolved relative to cwd); the
+  previous default pointed at a non-existent `~/.claude/` path.
   v0.4.0 — `sdd doctor --rule-version --rules <path>` parses an
   enforcement registry markdown file (default
-  `~/.claude/rules/enforcement_registry.md`) and reports drift
+  `rules/enforcement_registry.md`, resolved relative to cwd) and reports drift
   between the methodology's declared compatible CLI version range
   and the running CLI, plus drift between methodology-declared
   diagnostic-IDs (maturity=implemented) and DiagnosticRegistry.
@@ -4248,6 +4256,8 @@ schema:
       - aggregated_check
       # P2.3 — semver cascade (ENF-004A)
       - surface_semver_cascade
+      # P2.3 — published GeneratedArtifact structural diff (ENF-019)
+      - generated_artifact_structural_diff_unbumped
       # P3.2 — debt budget monotonicity (ENF-020 runtime side)
       - debt_budget_increased
 preconditions:

@@ -11,6 +11,8 @@ import { promises as fs } from "node:fs";
 import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parse as parseYaml } from "yaml";
+
 import {
   LINT_DIAGNOSTIC_ID_GRAMMAR,
   LINT_DIAGNOSTIC_IDS,
@@ -19,7 +21,23 @@ import {
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const srcRoot = resolve(repoRoot, "src");
+const specPath = resolve(repoRoot, "spec/spec.md");
 const registrySrcPath = resolve(srcRoot, "shared/domain/DiagnosticRegistry.ts");
+
+async function ctr016Members(): Promise<{ lint: string[]; ready: string[] }> {
+  const md = await fs.readFile(specPath, "utf8");
+  const fenceRe = /```yaml\n([\s\S]*?)\n```/g;
+  let m: RegExpExecArray | null;
+  while ((m = fenceRe.exec(md)) !== null) {
+    const body = m[1]!;
+    if (!body.includes("id: sdd-cli:CTR-016")) continue;
+    const doc = parseYaml(body.replace(/^---\n/, "").replace(/\n---\s*$/, "")) as {
+      schema: { members: { lint: string[]; ready: string[] } };
+    };
+    return doc.schema.members;
+  }
+  throw new Error("CTR-016 block not found in spec.md");
+}
 
 async function listTsFilesUnder(root: string): Promise<string[]> {
   const out: string[] = [];
@@ -77,4 +95,14 @@ test("every entry in READY_VIOLATION_KINDS is referenced ≥1 time in src/featur
   const concatenated = files.map((f) => f.content).join("\n");
   const orphans = READY_VIOLATION_KINDS.filter((kind) => !concatenated.includes(`"${kind}"`));
   assert.deepEqual(orphans, []);
+});
+
+test("CTR-016 members.lint in spec.md equals LINT_DIAGNOSTIC_IDS (CTR-016 test_obligation)", async () => {
+  const members = await ctr016Members();
+  assert.deepEqual([...members.lint].sort(), [...LINT_DIAGNOSTIC_IDS].sort());
+});
+
+test("CTR-016 members.ready in spec.md equals READY_VIOLATION_KINDS (CTR-016 test_obligation)", async () => {
+  const members = await ctr016Members();
+  assert.deepEqual([...members.ready].sort(), [...READY_VIOLATION_KINDS].sort());
 });

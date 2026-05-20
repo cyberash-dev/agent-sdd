@@ -1,19 +1,22 @@
 // Parsed enforcement-registry row + compatibility metadata.
 //
-// The methodology canonical (Plan 1, in code-aget-config) ships an
-// `enforcement_registry.md` file containing:
+// The methodology canonical ships an `enforcement_registry.md` file with a
+// `## Compatibility metadata` table:
 //
-//   ## Compatibility
+//   | Field | Value |
+//   |---|---|
+//   | compatible_sdd_cli | >=1.0 <2.0 |
 //
-//   compatible_sdd_cli: ">=0.4 <0.5"
-//   ...
+// and a `## Registry` table whose columns include `id`, `requirement`,
+// `diagnostic_id`, and `maturity` (among others):
 //
-//   ## Registry
+//   | id | parent_id | requirement | ... | diagnostic_id | maturity | ... |
+//   |----|-----------|-------------|-----|---------------|----------|-----|
+//   | ENF-001 | — | weasel words | ... | sdd:weasel-word | implemented | ... |
 //
-//   | enf_id | rule_id | maturity | diagnostic_id |
-//   |--------|---------|----------|---------------|
-//   | ENF-001 | weasel words | implemented | sdd:weasel-word |
-//   | ENF-003 | baseline-version-required | planned | sdd:baseline-version-required |
+// A diagnostic_id cell may carry multiple ids separated by ` | ` (escaped as
+// `\|` in markdown), e.g. ENF-008's `version_mismatch \| missing_diagnostic \|
+// stale_diagnostic`. `—` / `-` / empty means no diagnostic id.
 //
 // `sdd doctor --rule-version` parses this file, compares the declared
 // compatible_sdd_cli range against the running CLI, and compares the rows
@@ -31,7 +34,7 @@ export interface RegistryRow {
   enfId: string;
   ruleName: string;
   maturity: RegistryMaturity;
-  diagnosticId: string | null;
+  diagnosticIds: string[];
 }
 
 export interface RegistryDocument {
@@ -55,10 +58,15 @@ export function parseRegistry(markdown: string): { ok: true; doc: RegistryDocume
 }
 
 function readCompatibilityRange(markdown: string): string | null {
-  const re = /^\s*compatible_sdd_cli\s*:\s*"?([^"\n]+?)"?\s*$/im;
-  const m = re.exec(markdown);
-  if (m === null) return null;
-  return m[1]!.trim();
+  for (const line of markdown.split(/\r?\n/)) {
+    const row = parseTableRow(line);
+    if (row === null) continue;
+    if (row.length >= 2 && row[0] === "compatible_sdd_cli") {
+      const value = row[1]!.replace(/^"|"$/g, "").trim();
+      return value === "" ? null : value;
+    }
+  }
+  return null;
 }
 
 function readRegistryRows(markdown: string): RegistryRow[] {
@@ -70,7 +78,7 @@ function readRegistryRows(markdown: string): RegistryRow[] {
   for (const line of lines) {
     if (!inTable) {
       const header = parseTableRow(line);
-      if (header !== null && header.includes("enf_id") && header.includes("rule_id") && header.includes("maturity")) {
+      if (header !== null && header.includes("id") && header.includes("requirement") && header.includes("maturity") && header.includes("diagnostic_id")) {
         cols = header;
         inTable = true;
       }
@@ -86,16 +94,24 @@ function readRegistryRows(markdown: string): RegistryRow[] {
     if (row.length !== cols.length) continue;
     const rec: Record<string, string> = {};
     for (let i = 0; i < cols.length; i++) rec[cols[i]!] = row[i]!.trim();
-    const maturity = rec.maturity!;
+    // A trailing `:hybrid` marks rows mixing mechanical + human verdicts; the
+    // base maturity drives reconciliation.
+    const maturity = rec.maturity!.split(":")[0]!.trim() as RegistryMaturity;
     if (maturity !== "planned" && maturity !== "implemented" && maturity !== "deprecated" && maturity !== "out_of_scope") continue;
-    const enfId = rec.enf_id!;
-    const ruleName = rec.rule_id!;
+    const enfId = rec.id!;
+    const ruleName = rec.requirement!;
     if (!enfId || !ruleName) continue;
-    const did = rec.diagnostic_id ?? "";
-    const diagnosticId = did === "" || did === "—" || did === "-" ? null : did;
-    out.push({ enfId, ruleName, maturity, diagnosticId });
+    const diagnosticIds = parseDiagnosticIds(rec.diagnostic_id ?? "");
+    out.push({ enfId, ruleName, maturity, diagnosticIds });
   }
   return out;
+}
+
+function parseDiagnosticIds(cell: string): string[] {
+  return cell
+    .split("|")
+    .map((s) => s.trim())
+    .filter((s) => s !== "" && s !== "—" && s !== "-");
 }
 
 function parseTableRow(line: string): string[] | null {
@@ -103,7 +119,9 @@ function parseTableRow(line: string): string[] | null {
   if (!trimmed.startsWith("|")) return null;
   if (!trimmed.endsWith("|")) return null;
   const inner = trimmed.slice(1, -1);
-  const cells = inner.split("|").map((c) => c.trim());
+  const cells = inner
+    .split(/(?<!\\)\|/)
+    .map((c) => c.replace(/\\\|/g, "|").trim());
   if (cells.length < 2) return null;
   return cells;
 }

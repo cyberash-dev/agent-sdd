@@ -69,5 +69,16 @@ export const READY_VIOLATION_KINDS = [
 
 export type ReadyViolationKindId = typeof READY_VIOLATION_KINDS[number];
 
+// Drift kinds published by `sdd doctor` (CTR-022 / ENF-008). Not lint or ready
+// diagnostics — they are doctor's own surface — but `sdd doctor` must treat
+// them as known so a registry row declaring them does not self-report missing.
+export const DOCTOR_DRIFT_KINDS = [
+  "version_mismatch",
+  "missing_diagnostic",
+  "stale_diagnostic",
+] as const;
+
+export type DoctorDriftKindId = typeof DOCTOR_DRIFT_KINDS[number];
+
 export const LINT_DIAGNOSTIC_ID_GRAMMAR = /^sdd:[a-z][a-z0-9-]*$/;
 export const READY_VIOLATION_KIND_GRAMMAR = /^[a-z][a-z0-9_]*$/;

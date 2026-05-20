@@ -1,4 +1,5 @@
 import {
+  DOCTOR_DRIFT_KINDS,
   LINT_DIAGNOSTIC_IDS,
   READY_VIOLATION_KINDS,
 } from "../../../shared/domain/DiagnosticRegistry.js";
@@ -80,13 +81,13 @@ function computeDrift(doc: RegistryDocument, cliVersion: string): DriftEntry[] {
   const declared = new Set<string>();
   for (const row of doc.rows) {
     if (row.maturity !== "implemented") continue;
-    if (row.diagnosticId === null) continue;
-    declared.add(row.diagnosticId);
+    for (const id of row.diagnosticIds) declared.add(id);
   }
 
   const known = new Set<string>([
     ...(LINT_DIAGNOSTIC_IDS as readonly string[]),
     ...(READY_VIOLATION_KINDS as readonly string[]),
+    ...(DOCTOR_DRIFT_KINDS as readonly string[]),
   ]);
 
   for (const id of declared) {

@@ -58,6 +58,27 @@ test("classifyDiff: ID new in curr is content_change", () => {
   assert.deepEqual(out[0]!.changedFields, ["__new__"]);
 });
 
+test("classifyDiff: appending to schema.members is content_change (CTR-016 append-only)", () => {
+  const prev = rec("p:CTR-16", "Contract", { schema: { members: { lint: ["sdd:a"], ready: ["x"] } } });
+  const curr = rec("p:CTR-16", "Contract", { schema: { members: { lint: ["sdd:a"], ready: ["x", "y"] } } });
+  const out = classifyDiff([prev], [curr]);
+  assert.equal(out[0]!.classification, "content_change");
+});
+
+test("classifyDiff: removing a schema.members entry stays predicate_change", () => {
+  const prev = rec("p:CTR-16", "Contract", { schema: { members: { ready: ["x", "y"] } } });
+  const curr = rec("p:CTR-16", "Contract", { schema: { members: { ready: ["x"] } } });
+  const out = classifyDiff([prev], [curr]);
+  assert.equal(out[0]!.classification, "predicate_change");
+});
+
+test("classifyDiff: member append plus another schema field change stays predicate_change", () => {
+  const prev = rec("p:CTR-16", "Contract", { schema: { grammar: "^a$", members: { ready: ["x"] } } });
+  const curr = rec("p:CTR-16", "Contract", { schema: { grammar: "^b$", members: { ready: ["x", "y"] } } });
+  const out = classifyDiff([prev], [curr]);
+  assert.equal(out[0]!.classification, "predicate_change");
+});
+
 test("classifyDiff: changing always (Invariant predicate) is predicate_change", () => {
   const prev = rec("p:INV-1", "Invariant", { always: "X" });
   const curr = rec("p:INV-1", "Invariant", { always: "Y" });

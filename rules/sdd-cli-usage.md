@@ -15,13 +15,13 @@ this file is the *trigger* layer (when to run what).
 | Before proposing commit | `sdd ready` | 0 | Address violations (uncovered, unapproved, surface_unapproved_ref, semver cascade, debt_budget_increased, etc.); never commit on exit 1 |
 | Before release tag | `sdd ready` | 0 | Same as above; release without exit 0 violates SDD «spec is source of truth» invariant |
 | When promoting `proposed → approved` | `sdd approve --id <X> --approver <human> ...` then `sdd finalize` | 0 + 0 | If `sdd finalize` exits 1 with `proposed-references` — promote referenced IDs first or include them in the same plan |
-| On new checkout / version drift | `sdd doctor --rule-version --rules ~/.claude/rules/enforcement_registry.md` | 0 | Investigate `version_mismatch` / `missing_diagnostic` / `stale_diagnostic`; either bump CLI or update `enforcement_registry.md` |
+| On new checkout / version drift | `sdd doctor --rule-version --rules rules/enforcement_registry.md` | 0 | Investigate `version_mismatch` / `missing_diagnostic` / `stale_diagnostic`; either bump CLI or update `enforcement_registry.md` |
 | Before opening PR | `sdd report --pr-summary --against <base>` | 0 | Paste output into PR description; expand «Internal decisions» section manually (mechanical part is just a skeleton) |
 
 ## Universal rules
 
 1. **Never bypass `sdd ready` exit 1 with `--no-verify` or by commenting out checks.** The exit code is the gate — work around it by fixing the underlying issue, not the verifier.
-2. **Never write `approval_record` directly in spec files.** Use `sdd approve` (writes pending attestation to a plan-namespace artefact) followed by `sdd finalize` (atomic flip with graph validation). Direct edits bypass graph validation. Legacy `sdd approve --inline` is deprecated and removed in v0.5.0 of the CLI Surface.
+2. **Never write `approval_record` directly in spec files.** Use `sdd approve` (writes pending attestation to a plan-namespace artefact) followed by `sdd finalize` (atomic flip with graph validation). Direct edits bypass graph validation. Legacy `sdd approve --inline` is deprecated and removed in v1.1.0 of the CLI Surface.
 3. **Self-approval is forbidden.** `sdd approve --approver <agent-id>` exits with `agent-approver` reason; this includes Claude, Codex, any `bot:*` identity, and `sdd-cli` itself. The CLI enforces this; the agent must not retry with a different bot identity.
 4. **`sdd lint` is read-only.** It never modifies spec files. Diagnostics with `--format=json` are stable per `Surface: diagnostics` semver — pin against `compatible_sdd_cli` from `enforcement_registry.md`.
 5. **`sdd refresh` writes only to stdout.** Apply emitted Delta/Open-Q stubs by hand; review every stub before pasting into spec.

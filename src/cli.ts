@@ -486,7 +486,7 @@ function parseReportArgv(args: readonly string[]): ParsedArgv {
 }
 
 function parseDoctorArgv(args: readonly string[]): ParsedArgv {
-  const doctor: DoctorArgs = { ruleVersion: false, rulesPath: "~/.claude/rules/enforcement_registry.md" };
+  const doctor: DoctorArgs = { ruleVersion: false, rulesPath: "rules/enforcement_registry.md" };
   let format: OutputFormat = "human";
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;

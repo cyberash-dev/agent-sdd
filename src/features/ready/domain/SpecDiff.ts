@@ -71,7 +71,15 @@ export function classifyDiff(
       out.push({ id: c.id, template: c.template, classification: "none", changedFields: [] });
       continue;
     }
-    const isPredicate = changed.some((k) => PREDICATE_FIELDS.has(k));
+    const isPredicate = changed.some((k) => {
+      // A `schema` change confined to growing `schema.members.{lint,ready}` is
+      // append-only and content (minor), not predicate — the diagnostics member
+      // contract's own compatibility_rules (CTR-016 / SUR-009 "append-only at
+      // minor") override the generic schema∈predicate rule. Removing/renaming a
+      // member or touching any other schema field stays a predicate change.
+      if (k === "schema" && isMembersAdditiveSchemaChange(p.parsed.schema, c.parsed.schema)) return false;
+      return PREDICATE_FIELDS.has(k);
+    });
     out.push({
       id: c.id,
       template: c.template,
@@ -237,6 +245,35 @@ const BUMP_RANK: Record<RequiredBump, number> = { patch: 0, minor: 1, major: 2 }
 export function bumpAtLeast(actual: RequiredBump | null, required: RequiredBump): boolean {
   if (actual === null) return false;
   return BUMP_RANK[actual] >= BUMP_RANK[required];
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** True when the only difference between two `schema` values is that one or more
+ *  `members.*` arrays grew (curr ⊇ prev, no removals) and every other schema key
+ *  is byte-equal. Used to honour CTR-016's append-only-at-minor member rule. */
+function isMembersAdditiveSchemaChange(prev: unknown, curr: unknown): boolean {
+  if (!isPlainObject(prev) || !isPlainObject(curr)) return false;
+  for (const k of new Set([...Object.keys(prev), ...Object.keys(curr)])) {
+    if (k === "members") continue;
+    if (!deepEqual(prev[k], curr[k])) return false;
+  }
+  const pm = prev.members;
+  const cm = curr.members;
+  if (!isPlainObject(pm) || !isPlainObject(cm)) return false;
+  let grew = false;
+  for (const mk of new Set([...Object.keys(pm), ...Object.keys(cm)])) {
+    const pa = pm[mk];
+    const ca = cm[mk];
+    if (!Array.isArray(ca)) return false;
+    if (pa === undefined) { grew = true; continue; }
+    if (!Array.isArray(pa)) return false;
+    for (const e of pa) if (!ca.includes(e)) return false;
+    if (ca.length > pa.length) grew = true;
+  }
+  return grew;
 }
 
 function changedTopLevelKeys(prev: Record<string, unknown>, curr: Record<string, unknown>): string[] {
