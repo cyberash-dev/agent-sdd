@@ -2324,6 +2324,46 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:BEH-052
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T19:54:37.830Z
+    change_request: oq-011 lint partition_glob
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd lint selects partition-spec files via lint.partition_glob (OQ-011)
+given: |
+  - `.sdd/config.json` declares a non-empty `lint.partition_glob`
+when: |
+  user runs `sdd lint`
+then: |
+  - the §2 section-structure check applies to a spec file iff its path
+    matches a `lint.partition_glob` entry
+  - when `lint.partition_glob` is absent/empty, detection falls back to the
+    heading-based rule (a file opening with "## 1. Context")
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on spec/config text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    With lint.partition_glob set, a matching file gets the §2 structure check
+    and a non-matching file (even one opening with "## 1. Context") does not.
+    With partition_glob absent, the heading-based fallback applies unchanged.
+  test_template: integration
+  boundary_classes: [glob match, glob non-match with heading, partition_glob absent fallback]
+  failure_scenarios: [heading-based check applied despite a configured glob]
+---
+```
+
 ### 6.11 `sdd lint` — boundary requiredness (P2.1)
 
 ```yaml
@@ -4030,10 +4070,15 @@ schema:
           type: array of string
           domain: 0..N entries
           default_when_absent: []
+        partition_glob:
+          type: array of string (glob patterns, posix-separated)
+          domain: 0..N entries
+          default_when_absent: []   # [] => §2 structure check uses heading-based detection
 external_identifiers:
   - '"lint" top-level key (extending CTR-003)'
   - '"lint.spec_files"'
   - '"lint.approver_blocklist"'
+  - '"lint.partition_glob"'
 preconditions:
   - all other CTR-003 fields still validate
 postconditions:

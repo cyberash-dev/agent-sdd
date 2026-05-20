@@ -54,6 +54,10 @@
         "approver_blocklist": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
+        },
+        "partition_glob": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
         }
       }
     },

@@ -31,6 +31,7 @@ export interface SddConfig {
 export interface LintConfig {
   specFiles: string[];          // glob patterns; defaults to [spec_file] when absent
   approverBlocklist: string[];  // additional identities forbidden as approvers
+  partitionGlob: string[];      // globs selecting partition-spec files for the §2 structure check; [] = heading-based detection
 }
 
 interface ConfigObject {
@@ -53,7 +54,7 @@ const TOP_LEVEL_FIELDS = new Set([
 
 const DEFAULT_PLANS_DIR = ".sdd/plans";
 const FOOTPRINT_FIELDS = new Set(["binding_id_prefix", "binding_field"]);
-const LINT_FIELDS = new Set(["spec_files", "approver_blocklist"]);
+const LINT_FIELDS = new Set(["spec_files", "approver_blocklist", "partition_glob"]);
 const PARTITION_FIELDS = new Set(["spec_paths", "test_paths", "sandbox_paths"]);
 
 const DEFAULT_PARTITION_NAME = "default";
@@ -166,7 +167,7 @@ function optionalGlobArrayField(value: ConfigObject, key: string, path: string):
 
 function lintConfig(value: unknown, path: string, specFileFallback: string): LintConfig {
   if (value === undefined) {
-    return { specFiles: [specFileFallback], approverBlocklist: [] };
+    return { specFiles: [specFileFallback], approverBlocklist: [], partitionGlob: [] };
   }
   if (!isObject(value)) {
     throw configFailure("config-invalid", "lint must be an object", undefined, path);
@@ -202,7 +203,20 @@ function lintConfig(value: unknown, path: string, specFileFallback: string): Lin
     }
     approverBlocklist = [...blocklistRaw];
   }
-  return { specFiles, approverBlocklist };
+  const partitionGlobRaw = value.partition_glob;
+  let partitionGlob: string[];
+  if (partitionGlobRaw === undefined) {
+    partitionGlob = [];
+  } else {
+    if (!Array.isArray(partitionGlobRaw)) {
+      throw configFailure("config-invalid", "lint.partition_glob must be an array", undefined, path);
+    }
+    if (!partitionGlobRaw.every((entry): entry is string => typeof entry === "string" && entry.length > 0)) {
+      throw configFailure("config-invalid", "lint.partition_glob entries must be non-empty strings", undefined, path);
+    }
+    partitionGlob = [...partitionGlobRaw];
+  }
+  return { specFiles, approverBlocklist, partitionGlob };
 }
 
 function footprintConfig(value: unknown, path: string): FootprintConfig {

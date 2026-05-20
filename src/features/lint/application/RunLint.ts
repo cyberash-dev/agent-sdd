@@ -25,6 +25,7 @@ import {
   weaselFindings,
 } from "../domain/Rules.js";
 import { reachableBoundaryIds } from "../../../shared/domain/BoundaryReachability.js";
+import { fileInGlobs } from "../../../shared/domain/GlobMatch.js";
 import type { LintConfigPort } from "../ports/outbound/LintConfigPort.js";
 import type { LintFileReader, SpecFileEntry } from "../ports/outbound/LintFileReader.js";
 
@@ -38,18 +39,21 @@ export async function runLint(cwd: string, ports: RunLintPorts): Promise<LintRep
   const entries = await ports.files.resolveSpecFiles(cwd, config.lint.specFiles);
   let report = emptyReport();
   for (const entry of entries) {
-    report = lintFileInto(report, entry, config.lint.approverBlocklist);
+    report = lintFileInto(report, entry, config.lint.approverBlocklist, config.lint.partitionGlob);
   }
   return report;
 }
 
-function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklist: readonly string[]): LintReport {
+function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklist: readonly string[], partitionGlob: readonly string[]): LintReport {
   let next = report;
 
-  // §2 — section presence (only for files that look like a partition spec
-  // i.e. contain at least one heading "## 1. Context"). Apply to any file
-  // that opens with "1. Context" as its first numbered heading.
-  if (looksLikePartitionFile(entry.content)) {
+  // §2 — section presence. When `lint.partition_glob` is configured, the §2
+  // structure check applies to files whose path matches a glob (OQ-011 / BEH-052);
+  // otherwise it falls back to heading-based detection ("## 1. Context").
+  const isPartitionFile = partitionGlob.length > 0
+    ? fileInGlobs(entry.path, partitionGlob)
+    : looksLikePartitionFile(entry.content);
+  if (isPartitionFile) {
     for (const v of sectionViolations(entry.content)) {
       next = appendDiagnostic(next, {
         severity: "error",
