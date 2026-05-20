@@ -934,6 +934,45 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:BEH-051
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T19:45:30.722Z
+    change_request: oq-004 imp-binding config-error
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd refresh rejects an IMP-* block missing its binding field (OQ-004)
+given: |
+  - the spec contains an `IMP-*` (binding-prefixed) block with no
+    `binding` field (config.footprint.binding_field)
+when: |
+  user runs `sdd refresh`
+then: |
+  - exits 2 (config error)
+  - the config-invalid message names the offending IMP id(s)
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: refresh operates on spec/git text, no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    refresh on a spec where an IMP-* block omits binding exits 2 with a
+    config-invalid envelope naming the IMP; refresh on a spec where every
+    IMP-* carries binding does not fire this error. Supersedes ASM-004.
+  test_template: integration
+  boundary_classes: [IMP without binding, IMP with binding, multiple IMPs one missing]
+  failure_scenarios: [silent skip of a binding-less IMP]
+---
+```
+
 ### 6.4 Cross-cutting
 
 ```yaml
@@ -7922,6 +7961,8 @@ partition_id: sdd-cli
 assumption: |
   An IMP-* block with no `binding` field contributes zero paths to the
   footprint and does not produce a warning.
+  SUPERSEDED 2026-05-20: OQ-004 resolved as config_error (option c); see
+  BEH-051. This assumption is to be removed once BEH-051 is approved.
 source_open_q: sdd-cli:OQ-004
 blocking: no
 review_by: 2026-07-29

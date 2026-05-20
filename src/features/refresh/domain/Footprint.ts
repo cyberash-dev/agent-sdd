@@ -22,6 +22,14 @@ export function footprint(blocks: readonly SpecBlock[], bindingIdPrefix: string,
   return { entries };
 }
 
+/** ENF/OQ-004 — IDs of binding-prefixed (IMP-*) blocks that carry no
+ *  `bindingField`. An empty result means every such block declares a binding. */
+export function impsMissingBinding(blocks: readonly SpecBlock[], bindingIdPrefix: string, bindingField: string): string[] {
+  return blocksByNeutralPrefix(blocks, bindingIdPrefix)
+    .filter((block) => block.parsed[bindingField] === undefined)
+    .map((block) => block.id);
+}
+
 export function footprintEntriesForPath(footprint: Footprint, path: string): FootprintEntry[] {
   return footprint.entries.filter((entry) => entry.paths.some((boundPath) => covers(boundPath, path)));
 }

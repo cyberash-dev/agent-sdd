@@ -65,6 +65,20 @@ test("classifyDiff: appending to schema.members is content_change (CTR-016 appen
   assert.equal(out[0]!.classification, "content_change");
 });
 
+test("classifyDiff: adding a key inside a schema `fields` zone is content_change (CTR-012 append-only)", () => {
+  const prev = rec("p:CTR-12", "Contract", { schema: { json: { lint: { type: "object", fields: { spec_files: {}, approver_blocklist: {} } } } } });
+  const curr = rec("p:CTR-12", "Contract", { schema: { json: { lint: { type: "object", fields: { spec_files: {}, approver_blocklist: {}, partition_glob: {} } } } } });
+  const out = classifyDiff([prev], [curr]);
+  assert.equal(out[0]!.classification, "content_change");
+});
+
+test("classifyDiff: modifying an existing schema leaf outside a zone stays predicate_change", () => {
+  const prev = rec("p:CTR-12", "Contract", { schema: { json: { lint: { type: "object", fields: { spec_files: {} } } } } });
+  const curr = rec("p:CTR-12", "Contract", { schema: { json: { lint: { type: "array", fields: { spec_files: {} } } } } });
+  const out = classifyDiff([prev], [curr]);
+  assert.equal(out[0]!.classification, "predicate_change");
+});
+
 test("classifyDiff: removing a schema.members entry stays predicate_change", () => {
   const prev = rec("p:CTR-16", "Contract", { schema: { members: { ready: ["x", "y"] } } });
   const curr = rec("p:CTR-16", "Contract", { schema: { members: { ready: ["x"] } } });

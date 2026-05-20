@@ -1,7 +1,7 @@
 import { configFailure } from "../../../shared/domain/Errors.js";
 import { stringValue, typedBlock, type SpecBlock } from "../../../shared/domain/SpecBlocks.js";
 import { humanStubText, stubs, yamlStubStream, type Stub } from "../domain/DiffStubs.js";
-import { footprint } from "../domain/Footprint.js";
+import { footprint, impsMissingBinding } from "../domain/Footprint.js";
 import type { RefreshClockPort } from "../ports/outbound/RefreshClockPort.js";
 import type { RefreshConfigPort } from "../ports/outbound/RefreshConfigPort.js";
 import type { RefreshGitPort } from "../ports/outbound/RefreshGitPort.js";
@@ -29,6 +29,13 @@ export async function buildRefreshStubs(
   const config = await ports.config.config(repoRoot);
   await assertGlobMatches(ports.git, repoRoot, config.discoveryScope);
   const loadedSpec = await ports.spec.spec(repoRoot, config);
+  const missingBinding = impsMissingBinding(loadedSpec.blocks, config.footprint.bindingIdPrefix, config.footprint.bindingField);
+  if (missingBinding.length > 0) {
+    throw configFailure(
+      "config-invalid",
+      `IMP block(s) missing ${config.footprint.bindingField}: ${missingBinding.join(", ")} (OQ-004 / BEH-051)`,
+    );
+  }
   const recorded = baseline(loadedSpec.path, loadedSpec.blocks, config.baselineId);
 
   const committedPaths = await ports.git.changedPaths(repoRoot, recorded.baselineCommitSha, config.discoveryScope);

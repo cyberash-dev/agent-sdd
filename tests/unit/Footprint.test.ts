@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
-import { footprint, footprintEntriesForPath } from "../../src/features/refresh/domain/Footprint.js";
+import { footprint, footprintEntriesForPath, impsMissingBinding } from "../../src/features/refresh/domain/Footprint.js";
 import { specBlocks } from "../../src/shared/domain/SpecBlocks.js";
 
 test("binding tree walk collects string leaves", async () => {
@@ -16,14 +16,14 @@ test("binding tree walk collects string leaves", async () => {
   assert.deepEqual(result.entries[0]?.paths, ["src/foo.ts", "src/bar.ts", "src/nested"]);
 });
 
-test("IMP without binding contributes nothing", async () => {
-  // @covers sdd-cli:ASM-004
+test("impsMissingBinding flags an IMP-* block without a binding field", async () => {
+  // @covers sdd-cli:BEH-051
   const markdown = await readFile(join("tests", "fixtures", "spec.with-imps.md"), "utf8");
   const blocks = specBlocks(markdown);
 
-  const result = footprint(blocks, "IMP-", "binding");
+  const missing = impsMissingBinding(blocks, "IMP-", "binding");
 
-  assert.deepEqual(result.entries.find((entry) => entry.impId === "fixture:IMP-003")?.paths, []);
+  assert.deepEqual(missing, ["fixture:IMP-003"]);
 });
 
 test("path can be covered by multiple IMP entries", async () => {

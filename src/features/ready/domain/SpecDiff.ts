@@ -72,12 +72,13 @@ export function classifyDiff(
       continue;
     }
     const isPredicate = changed.some((k) => {
-      // A `schema` change confined to growing `schema.members.{lint,ready}` is
-      // append-only and content (minor), not predicate — the diagnostics member
-      // contract's own compatibility_rules (CTR-016 / SUR-009 "append-only at
-      // minor") override the generic schema∈predicate rule. Removing/renaming a
-      // member or touching any other schema field stays a predicate change.
-      if (k === "schema" && isMembersAdditiveSchemaChange(p.parsed.schema, c.parsed.schema)) return false;
+      // A `schema` change confined to pure additions inside an append-only zone
+      // (CTR-016 `members`, CTR-012 lint `fields`) is content (minor), not
+      // predicate — those contracts' own compatibility_rules say sub-keys are
+      // append-only-at-minor, overriding the generic schema∈predicate rule.
+      // Removing/renaming a member or touching any other schema field stays a
+      // predicate change.
+      if (k === "schema" && isAppendOnlySchemaChange(p.parsed.schema, c.parsed.schema)) return false;
       return PREDICATE_FIELDS.has(k);
     });
     out.push({
@@ -251,29 +252,37 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** True when the only difference between two `schema` values is that one or more
- *  `members.*` arrays grew (curr ⊇ prev, no removals) and every other schema key
- *  is byte-equal. Used to honour CTR-016's append-only-at-minor member rule. */
-function isMembersAdditiveSchemaChange(prev: unknown, curr: unknown): boolean {
+/** Names of schema sub-trees whose contents are append-only at minor (their
+ *  owning Contract's own compatibility_rules say so): CTR-016 `members`,
+ *  CTR-012 lint `fields`. */
+const APPEND_ONLY_ZONE_KEYS: ReadonlySet<string> = new Set(["members", "fields"]);
+
+/** True when a `schema` change is confined to pure additions inside an
+ *  append-only zone (`members`/`fields`): no key/element removed, no existing
+ *  leaf modified, and at least one addition. Outside those zones every key must
+ *  be byte-equal. Honours the member/sub-key append-only-at-minor contracts;
+ *  any removal or modification stays a predicate change (major). */
+function isAppendOnlySchemaChange(prev: unknown, curr: unknown): boolean {
   if (!isPlainObject(prev) || !isPlainObject(curr)) return false;
-  for (const k of new Set([...Object.keys(prev), ...Object.keys(curr)])) {
-    if (k === "members") continue;
-    if (!deepEqual(prev[k], curr[k])) return false;
+  return appendOnlyWithinZones(prev, curr, false) && !deepEqual(prev, curr);
+}
+
+function appendOnlyWithinZones(prev: unknown, curr: unknown, inZone: boolean): boolean {
+  if (deepEqual(prev, curr)) return true;
+  if (Array.isArray(prev) && Array.isArray(curr)) {
+    if (!inZone) return false;
+    return prev.every((e) => curr.some((c) => deepEqual(c, e)));
   }
-  const pm = prev.members;
-  const cm = curr.members;
-  if (!isPlainObject(pm) || !isPlainObject(cm)) return false;
-  let grew = false;
-  for (const mk of new Set([...Object.keys(pm), ...Object.keys(cm)])) {
-    const pa = pm[mk];
-    const ca = cm[mk];
-    if (!Array.isArray(ca)) return false;
-    if (pa === undefined) { grew = true; continue; }
-    if (!Array.isArray(pa)) return false;
-    for (const e of pa) if (!ca.includes(e)) return false;
-    if (ca.length > pa.length) grew = true;
+  if (isPlainObject(prev) && isPlainObject(curr)) {
+    if (inZone) {
+      return Object.keys(prev).every((k) => k in curr && appendOnlyWithinZones(prev[k], curr[k], true));
+    }
+    const prevKeys = Object.keys(prev);
+    const currKeys = Object.keys(curr);
+    if (prevKeys.length !== currKeys.length) return false;
+    return prevKeys.every((k) => k in curr && appendOnlyWithinZones(prev[k], curr[k], APPEND_ONLY_ZONE_KEYS.has(k)));
   }
-  return grew;
+  return false;
 }
 
 function changedTopLevelKeys(prev: Record<string, unknown>, curr: Record<string, unknown>): string[] {
