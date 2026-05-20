@@ -581,6 +581,36 @@ notes: |
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:SUR-016
+type: Surface
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.195Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+name: sdd-cli/install
+version: "0.1.0"
+boundary_type: cli
+members:
+  - sdd-cli:CTR-029
+  - sdd-cli:CTR-030
+consumer_compat_policy: semver_per_surface
+notes: |
+  v0.1.0 — new subcommand `install <all|claude|codex>` writes the SDD
+  methodology rules and (for Claude) PreToolUse hooks into the user-level
+  agent config (~/.claude, ~/.codex). It is the first surface that writes
+  outside the repo working tree; the write boundary is fixed by POL-003 and
+  INV-016. Driven by the declared manifest rules/manifest.json (CST-008).
+  Read-only on the repo working tree (POL-001 unaffected).
+---
+```
+
 ---
 
 ## 6. Requirements
@@ -3916,6 +3946,338 @@ test_obligation:
 
 ---
 
+### 6.17 `sdd install`
+
+```yaml
+---
+id: sdd-cli:BEH-065
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.392Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install claude — install rules, skill, and hooks into ~/.claude
+given: |
+  - the packaged rules tree and rules/manifest.json (CST-008) resolve
+    relative to the running CLI
+  - the home root resolves to os.homedir(), or to $SDD_INSTALL_HOME when set
+when: user runs `sdd install claude` (with optional --format=json|human)
+then: |
+  - every manifest artifact whose targets include `claude` is written under
+    <home>/.claude:
+      * kind=context|reference|data|hook => copied to <home>/.claude/sdd/<source>
+      * kind=skill => copied to <home>/.claude/skills/<skill-path>/SKILL.md
+  - a sentinel-marked managed block in <home>/.claude/CLAUDE.md is inserted or
+    replaced in place, holding one `@sdd/<file>` import per kind=context
+    artifact; bytes outside the markers are unchanged
+  - the two kind=hook artifacts are merged into <home>/.claude/settings.json as
+    PreToolUse entries (matcher = artifact.event), deduped by matcher+command;
+    pre-existing user hooks are preserved
+  - exits 0; --format=json => CTR-030 envelope listing the actions taken
+negative_cases:
+  - manifest or a packaged rule file is missing => see BEH-071
+  - no target / unknown target => see BEH-070
+out_of_scope:
+  - editing any file inside the repo working tree (POL-001, INV-016)
+  - promoting any rule's lifecycle (install ships files; it does not approve)
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    With $SDD_INSTALL_HOME set to a temp dir, `sdd install claude` exits 0,
+    copies every claude-targeted manifest artifact to the documented path,
+    inserts an `@sdd/...` import block into CLAUDE.md (one per context
+    artifact), installs SKILL.md under skills/, and writes both PreToolUse
+    hook entries into settings.json while preserving a pre-existing user hook.
+  test_template: integration
+  boundary_classes:
+    - fresh home (no .claude)
+    - existing CLAUDE.md with user content
+    - existing settings.json with an unrelated user hook
+  failure_scenarios:
+    - a write lands inside the repo working tree
+    - a user hook in settings.json is clobbered
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-066
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.460Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install codex — copy rules and reference them in ~/.codex/AGENTS.md
+given: |
+  - the packaged rules tree and rules/manifest.json resolve relative to the CLI
+  - the home root resolves to os.homedir(), or to $SDD_INSTALL_HOME when set
+when: user runs `sdd install codex` (with optional --format=json|human)
+then: |
+  - every manifest artifact whose targets include `codex` is copied to
+    <home>/.codex/sdd/<source> (Codex has no @import and no hooks)
+  - a sentinel-marked managed block in <home>/.codex/AGENTS.md is inserted or
+    replaced in place, listing the installed kind=context files by path; bytes
+    outside the markers are unchanged
+  - kind=hook artifacts are not installed (Codex has no PreToolUse host); the
+    output states hooks were skipped
+  - exits 0; --format=json => CTR-030 envelope with hooks recorded as skipped
+negative_cases:
+  - manifest or a packaged rule file is missing => see BEH-071
+  - no target / unknown target => see BEH-070
+out_of_scope:
+  - editing any file inside the repo working tree (POL-001, INV-016)
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    With $SDD_INSTALL_HOME set to a temp dir, `sdd install codex` exits 0,
+    copies every codex-targeted artifact under .codex/sdd/, inserts a
+    reference-list block into AGENTS.md, installs no settings.json/hooks, and
+    the JSON envelope records the hooks as skipped.
+  test_template: integration
+  boundary_classes:
+    - fresh home (no .codex)
+    - existing AGENTS.md with user content
+  failure_scenarios:
+    - a hook is written for codex
+    - a write lands inside the repo working tree
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-067
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.527Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install all — run the claude and codex installs
+given: |
+  - the packaged rules tree and rules/manifest.json resolve relative to the CLI
+when: user runs `sdd install all` (with optional --format=json|human)
+then: |
+  - the effects of BEH-065 (claude) and BEH-066 (codex) are both applied
+  - exits 0; --format=json => CTR-030 envelope covering both targets
+negative_cases:
+  - manifest or a packaged rule file is missing => see BEH-071
+out_of_scope:
+  - editing any file inside the repo working tree (POL-001, INV-016)
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    `sdd install all` produces the union of the BEH-065 and BEH-066 filesystem
+    effects under $SDD_INSTALL_HOME and exits 0.
+  test_template: integration
+  boundary_classes:
+    - fresh home
+  failure_scenarios:
+    - only one target is installed
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-068
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.595Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install is idempotent on re-run
+given: |
+  - `sdd install <target>` has already been run once against <home>
+when: the same `sdd install <target>` runs a second time
+then: |
+  - the managed block in CLAUDE.md / AGENTS.md is replaced in place (not
+    duplicated); copied files are overwritten with identical bytes; the
+    settings.json hook set is unchanged (deduped by matcher+command)
+  - exits 0
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    Running `sdd install claude` twice yields a CLAUDE.md with exactly one
+    managed block, a settings.json with no duplicate hook entries, and a
+    second-run file tree byte-identical to the first run's result.
+  test_template: integration
+  boundary_classes:
+    - second identical run
+  failure_scenarios:
+    - the managed block is duplicated
+    - a hook entry is appended twice
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-069
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.665Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install --dry-run reports the plan without writing
+given: |
+  - the home root resolves to a temp dir via $SDD_INSTALL_HOME
+when: user runs `sdd install <target> --dry-run`
+then: |
+  - no byte under <home> is created or modified
+  - exits 0; the output describes the actions that would be taken
+    (--format=json => CTR-030 envelope with dry_run true)
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: dry-run computes the plan and touches no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    `sdd install all --dry-run` exits 0, leaves <home> byte-identical (no
+    files created), and the JSON envelope sets dry_run true with the same
+    action list a real run would perform.
+  test_template: integration
+  boundary_classes:
+    - dry-run on fresh home
+    - dry-run json envelope
+  failure_scenarios:
+    - dry-run writes a file
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-070
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.737Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install — invalid invocation exits 2
+given: |
+  - user runs `sdd install` with no target, or an unknown target (anything
+    other than all|claude|codex), or an unknown flag
+when: the CLI parses argv
+then: |
+  - exits 2
+  - stderr prints the `sdd install` usage line
+  - no byte under <home> changes
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: argv handling occurs before any fs access
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    `sdd install`, `sdd install bogus`, and `sdd install claude --nope` each
+    exit 2 with the install usage line on stderr and write nothing.
+  test_template: integration
+  boundary_classes:
+    - no target
+    - unknown target
+    - unknown flag
+  failure_scenarios:
+    - an unknown target silently installs nothing and exits 0
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-071
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.811Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install — missing packaged rules or manifest exits 1
+given: |
+  - the packaged rules/manifest.json or a file it references cannot be read
+when: user runs `sdd install <target>`
+then: |
+  - exits 1; stderr explains which packaged artifact is missing
+  - no partial install is left behind under <home> (install is plan-then-apply:
+    all sources are read and validated before any write)
+out_of_scope: []
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    With the packaged manifest absent (or naming a missing source), install
+    exits 1 with a typed error and writes nothing under <home>.
+  test_template: integration
+  boundary_classes:
+    - manifest absent
+    - manifest references a missing source file
+  failure_scenarios:
+    - a missing artifact yields a half-written install
+---
+```
+
+---
+
 ## 7. Data contracts
 
 ```yaml
@@ -5628,6 +5990,160 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CTR-029
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.260Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install argv contract
+surface_ref: sdd-cli:SUR-016
+schema:
+  binary: sdd
+  subcommands:
+    - name: install
+      positionals:
+        - name: target
+          values: [all, claude, codex]
+          required: true
+      flags:
+        - name: --format
+          values: [json, human]
+          default: human
+        - name: --dry-run
+          values: [present, absent]
+          default: absent
+preconditions:
+  - cwd is anywhere
+postconditions:
+  - process exits with a code from CTR-002
+external_identifiers:
+  - subcommand name (install)
+  - positional target values (all, claude, codex)
+  - flag names (--format, --dry-run)
+  - the $SDD_INSTALL_HOME home-root override env var
+compatibility_rules:
+  - renaming the subcommand, a target value, or a flag => major bump on SUR-016
+  - removing a target value => major bump on SUR-016
+  - adding a target value or a flag with a default => minor bump on SUR-016
+error_taxonomy:
+  - exit 2 on missing target, unknown target, or unknown flag
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope:
+  not_applicable: argv_parsing_does_not_touch_persistent_state
+  reason: argv handling occurs before any fs access
+policy_refs:
+  not_applicable: argv_handling_is_not_a_security_boundary
+  reason: argv is parsed before any filesystem decision
+test_obligation:
+  predicate: |
+    The argv parser accepts `install <all|claude|codex>` with optional
+    --format and --dry-run, and rejects a missing target, an unknown target,
+    and any unknown flag with exit 2.
+  test_template: unit
+  boundary_classes:
+    - each target value
+    - --dry-run present and absent
+    - missing target
+    - unknown target
+    - unknown flag
+  failure_scenarios:
+    - silent acceptance of an unknown target
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-030
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.326Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install JSON output schema
+surface_ref: sdd-cli:SUR-016
+schema:
+  format_version: 1
+  on_success:
+    type: object
+    required: [format_version, ok, dry_run, targets, actions]
+    properties:
+      format_version: { const: 1 }
+      ok:             { const: true }
+      dry_run:        { type: boolean }
+      targets:        { type: array, items: { enum: [claude, codex] } }
+      actions:
+        type: array
+        items:
+          type: object
+          required: [target, kind, op, path]
+          properties:
+            target: { enum: [claude, codex] }
+            kind:   { enum: [context, skill, reference, data, hook, managed_block] }
+            op:     { enum: [copy, write_block, merge_hook, skip] }
+            path:   { type: string }
+            note:   { type: [string, "null"] }
+preconditions:
+  - --format=json was passed
+postconditions:
+  - stdout is exactly one JSON object terminated by LF
+  - on dry_run true, every action's op describes a write that did NOT occur
+external_identifiers:
+  - field names; the kind and op enums; format_version
+compatibility_rules:
+  - renaming any field        => major bump on SUR-016
+  - adding an optional field  => minor bump on SUR-016
+  - removing a field          => major bump on SUR-016
+  - bumping format_version    => major bump on SUR-016
+error_taxonomy:
+  - failures use the shared CLI failure envelope (CTR-002 exit codes);
+    missing packaged artifact => exit 1, argv errors => exit 2
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: idempotent
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    JSON output validates against this schema for the claude, codex, and all
+    happy paths (BEH-065..067) and for --dry-run (BEH-069, dry_run true).
+  test_template: contract
+  boundary_classes:
+    - target claude
+    - target codex
+    - target all
+    - dry-run
+  failure_scenarios:
+    - missing field
+    - wrong enum value
+    - dry_run false on a dry run
+---
+```
+
 ---
 
 ## 8. Invariants
@@ -6427,6 +6943,64 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:INV-016
+type: Invariant
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.880Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install writes only under the agent-config home roots
+never: |
+  `sdd install` never opens for write any path outside the resolved
+  agent-config home roots — <home>/.claude/** (claude) and <home>/.codex/**
+  (codex) — where <home> is os.homedir() or $SDD_INSTALL_HOME when set. It
+  never writes inside <repo_root> (so POL-001 holds), and it writes only the
+  relative paths enumerated by rules/manifest.json plus the managed blocks in
+  CLAUDE.md / AGENTS.md and the PreToolUse entries in settings.json. The
+  install is plan-then-apply: if the manifest or any packaged source is
+  missing, it fails before writing any byte (no partial install).
+scope:
+  - src/features/install/**
+evidence: test_probe
+stability: contractual
+data_scope: all_data
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: idempotent
+  time_source: none
+negative_cases:
+  - install opens a file under <repo_root> for write
+  - install writes outside <home>/.claude and <home>/.codex
+  - a missing packaged source leaves a half-written install
+out_of_scope:
+  - lifecycle promotion of the installed rules (install only ships files)
+test_obligation:
+  predicate: |
+    Across BEH-065..069, every write-mode open targets a path under
+    <home>/.claude or <home>/.codex; no write-mode open targets <repo_root>;
+    a run with a missing manifest/source (BEH-071) leaves <home> byte-identical.
+  test_template: integration (fs probe)
+  boundary_classes:
+    - claude install
+    - codex install
+    - dry-run (no writes)
+    - missing manifest (no writes)
+  failure_scenarios:
+    - a write escapes the home roots
+    - a partial install remains after a missing-source failure
+---
+```
+
 ---
 
 ## 9. External dependencies
@@ -6680,6 +7254,44 @@ test_obligation:
   test_template: integration
   boundary_classes: [each BEH path]
   failure_scenarios: [a state-mutating git subcommand is invoked]
+---
+```
+
+```yaml
+---
+id: sdd-cli:POL-003
+type: Policy
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: security-owner
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:08.947Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: install write boundary
+policy_kind: io_scope
+applicability:
+  applies_to: every Behavior in §6.17 (sdd install) and CTR-029/CTR-030
+predicate: |
+  `sdd install` MUST open for write only paths under the resolved agent-config
+  home roots: <home>/.claude/** for target claude and <home>/.codex/** for
+  target codex, where <home> = $SDD_INSTALL_HOME if set else os.homedir(). The
+  set of written paths MUST be exactly the relative paths declared in
+  rules/manifest.json plus the managed blocks in <home>/.claude/CLAUDE.md and
+  <home>/.codex/AGENTS.md and the PreToolUse entries in
+  <home>/.claude/settings.json. It MUST NOT write under <repo_root> (POL-001)
+  nor any other location. With --dry-run it MUST open no file for write.
+negative_test_obligations:
+  - run `sdd install all` under an fs probe with $SDD_INSTALL_HOME=<tmp>;
+    assert every write-mode open is under <tmp>/.claude or <tmp>/.codex
+  - run `sdd install all --dry-run`; assert no write-mode open occurs
+test_obligation:
+  predicate: same as negative_test_obligations
+  test_template: integration
+  boundary_classes: [claude, codex, all, dry-run]
+  failure_scenarios: [a write-mode open outside the home roots]
 ---
 ```
 
@@ -6984,6 +7596,51 @@ test_obligation:
     - whitelisted key silently dropped
     - non-whitelisted key surfaces in parsed tail
     - near-miss with uppercase in partition prefix is silently skipped (OQ-017 default a)
+---
+```
+
+```yaml
+---
+id: sdd-cli:CST-008
+type: Constraint
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: architect
+    approver_identity: cyberash
+    timestamp: 2026-05-20T22:34:09.013Z
+    change_request: approve sdd install command (SUR-016 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+constraint: |
+  The npm package MUST ship the `rules/` tree: `package.json#files` includes
+  "rules". `sdd install` MUST be driven by the declared manifest
+  rules/manifest.json — the artifact list, their kinds, and per-target
+  applicability live in data, never hardcoded in the install feature code. The
+  runtime dependency tree MUST stay exactly {"yaml"}: the manifest and
+  settings.json are parsed with the built-in JSON, never a new dependency
+  (consistent with CST-006).
+rationale: |
+  install distributes the methodology rules, so the rule files must be in the
+  published tarball. A data-driven manifest lets the rule set evolve without
+  touching install code and keeps the in-context/on-demand split declarative.
+  Holding the dependency tree at {yaml} preserves the narrow supply-chain
+  footprint EXT-001/CST-006 established.
+scope:
+  - package.json
+  - rules/manifest.json
+  - src/features/install/**
+test_obligation:
+  predicate: |
+    `package.json#files` contains "rules"; rules/manifest.json parses and every
+    `source` it lists resolves to a file in the package; the runtime dependency
+    tree after build is exactly {"yaml": "^2.7.0"} (no new dep introduced by
+    install).
+  test_template: integration (npm pack contents + npm ls + manifest resolve)
+  failure_scenarios:
+    - rules/ is omitted from the published files list
+    - install hardcodes the artifact list instead of reading the manifest
+    - install adds a runtime dependency
 ---
 ```
 
@@ -9024,7 +9681,10 @@ PLAN.md §Out of scope and adds the implications for downstream IDs):
 - **General spec linter** (`sdd lint`) covering §12.2 enforcement.
   Separate Surface; not part of SUR-001.
 - **Scaffolding command** (`sdd init`). Consumers hand-write
-  `.sdd/config.json` from `tests/fixtures/config.example.json`.
+  `.sdd/config.json` from `tests/fixtures/config.example.json`. The separate
+  `sdd install <all|claude|codex>` command (SUR-016) installs the SDD
+  methodology rules and Claude hooks into the user-level agent config; it is
+  in scope and distinct from project scaffolding.
 - **Auto-application of stubs into spec.md.** INV-002 forbids it.
   Future `sdd apply` is a separate, future Surface with its own Policy
   and approval ceremony.

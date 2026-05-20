@@ -27,6 +27,7 @@
   "files": [
     "dist",
     "schema",
+    "rules",
     "README.md",
     "LICENSE"
   ],

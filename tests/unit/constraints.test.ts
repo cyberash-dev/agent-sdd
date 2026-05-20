@@ -17,9 +17,15 @@ function readJson<T>(relativePath: string): T {
 
 interface PackageJson {
   type?: string;
+  files?: string[];
   engines?: { node?: string };
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+}
+
+interface ManifestJson {
+  format_version?: number;
+  artifacts?: { source?: string }[];
 }
 
 interface TsConfig {
@@ -95,4 +101,23 @@ test("CST-006: no third-party glob library in runtime dependencies", () => {
     assert.equal(pkg.dependencies?.[name], undefined, `${name} must not be a runtime dependency (CST-006)`);
     assert.equal(pkg.devDependencies?.[name], undefined, `${name} must not be a dev dependency (CST-006 — hand-rolled glob only)`);
   }
+});
+
+test("CST-008: package ships rules/, manifest resolves, runtime deps stay {yaml}", () => {
+  // @covers sdd-cli:CST-008
+  const pkg = readJson<PackageJson>("package.json");
+  assert.ok(pkg.files?.includes("rules"), "package.json#files must include \"rules\" so the rule tree ships");
+
+  const manifest = readJson<ManifestJson>("rules/manifest.json");
+  assert.equal(manifest.format_version, 1);
+  assert.ok(Array.isArray(manifest.artifacts) && manifest.artifacts.length > 0);
+  for (const artifact of manifest.artifacts ?? []) {
+    const source = artifact.source!;
+    assert.ok(
+      readFileSync(join(projectRoot, "rules", source), "utf8").length > 0,
+      `manifest source ${source} must resolve to a non-empty file`,
+    );
+  }
+
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["yaml"], "install must not add a runtime dependency");
 });

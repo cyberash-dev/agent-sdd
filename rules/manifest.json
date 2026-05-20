@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "artifacts": [
+    { "source": "spec-driven-development.md", "kind": "context", "targets": ["claude", "codex"] },
+    { "source": "workflow-sdd.md", "kind": "context", "targets": ["claude", "codex"] },
+    { "source": "tdd-sdd.md", "kind": "context", "targets": ["claude", "codex"] },
+    { "source": "sdd-cli-usage.md", "kind": "context", "targets": ["claude", "codex"] },
+    { "source": "review-sdd.md", "kind": "context", "targets": ["claude", "codex"] },
+    { "source": "skills/spec-driven-development/SKILL.md", "kind": "skill", "skill_name": "spec-driven-development", "targets": ["claude", "codex"] },
+    { "source": "enforcement_registry.md", "kind": "reference", "targets": ["claude", "codex"] },
+    { "source": "skills/spec-driven-development/data/weasel-words.json", "kind": "data", "targets": ["claude", "codex"] },
+    { "source": "hooks/sdd-lint-reminder.sh", "kind": "hook", "event": "Edit|Write", "targets": ["claude"] },
+    { "source": "hooks/sdd-spec-read-guard.sh", "kind": "hook", "event": "Read|Bash|Grep|Glob", "targets": ["claude"] }
+  ]
+}

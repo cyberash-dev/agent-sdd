@@ -33,12 +33,16 @@ import { SystemRefreshClock } from "./features/refresh/adapters/outbound/SystemR
 import { CliRecordHandler } from "./features/record/adapters/inbound/CliRecordHandler.js";
 import { NodeRecordFileSystem } from "./features/record/adapters/outbound/NodeRecordFileSystem.js";
 import type { RecordAction } from "./features/record/ports/inbound/RecordCommand.js";
+import { CliInstallHandler } from "./features/install/adapters/inbound/CliInstallHandler.js";
+import { NodeInstallSource } from "./features/install/adapters/outbound/NodeInstallSource.js";
+import { NodeInstallTargetFs } from "./features/install/adapters/outbound/NodeInstallTargetFs.js";
+import { isInstallTarget, type InstallTarget } from "./features/install/domain/InstallTarget.js";
 import { CliTokenHandler } from "./features/token/adapters/inbound/CliTokenHandler.js";
 import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildProcessTokenGit.js";
 import { NodeTokenConfigReader } from "./features/token/adapters/outbound/NodeTokenConfigReader.js";
 import type { CommandResult, OutputFormat } from "./shared/domain/CliOutput.js";
 
-type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan" | "doctor" | "report" | "record";
+type Subcommand = "token" | "check" | "refresh" | "lint" | "approve" | "ready" | "finalize" | "plan" | "doctor" | "report" | "record" | "install";
 
 interface ParsedArgv {
   mode: "command" | "help" | "version" | "error";
@@ -51,7 +55,13 @@ interface ParsedArgv {
   doctor?: DoctorArgs;
   report?: ReportArgs;
   record?: RecordArgs;
+  install?: InstallArgs;
   message?: string;
+}
+
+interface InstallArgs {
+  target: InstallTarget;
+  dryRun: boolean;
 }
 
 interface RecordArgs {
@@ -120,6 +130,7 @@ Usage:
   sdd record get <id>       [--format=json|human]
   sdd record set <id>       (--from-file <p> | --content <s>) [--format=json|human]
   sdd record add --after <id> (--from-file <p> | --content <s>) [--format=json|human]
+  sdd install <all|claude|codex> [--dry-run] [--format=json|human]
   sdd --help
   sdd --version`;
 
@@ -135,6 +146,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
   doctor: "Usage: sdd doctor --rule-version [--rules <path>] [--format=json|human]",
   report: "Usage: sdd report --pr-summary [--against <ref>] [--format=json|human]",
   record: "Usage: sdd record list [--partition <name>] | get <id> | set <id> (--from-file <p>|--content <s>) | add --after <id> (--from-file <p>|--content <s>) [--format=json|human]",
+  install: "Usage: sdd install <all|claude|codex> [--dry-run] [--format=json|human]",
 };
 
 export async function main(argv: readonly string[], cwd: string): Promise<CommandResult> {
@@ -258,6 +270,13 @@ export async function main(argv: readonly string[], cwd: string): Promise<Comman
       : { kind: "add", afterId: parsed.record.afterId!, body: bodyResult.body };
     return command.execute(cwd, action, format);
   }
+  if (parsed.subcommand === "install") {
+    if (parsed.install === undefined) {
+      return { exitCode: 2, stdout: "", stderr: `${COMMAND_HELP.install}\n` };
+    }
+    const command = new CliInstallHandler({ source: new NodeInstallSource(), fs: new NodeInstallTargetFs() });
+    return command.execute(parsed.install.target, { dryRun: parsed.install.dryRun }, parsed.format === "json" ? "json" : "human");
+  }
   if (parsed.subcommand === "ready") {
     const fs = new NodeReadyFileSystem();
     const command = new CliReadyHandler({ config: fs, files: fs, git: new ChildProcessReadyGit() });
@@ -307,6 +326,9 @@ function parseArgv(argv: readonly string[]): ParsedArgv {
   }
   if (subcommand === "record") {
     return parseRecordArgv(rest);
+  }
+  if (subcommand === "install") {
+    return parseInstallArgv(rest);
   }
   const defaultFormat = subcommand === "refresh" ? "yaml" : "human";
   let format: OutputFormat = defaultFormat;
@@ -497,7 +519,7 @@ function packageVersion(): string {
 function isSubcommand(value: string | undefined): value is Subcommand {
   return value === "token" || value === "check" || value === "refresh" || value === "lint"
     || value === "approve" || value === "ready" || value === "finalize" || value === "plan"
-    || value === "doctor" || value === "report" || value === "record";
+    || value === "doctor" || value === "report" || value === "record" || value === "install";
 }
 
 function parseRecordArgv(args: readonly string[]): ParsedArgv {
@@ -578,6 +600,31 @@ function parseRecordArgv(args: readonly string[]): ParsedArgv {
     }
   }
   return { mode: "command", subcommand: "record", format, record };
+}
+
+function parseInstallArgv(args: readonly string[]): ParsedArgv {
+  const target = args[0];
+  if (target === undefined || !isInstallTarget(target)) {
+    return { mode: "error", message: "expected: sdd install <all|claude|codex>" };
+  }
+  const install: InstallArgs = { target, dryRun: false };
+  let format: OutputFormat = "human";
+  for (const arg of args.slice(1)) {
+    if (arg.startsWith("--format=")) {
+      const value = arg.slice("--format=".length);
+      if (!isFormat(value) || value === "yaml") {
+        return { mode: "error", message: `invalid format: ${value}` };
+      }
+      format = value;
+      continue;
+    }
+    if (arg === "--dry-run") {
+      install.dryRun = true;
+      continue;
+    }
+    return { mode: "error", message: `unknown flag: ${arg}` };
+  }
+  return { mode: "command", subcommand: "install", format, install };
 }
 
 function resolveRecordBody(record: RecordArgs, cwd: string): { body: string; error?: undefined } | { error: string } {
