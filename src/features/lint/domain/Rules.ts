@@ -16,6 +16,7 @@ export {
   migrationCrossPartitionRule,
   migrationEnforcementStageRule,
   NORMATIVE_SECTIONS,
+  openQBlockingRule,
   partitionDefaultPolicySetRule,
   REQUIRED_PARTITION_SECTIONS,
   sectionViolations,

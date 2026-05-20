@@ -17,6 +17,7 @@ import {
   lifecycleStatusRules,
   migrationCrossPartitionRule,
   migrationEnforcementStageRule,
+  openQBlockingRule,
   partitionDefaultPolicySetRule,
   REQUIRED_PARTITION_SECTIONS,
   sectionViolations,
@@ -98,6 +99,8 @@ function lintFileInto(report: LintReport, entry: SpecFileEntry, approverBlocklis
       ...migrationCrossPartitionRule(rec),
       // P3.1 — debt budget form (ENF-020)
       ...debtBudgetFormRule(rec),
+      // unresolved blocking Open-Q (ENF-059)
+      ...openQBlockingRule(rec),
     ]) {
       next = appendDiagnostic(next, d);
     }

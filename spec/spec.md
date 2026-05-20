@@ -371,12 +371,15 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/diagnostics
-version: "0.5.0"
+version: "0.6.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-016
 consumer_compat_policy: semver_per_surface
 notes: |
+  v0.6.0 — adds the lint diagnostic `sdd:open-q-blocking` (ENF-059) to
+  members.lint, mechanising the spec-valid rule "no unresolved
+  Open-Q.blocking=yes". Minor bump per the append-only rule.
   v0.5.0 — adds the already-shipped ready violation kind
   `generated_artifact_structural_diff_unbumped` (ENF-019) to
   members.ready, which was emitted by the CLI since v1.0.0 but
@@ -2240,6 +2243,45 @@ test_obligation:
     - "published_surface=yes + surface_ref present"
     - "published_surface=no"
   failure_scenarios: [silent acceptance]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-050
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-20T18:57:45.637Z
+    change_request: fix_openq_lint
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd lint flags unresolved blocking Open-Q (ENF-059)
+given: |
+  - an Open-Q record with parsed.blocking == "yes" (or boolean true)
+  - lifecycle.status != "removed"
+when: |
+  user runs `sdd lint`
+then: |
+  - exits 1 (error)
+  - one diagnostic with rule sdd:open-q-blocking per unresolved blocking Open-Q
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: lint operates on text
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    An Open-Q with blocking=yes (and status != removed) fires the rule.
+    An Open-Q with blocking=no, or blocking=yes but status=removed, or a
+    non-Open-Q record, fires nothing.
+  test_template: integration
+  boundary_classes: [blocking=yes proposed, blocking=no, blocking=yes removed, non-Open-Q record]
+  failure_scenarios: [false positive on blocking=no or non-Open-Q records]
 ---
 ```
 
@@ -4244,6 +4286,8 @@ schema:
       - sdd:migration-cross-partition
       # P3.1 — debt budget form (ENF-020)
       - sdd:debt-budget-form
+      # unresolved blocking Open-Q (ENF-059)
+      - sdd:open-q-blocking
     ready:
       - unapproved
       - uncovered
@@ -7553,9 +7597,9 @@ options:
       Reject configs where two partitions' test_paths overlap;
       operators must use explicit per-partition globs. Stricter
       audit; more work for adopters of cross-partition tests.
-blocking: yes
+blocking: no
 owner: cyberash
-default_if_unresolved: a
+default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 default)
 ---
 ```
 
@@ -7587,9 +7631,9 @@ options:
       Two flat keys: `test_obligation_not_applicable: <reason_token>`
       plus `test_obligation_reason: "<text>"`. Loses the "this
       field is conditional" framing already used elsewhere.
-blocking: yes
+blocking: no
 owner: cyberash
-default_if_unresolved: a
+default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 default)
 ---
 ```
 
@@ -7619,9 +7663,9 @@ options:
       Skip an ID for a partition when applicability excludes it.
       Adds a per-rule filter; risks silent gaps if applicability
       drifts from real behaviour.
-blocking: yes
+blocking: no
 owner: cyberash
-default_if_unresolved: a
+default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 default)
 ---
 ```
 
@@ -7655,9 +7699,9 @@ options:
       All diagnostics surface as ready blockers. Stricter merge
       gate; risks blocking on advisory issues that lint itself
       does not block.
-blocking: yes
+blocking: no
 owner: cyberash
-default_if_unresolved: a
+default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 default)
 ---
 ```
 
@@ -7693,9 +7737,9 @@ options:
       Exit 2 evaluate-failure. Strictest; catches typos
       immediately; breaks adopter repos that experimentally adopt
       new keys.
-blocking: yes
+blocking: no
 owner: cyberash
-default_if_unresolved: a
+default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 default)
 ---
 ```
 

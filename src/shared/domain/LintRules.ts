@@ -319,6 +319,24 @@ export function deprecatedFieldsRequiredRule(rec: LintRecord): Diagnostic[] {
   return out;
 }
 
+/** ENF-059: an Open-Q with blocking=yes is an unresolved blocking question and
+ *  fails spec-valid (SDD §0). Resolve it (flip blocking to no, convert to an
+ *  ASSUMPTION, or remove it) before the spec is mergeable. A `removed` Open-Q
+ *  is already resolved and does not fire. */
+export function openQBlockingRule(rec: LintRecord): Diagnostic[] {
+  if (rec.template !== "Open-Q") return [];
+  if (rec.lifecycleStatus === "removed") return [];
+  const blocking = rec.parsed.blocking;
+  if (blocking !== "yes" && blocking !== true) return [];
+  return [{
+    severity: "error",
+    rule: "sdd:open-q-blocking",
+    file: rec.file,
+    line: rec.line,
+    message: `Open-Q "${rec.id}" is unresolved with blocking=yes (SDD §0 spec-valid).`,
+  }];
+}
+
 /** ENF-010: ASSUMPTIONs downgraded to blocking=advisory MUST carry an
  *  approval_record with a non-agent approver (SDD §7.5).
  *

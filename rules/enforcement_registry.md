@@ -106,6 +106,7 @@ Each row carries:
 | ENF-056 | — | `@covers` marker uses a declared partition prefix | graph-consistency | sdd ready | implementation-valid | unknown_partition_covers | implemented | — | — |
 | ENF-057 | — | `sdd ready` aggregates upstream `sdd lint` violations | aggregate-gate | sdd ready | implementation-valid | aggregated_lint | implemented | — | — |
 | ENF-058 | — | `sdd ready` aggregates baseline (`sdd check`) violations | aggregate-gate | sdd ready | implementation-valid | aggregated_check | implemented | — | — |
+| ENF-059 | — | Unresolved `Open-Q.blocking=yes` blocks spec-valid (§0) | structural-lint | sdd lint | spec-valid | sdd:open-q-blocking | implemented | — | — |
 
 ## Maturity transitions
 

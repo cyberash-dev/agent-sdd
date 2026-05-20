@@ -45,6 +45,8 @@ export const LINT_DIAGNOSTIC_IDS = [
   "sdd:migration-cross-partition",
   // P3.1 — debt budget form (ENF-020)
   "sdd:debt-budget-form",
+  // unresolved blocking Open-Q (ENF-059)
+  "sdd:open-q-blocking",
 ] as const;
 
 export type LintDiagnosticId = typeof LINT_DIAGNOSTIC_IDS[number];
