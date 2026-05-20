@@ -7468,7 +7468,7 @@ default_if_unresolved: a   # see ASM-003
 id: sdd-cli:OQ-004
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: option c implemented (BEH-051; supersedes ASM-004)
 partition_id: sdd-cli
 question: |
   When an IMP-* block has no `binding` field at all, should the
@@ -7667,6 +7667,8 @@ review_by: 2026-07-01
 ---
 id: sdd-cli:OQ-011
 type: Open-Q
+lifecycle:
+  status: removed   # resolved 2026-05-20: option b implemented (BEH-052, lint.partition_glob)
 partition_id: sdd-cli
 question: |
   Should `sdd lint` recognise the canonical SDD §2 partition section
@@ -7879,7 +7881,7 @@ default_if_unresolved: a   # resolved: owner adopted option a (the v0.3.0 defaul
 id: sdd-cli:OQ-017
 type: Open-Q
 lifecycle:
-  status: proposed
+  status: removed   # resolved 2026-05-20: option b implemented (BEH-053, covers_near_miss advisory)
 partition_id: sdd-cli
 question: |
   When a `@covers` line contains text that *almost* matches the
