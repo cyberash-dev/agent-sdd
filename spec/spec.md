@@ -118,8 +118,8 @@ coverage_evidence:
       repo's own Discovery scope because BL-001 stores the token inside
       spec/spec.md; including that file would make the token
       self-referential.
-freshness_token: 6f0269ab2c2dba1912dd79122dd7f2ae6c96a43d2a5b230e808ea47ec79d63b3
-baseline_commit_sha: f28107bcd2f2db11f8a622c119f6226d6bd07f5e
+freshness_token: 7124ba55b9871fc770760e4ebb75b26b7d131b3ec8d29522fd38f53a37a08d8c
+baseline_commit_sha: cff7b87136b984717cab921ba19f19fccfd89ada
 mechanism: git_tree_hash_v1
 notes: |
   Brownfield baseline carries no preserved as-is behavior by itself.
