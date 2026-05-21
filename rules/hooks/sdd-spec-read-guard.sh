@@ -48,11 +48,16 @@ case "$tool" in
     ;;
   Bash)
     cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
-    # read verb anywhere in the command, plus a spec/*.md reference
-    if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]_-])(cat|bat|less|more|head|tail|nl|sed|awk|grep|egrep|fgrep|rg|ag|view|vi|vim|nano|open)([[:space:]]|$)' \
-       && is_spec_md "$cmd"; then
-      deny=1
-    fi
+    # Only treat the command as a spec *read* when the program being invoked
+    # (the FIRST token) is a content reader/pager/search tool AND a spec/*.md
+    # path is referenced. This deliberately never blocks git, sdd, npm, etc.,
+    # so `git add ./spec/*.md`, `git diff spec/spec.md` and friends pass.
+    prog=$(printf '%s' "$cmd" | sed -E 's/^[[:space:]]+//' | awk '{print $1}')
+    case "$prog" in
+      cat|bat|less|more|head|tail|nl|sed|awk|grep|egrep|fgrep|rg|ag|view|vi|vim|nano|open)
+        is_spec_md "$cmd" && deny=1
+        ;;
+    esac
     ;;
   *) exit 0 ;;
 esac

@@ -47,6 +47,13 @@ test("guard allows a sanctioned `sdd record` Bash command", async () => {
   assert.ok(!denies(out));
 });
 
+test("guard allows git operations on spec files (not content reads)", async () => {
+  const add = await runHook({ tool_name: "Bash", cwd: process.cwd(), tool_input: { command: "git add ./spec/*.md" } });
+  const diff = await runHook({ tool_name: "Bash", cwd: process.cwd(), tool_input: { command: "git diff spec/spec.md" } });
+  assert.ok(!denies(add));
+  assert.ok(!denies(diff));
+});
+
 test("guard allows reading a non-spec file", async () => {
   const out = await runHook({ tool_name: "Read", cwd: process.cwd(), tool_input: { file_path: `${process.cwd()}/src/cli.ts` } });
   assert.ok(!denies(out));
