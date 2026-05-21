@@ -1,6 +1,6 @@
 {
   "name": "sdd-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Spec-Driven Development helper CLI: freshness tokens, scope drift stubs, spec-lint, approval ceremony.",
   "keywords": [
     "spec-driven-development",

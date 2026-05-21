@@ -10,6 +10,32 @@ landed.
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-05-21
+
+### Added
+
+- **`sdd install <all|claude|codex>`** subcommand (`SUR-016`). Makes the
+  package the distribution point for the SDD methodology rules under
+  `rules/`: copies the minimal TDD+SDD context rules into the user-level
+  agent config (`@import` block in `~/.claude/CLAUDE.md`, reference block
+  in `~/.codex/AGENTS.md`), installs the full reference as an on-demand
+  Claude skill, and merges two `PreToolUse` hooks into
+  `~/.claude/settings.json` — a lint reminder and a spec-read guard that
+  denies reading `spec/*.md` in a project carrying `.sdd/config.json`,
+  steering agents to `sdd record`. Idempotent; writes only under the
+  agent home roots, never inside the repo (`INV-016` / `POL-003`); driven
+  by `rules/manifest.json` (`CST-008`). Spec: `BEH-065..071`,
+  `CTR-029`, `CTR-030`. `package.json#files` now ships `rules/`.
+
+### Fixed
+
+- **spec-read guard no longer blocks non-read spec commands.** The Bash
+  branch matched a read verb anywhere in the command, so `git add
+  ./spec/*.md` and compound commands were denied. It now keys off the
+  command's first token (the invoked program), so `git`/`npm`/`sdd` and
+  compound commands pass while `cat`/`sed`/`grep … spec/*.md` reads stay
+  blocked.
+
 ## [1.0.0] — 2026-05-01
 
 ### BREAKING

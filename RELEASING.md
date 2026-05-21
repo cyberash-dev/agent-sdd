@@ -69,6 +69,7 @@ The `files` whitelist in `package.json` ships exactly:
 
 - `dist/` — compiled JS + `.d.ts`
 - `schema/sdd.config.schema.json`
+- `rules/` — SDD methodology rules + `manifest.json` + hooks, distributed by `sdd install`
 - `README.md`
 - `LICENSE`
 - `package.json` (added automatically by npm)
