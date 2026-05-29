@@ -10,6 +10,19 @@ landed.
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-05-29
+
+### Fixed
+
+- **Approval rewriter no longer truncates a record at a nested `- id:`
+  list.** `findMatches` treated any `- id:` line as a record boundary, so
+  a record whose `lifecycle:` anchor followed a nested `- id:` list (e.g.
+  a `Delta`'s `surface_impact:`) was cut off before the anchor and `sdd
+  approve` / `sdd finalize` flipped 0 files while still counting the id as
+  matched. A `- id:` is now a boundary only when it is a sibling-or-
+  shallower list item; deeper ones are record body. Restores `INV-007` /
+  `BEH-013` / `BEH-024` / `INV-012` conformance. Spec: `DLT-003`.
+
 ## [1.0.1] — 2026-05-21
 
 ### Added
