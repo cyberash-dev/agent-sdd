@@ -184,6 +184,7 @@ export function findMatches(lines: readonly string[], idOrGlob: string): IdMatch
   let recStart = -1;
   let recId = "";
   let recIndent = "";
+  let recAnchorIndent = "";
 
   const closeRecord = (endLine: number): void => {
     if (recStart < 0) return;
@@ -193,6 +194,7 @@ export function findMatches(lines: readonly string[], idOrGlob: string): IdMatch
     recStart = -1;
     recId = "";
     recIndent = "";
+    recAnchorIndent = "";
   };
 
   for (let i = 0; i < lines.length; i++) {
@@ -216,11 +218,20 @@ export function findMatches(lines: readonly string[], idOrGlob: string): IdMatch
     }
     const listM = /^(\s*)-\s+id:\s*(\S+)/.exec(line);
     if (listM !== null) {
-      closeRecord(i);
-      recStart = i;
-      recId = listM[2]!;
-      recIndent = `${listM[1]!}  `;
-      continue;
+      // A `- id:` line is a record boundary only when no record is open, or it
+      // is a sibling-or-shallower list item. A `- id:` nested deeper than the
+      // open record's anchor (e.g. a Delta's `surface_impact:` entries) is
+      // record body — folding it into a record would truncate the record
+      // before its lifecycle anchor (INV-007).
+      const lead = listM[1]!;
+      if (recStart < 0 || lead.length <= recAnchorIndent.length) {
+        closeRecord(i);
+        recStart = i;
+        recId = listM[2]!;
+        recIndent = `${lead}  `;
+        recAnchorIndent = lead;
+        continue;
+      }
     }
     const flatM = /^(\s*)id:\s*(\S+)/.exec(line);
     if (flatM !== null && fenceStart >= 0 && i === fenceStart + 1) {
@@ -228,12 +239,14 @@ export function findMatches(lines: readonly string[], idOrGlob: string): IdMatch
       recStart = i;
       recId = flatM[2]!;
       recIndent = flatM[1]!;
+      recAnchorIndent = flatM[1]!;
       continue;
     }
     if (flatM !== null && recStart < 0) {
       recStart = i;
       recId = flatM[2]!;
       recIndent = flatM[1]!;
+      recAnchorIndent = flatM[1]!;
       continue;
     }
   }

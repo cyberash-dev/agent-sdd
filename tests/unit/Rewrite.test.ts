@@ -216,3 +216,106 @@ test("inserts approval_record when no placeholder in list-of-objects record", ()
   // List-of-objects fields live at indent "  " (two spaces past the dash).
   assert.match(result.newContent, /\n {2}approval_record:\n {4}owner_role: tech-lead/);
 });
+
+test("flips a record whose lifecycle follows a nested `- id:` list (INV-007)", () => {
+  // @covers sdd-cli:INV-007
+  // @covers sdd-cli:DLT-003
+  // A record body may carry a nested `- id:` list (e.g. a Delta's
+  // surface_impact:). The boundary scanner must treat it as body, not as a
+  // new record — otherwise the record is truncated before its lifecycle
+  // anchor and the status flip silently no-ops (0 files changed).
+  const md = [
+    "```yaml",
+    "- id: demo:del-1",
+    "  template: Delta",
+    "  surface_impact:",
+    "    - id: demo:sur-1",
+    "      intended_bump: minor",
+    "  lifecycle.status: proposed",
+    "  approval_record: not_applicable_for_proposed",
+    "```",
+  ].join("\n");
+
+  const result = rewriteApproval(md, { ...REQ, id: "demo:del-1" }, FROZEN_TIME);
+
+  assert.equal(result.matched.length, 1);
+  // endLine (1-based, exclusive) must span past the lifecycle line (line 7).
+  assert.ok(result.matched[0]!.endLine > 7);
+  assert.match(result.newContent, /lifecycle\.status: approved/);
+  assert.match(result.newContent, /approver_identity: cyberash/);
+});
+
+test("flips a record whose nested `- id:` list follows lifecycle (regression guard)", () => {
+  // @covers sdd-cli:INV-007
+  // Mirror of the bug case but with lifecycle ahead of the nested list — the
+  // accidental pre-fix workaround. Must keep flipping after the fix.
+  const md = [
+    "```yaml",
+    "- id: demo:del-2",
+    "  template: Delta",
+    "  lifecycle.status: proposed",
+    "  approval_record: not_applicable_for_proposed",
+    "  surface_impact:",
+    "    - id: demo:sur-1",
+    "      intended_bump: minor",
+    "```",
+  ].join("\n");
+
+  const result = rewriteApproval(md, { ...REQ, id: "demo:del-2" }, FROZEN_TIME);
+
+  assert.equal(result.matched.length, 1);
+  assert.match(result.newContent, /lifecycle\.status: approved/);
+});
+
+test("glob enumerates only top-level records, not nested `- id:` items (INV-007)", () => {
+  // @covers sdd-cli:INV-007
+  // Two top-level Policy records; the first carries a nested `- id:` in its
+  // body. The glob must match exactly the two top-level ids — the nested id
+  // is body, and both siblings still parse as separate records.
+  const md = [
+    "```yaml",
+    "- id: pol:auth",
+    "  template: Policy",
+    "  surface_impact:",
+    "    - id: pol:nested-ignored",
+    "      intended_bump: minor",
+    "  lifecycle.status: proposed",
+    "  approval_record: not_applicable_for_proposed",
+    "- id: pol:audit",
+    "  template: Policy",
+    "  lifecycle.status: proposed",
+    "  approval_record: not_applicable_for_proposed",
+    "```",
+  ].join("\n");
+
+  const r = rewriteApproval(md, { ...REQ, id: "pol:*" }, FROZEN_TIME);
+
+  assert.deepEqual(r.matched.map((m) => m.id).sort(), ["pol:audit", "pol:auth"]);
+  assert.equal((r.newContent.match(/lifecycle\.status: approved/g) ?? []).length, 2);
+});
+
+test("flips nested-lifecycle record whose `- id:` list precedes lifecycle (INV-007)", () => {
+  // @covers sdd-cli:INV-007
+  // The canonical brownfield form (--- delimited, nested lifecycle:) with a
+  // surface_impact nested `- id:` list ahead of the lifecycle anchor — the
+  // exact shape that landed the defect.
+  const md = [
+    "```yaml",
+    "---",
+    "id: demo:del-3",
+    "type: Delta",
+    "surface_impact:",
+    "  - id: demo:sur-1",
+    "    intended_bump: minor",
+    "lifecycle:",
+    "  status: proposed",
+    "---",
+    "```",
+  ].join("\n");
+
+  const result = rewriteApproval(md, { ...REQ, id: "demo:del-3" }, FROZEN_TIME);
+
+  assert.equal(result.matched.length, 1);
+  assert.match(result.newContent, /^lifecycle:\n {2}status: approved$/m);
+  assert.match(result.newContent, /^ {2}approval_record:\n {4}owner_role: tech-lead$/m);
+});

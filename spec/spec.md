@@ -7827,6 +7827,57 @@ caveats:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:DLT-003
+type: Delta
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-29T10:59:52.259Z
+    change_request: "fix approval rewriter record-boundary truncation on nested - id: lists (DLT-003)"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: "v1.0.1 → v1.0.2 — approval rewriter: nested `- id:` list items are record body, not boundaries (INV-007 conformance)"
+target_ids:
+  - sdd-cli:INV-007
+  - sdd-cli:BEH-013
+  - sdd-cli:BEH-024
+  - sdd-cli:INV-012
+kind: replace
+compatibility_action: ignore
+baseline_version: sdd-cli:BL-001@v1.0.1
+description: |
+  Tightens the record-boundary predicate in findMatches (the shared
+  approval rewriter under src/shared/domain/SpecApprovalRewrite.ts). A
+  line matching `- id:` now starts a new record only when no record is
+  open OR its indentation is sibling-or-shallower than the open record's
+  anchor; a `- id:` nested deeper than the anchor (e.g. a Delta's
+  `surface_impact:` entries) is record body.
+
+  Before this change the scanner closed the open record at any `- id:`
+  line regardless of indent, so a record whose `lifecycle:` anchor
+  followed a nested `- id:` list was truncated before the anchor and
+  `sdd approve`/`sdd finalize` flipped 0 files while still counting the
+  id as matched.
+
+  Restores INV-007/BEH-013/BEH-024/INV-012 conformance for such records.
+  No observable contract changes at any Surface; both record shapes
+  (`---`-delimited flat records and top-level `- id:` list fences) keep
+  their existing enumeration. No Surface version is materialized on
+  finalize (INV-014).
+tests_old_behavior:
+  - existing Rewrite/record/finalize tests stay green — flat, nested
+    lifecycle, glob, `---`-separated, and list-of-objects records all
+    still flip, and top-level `- id:` siblings still enumerate as
+    separate records
+tests_new_behavior:
+  - to:sdd-cli:INV-007
+---
+```
+
 ---
 
 ## 16. Implementation bindings

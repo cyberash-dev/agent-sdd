@@ -368,3 +368,44 @@ test("approve queues multiple attestations into the same active plan", async () 
     ["fixture:beh-1", "fixture:beh-2"],
   );
 });
+
+test("finalize flips a record whose lifecycle follows a nested `- id:` list (INV-007, BEH-024)", async () => {
+  // @covers sdd-cli:INV-007
+  // @covers sdd-cli:DLT-003
+  // End-to-end guard for the record-boundary defect: a record carrying a
+  // nested `- id:` list (here `examples:`) ahead of its lifecycle anchor must
+  // still finalize to approved. Pre-fix the rewriter truncated the record at
+  // the nested `- id:` and finalize flipped 0 files.
+  const block = [
+    "```yaml",
+    "- id: fixture:beh-1",
+    "  template: Behavior",
+    "  examples:",
+    "    - id: fixture:beh-1:ex-1",
+    "      note: x",
+    "  lifecycle.status: proposed",
+    "  approval_record: not_applicable_for_proposed",
+    "  test_obligations: [to:fixture:beh-1:happy]",
+    "```",
+  ].join("\n");
+  const { root } = await fixtureProject(block);
+
+  await runSdd(root, [
+    "approve",
+    "--id", "fixture:beh-1",
+    "--approver", "alice",
+    "--owner-role", "tech-lead",
+    "--change-request", "https://example.com/pr/7",
+  ]);
+  const finalize = await runSdd(root, ["finalize", "--format=json"]);
+
+  assert.equal(finalize.code, 0, `stdout=${finalize.stdout}\nstderr=${finalize.stderr}`);
+  const body = JSON.parse(finalize.stdout) as { ok: boolean; finalized_ids: string[]; files_changed: string[] };
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.finalized_ids, ["fixture:beh-1"]);
+  assert.deepEqual(body.files_changed, ["spec/spec.md"]);
+
+  const specText = await readFile(join(root, "spec", "spec.md"), "utf8");
+  assert.match(specText, /lifecycle\.status: approved/);
+  assert.match(specText, /approver_identity: alice/);
+});
