@@ -10,6 +10,15 @@ landed.
 
 ## [Unreleased]
 
+## [1.0.3] — 2026-05-30
+
+### Changed
+
+- Renamed the npm package `sdd-cli` → `agent-sdd` (the names `sdd` and
+  `sdd-cli` are taken on the registry). The invoked binary is unchanged:
+  it is still `sdd`. SDD partition, surface names, and `@covers` markers
+  remain `sdd-cli`.
+
 ## [1.0.2] — 2026-05-29
 
 ### Fixed
@@ -295,6 +304,7 @@ landed.
 - Shipped via `npm pack` tarball (`@cyberash/sdd-cli@0.1.0.tgz`); npm
   registry publication intentionally out of scope.
 
-[Unreleased]: https://github.com/cyberash-dev/sdd-cli/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/cyberash-dev/sdd-cli/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v1.0.3
 [0.2.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v0.2.0
 [0.1.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v0.1.0

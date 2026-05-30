@@ -1,6 +1,6 @@
 # sdd-cli Usage
 
-Operational rules for invoking `@cyberash/sdd-cli` as part of SDD workflow.
+Operational rules for invoking `agent-sdd` (the `sdd` CLI) as part of SDD workflow.
 This file maps each workflow phase to the CLI command(s) that close the
 mechanical part of the corresponding gate. The full mapping
 requirement → enforcement_class → executor lives in `enforcement_registry.md`;

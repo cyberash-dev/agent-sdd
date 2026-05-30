@@ -138,7 +138,7 @@ Anything not fixed in §3.1 as normative is the agent's call. **The agent MUST l
 - `absolute` — blocked anywhere inside a normative section regardless of which template field they appear in. Examples: `as a rule`, `etc.`, `and so on`, `should usually`, `similar to`, `approximately`, `best-effort`, `informally`, plus Russian `возможно/вероятно/обычно`.
 - `modal_in_normative` — modal phrases `may be`/`might be`. Blocked only inside template fields marked `is_normative=true` (e.g. `Behavior.then`, `Invariant.always`, `Contract.schema`). Allowed in `notes`/`description`/`Context`/`Glossary`/comments and in `Scenario`-prose where the alternative is captured by an explicit `options[]`/branching trigger. Same rationale as the `absolute` class — modality without a closed enum is non-binding — but the rule needs field-level scoping to avoid a false-positive flood in brownfield baselines with long descriptive sections.
 
-Both rule and `@cyberash/sdd-cli` import the JSON list at build time; the CLI's `tests/unit/weasel-words-sync.test.ts` asserts byte-equivalence with this canonical source. Expanding the list (adding more absolute words, or singletons `may`/`might`, or other phrases from earlier drafts of this rule like `as needed`/`where appropriate`) requires a coordinated PR in both repos plus a minor bump on `Surface: diagnostics` (SUR-009 in `sdd-cli/spec/spec.md`). Mechanical enforcement: ENF-001 in `rules/enforcement_registry.md`. Drift detection between rule and CLI: ENF-022 (`sdd:weasel-source-drift`, planned).
+Both rule and `agent-sdd` import the JSON list at build time; the CLI's `tests/unit/weasel-words-sync.test.ts` asserts byte-equivalence with this canonical source. Expanding the list (adding more absolute words, or singletons `may`/`might`, or other phrases from earlier drafts of this rule like `as needed`/`where appropriate`) requires a coordinated PR in both repos plus a minor bump on `Surface: diagnostics` (SUR-009 in `sdd-cli/spec/spec.md`). Mechanical enforcement: ENF-001 in `rules/enforcement_registry.md`. Drift detection between rule and CLI: ENF-022 (`sdd:weasel-source-drift`, planned).
 
 5.2. Any detected ambiguity is raised as `Open-Q`. **The agent has no right to silently pick a variant.** With `blocking=yes` the agent halts. With `blocking=no` the agent uses `default_if_unresolved` and materializes it into an `ASSUMPTION` with `review_by` and a trace to tests, flagging in the PR as "decision taken by default, requires confirmation".
 
@@ -438,7 +438,7 @@ Every cycle the second review caught walks through this layer. **In v3 the recom
 
 ## Appendix B — How to use `sdd-cli`
 
-This appendix is the operational manual for invoking `@cyberash/sdd-cli`
+This appendix is the operational manual for invoking `agent-sdd`
 during SDD workflow. The normative phase-to-command mapping lives in
 `rules/sdd-cli-usage.md`; this appendix is the longer-form guide with
 typical scenarios and rationale.
@@ -544,11 +544,11 @@ sdd report --pr-summary --against <base-ref>
 - **`sdd refresh` writes nothing.** It emits stubs to stdout; apply manually. Auto-application would violate INV-002 («CLI is read-only on spec»).
 - **Plan files in `.sdd/plans/`.** By default not committed (`*.yaml` belongs in `.gitignore`). For git-audited consumers, commit explicitly.
 - **`@covers` partition prefix.** Must match `^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)*$`. Uppercase or other characters cause silent skip (OQ-017 in sdd-cli spec).
-- **Frequent `sdd doctor` drift.** After any minor bump in `@cyberash/sdd-cli`, `compatible_sdd_cli` in `enforcement_registry.md` must be reviewed and updated. Without this discipline `sdd doctor` keeps reporting `version_mismatch` after every CLI release.
+- **Frequent `sdd doctor` drift.** After any minor bump in `agent-sdd`, `compatible_sdd_cli` in `enforcement_registry.md` must be reviewed and updated. Without this discipline `sdd doctor` keeps reporting `version_mismatch` after every CLI release.
 
 ### B.9 Reference
 
 - `rules/sdd-cli-usage.md` — phase-to-command mapping, exit-code taxonomy, troubleshooting table.
 - `rules/enforcement_registry.md` — which SDD requirement is closed by which command.
-- sdd-cli's own spec: `<global-node-modules>/@cyberash/sdd-cli/spec/spec.md` for canonical contracts (resolve `<global-node-modules>` via `npm root -g`).
+- sdd-cli's own spec: `<global-node-modules>/agent-sdd/spec/spec.md` for canonical contracts (resolve `<global-node-modules>` via `npm root -g`).
 - sdd-cli README: full CLI manual including config schema and exit codes.

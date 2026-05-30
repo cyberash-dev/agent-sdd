@@ -1,6 +1,6 @@
 # Releasing
 
-`@cyberash/sdd-cli` ships to npm via a tag-driven GitHub Actions workflow
+`agent-sdd` ships to npm via a tag-driven GitHub Actions workflow
 (`.github/workflows/publish.yml`). The local steps below assume the
 working tree is clean and on `main`.
 
@@ -8,13 +8,12 @@ working tree is clean and on `main`.
 
 1. Create an automation token on https://www.npmjs.com — `Access Tokens →
    Generate New Token → Granular Access Token`. Scope it to **Publish**
-   for `@cyberash/sdd-cli` and to the `@cyberash` organisation.
+   for the `agent-sdd` package.
 2. Store it in the GitHub repository as the secret `NPM_TOKEN`
    (`Settings → Secrets and variables → Actions → New repository
    secret`).
-3. Confirm the npm scope `@cyberash` exists and your account is a
-   member; scoped public packages require the scope to exist before the
-   first publish.
+3. `agent-sdd` is an unscoped public package, so no npm scope/org setup
+   is required before the first publish.
 
 ## Cutting a release
 

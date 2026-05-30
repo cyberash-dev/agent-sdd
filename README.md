@@ -1,4 +1,4 @@
-# `sdd-cli`
+# `agent-sdd`
 
 [![CI](https://github.com/cyberash-dev/sdd-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/cyberash-dev/sdd-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -40,7 +40,7 @@ identities (SDD §7.5: self-approval is forbidden).
 
 ---
 
-## Why `sdd-cli`?
+## Why `agent-sdd`?
 
 SDD treats a project's specification as the single source of truth for
 code generation. The Brownfield-baseline block in `spec.md` records:
@@ -88,7 +88,7 @@ every SDD-following repo configures it through a small JSON file
 ### Option 1 — npm registry (recommended)
 
 ```sh
-npm install --save-dev @cyberash/sdd-cli
+npm install --save-dev agent-sdd
 ```
 
 After install, `sdd` is on `node_modules/.bin/sdd` and runnable via
@@ -102,7 +102,7 @@ When developing `sdd-cli` itself alongside a consumer repo:
 npm install --save-dev "file:../sdd-cli"
 ```
 
-`package.json` will reference `"@cyberash/sdd-cli": "file:../sdd-cli"`.
+`package.json` will reference `"agent-sdd": "file:../sdd-cli"`.
 This is the recommended layout when both repos sit side by side, since
 edits in `sdd-cli/` are picked up immediately after `npm run build`.
 
@@ -113,10 +113,10 @@ For a frozen artefact without registry access:
 ```sh
 # inside ~/Projects/sdd-cli
 npm run build
-npm pack                              # produces cyberash-sdd-cli-<version>.tgz
+npm pack                              # produces agent-sdd-<version>.tgz
 
 # inside the consumer repo
-npm install --save-dev /path/to/cyberash-sdd-cli-1.0.0.tgz
+npm install --save-dev /path/to/agent-sdd-1.0.0.tgz
 ```
 
 ---
@@ -954,7 +954,7 @@ installs the tarball into a fresh consumer to verify the `bin` wiring
 
 ## Limits / out of scope (v0.3.0)
 
-- npm-registry publication of `@cyberash/sdd-cli`.
+- npm-registry publication of `agent-sdd`.
 - Other token mechanisms (`sha256_of_concat`, `git_tag_based`).
 - A scaffolding command (`sdd init`).
 - Auto-application of `sdd refresh` stubs back into `spec.md`
