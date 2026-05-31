@@ -21,6 +21,7 @@
     "url": "https://github.com/cyberash-dev/sdd-cli/issues"
   },
   "type": "module",
+  "prettier": "@cyberash-dev/dev-tooling/prettier.base.json",
   "bin": {
     "sdd": "dist/cli.js"
   },
@@ -49,6 +50,10 @@
     "test:unit": "node --import tsx --test tests/unit/*.test.ts",
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "tsc": "tsc --noEmit",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:spec": "node dist/cli.js lint",
     "prepublishOnly": "npm run tsc && npm test && npm run build"
   },
@@ -56,7 +61,10 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@cyberash-dev/dev-tooling": "^5.0.0",
     "@types/node": "^22.10.5",
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

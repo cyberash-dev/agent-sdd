@@ -1,0 +1,8 @@
+dist/
+node_modules/
+spec/
+rules/
+schema/
+.sdd/
+*.md
+package-lock.json
