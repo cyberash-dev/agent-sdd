@@ -10,6 +10,8 @@ landed.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-05-31
+
 ### Added
 
 - **`sdd install --scope user|project`** (`DLT-004`, `BEH-072`, `SUR-016`
