@@ -12,13 +12,13 @@
   ],
   "license": "MIT",
   "author": "cyberash <cyberash-dev@yandex.com>",
-  "homepage": "https://github.com/cyberash-dev/sdd-cli#readme",
+  "homepage": "https://github.com/cyberash-dev/agent-sdd#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cyberash-dev/sdd-cli.git"
+    "url": "git+https://github.com/cyberash-dev/agent-sdd.git"
   },
   "bugs": {
-    "url": "https://github.com/cyberash-dev/sdd-cli/issues"
+    "url": "https://github.com/cyberash-dev/agent-sdd/issues"
   },
   "type": "module",
   "prettier": "@cyberash-dev/dev-tooling/prettier.base.json",
