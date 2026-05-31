@@ -1,18 +1,15 @@
 #!/bin/bash
 # Stdin: JSON с tool_name и tool_input.
 # Stdout: hookSpecificOutput c additionalContext: reminder запустить `sdd lint`
-# после Edit/Write на spec файл в SDD-проекте (проект, где найден .sdd/config.json).
 input=$(cat)
 tool=$(printf '%s' "$input" | jq -r '.tool_name')
 path=$(printf '%s' "$input" | jq -r '.tool_input.path // .tool_input.file_path // empty')
 
-# Триггер только на spec-файлы (markdown под /spec/).
 case "$path" in
   */spec/*.md) ;;
   *) exit 0 ;;
 esac
 
-# Если нет .sdd/config.json в дереве над spec-файлом — sdd-cli не настроен, тихо.
 config_dir="$(dirname "$path")"
 found_config=
 while [[ "$config_dir" != "/" && "$config_dir" != "." ]]; do
