@@ -4,9 +4,13 @@ import type { InstallTarget } from "../../domain/InstallTarget.js";
 export type { InstallTarget };
 
 export interface InstallOptions {
-  dryRun: boolean;
+	dryRun: boolean;
 }
 
 export interface InstallCommand {
-  execute(target: InstallTarget, options: InstallOptions, format: "json" | "human"): Promise<CommandResult>;
+	execute(
+		target: InstallTarget,
+		options: InstallOptions,
+		format: "json" | "human",
+	): Promise<CommandResult>;
 }

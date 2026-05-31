@@ -9,28 +9,45 @@ import { projectRoot } from "./_helpers.js";
 
 const exec = promisify(execFile);
 
-test("sdd binary works after npm pack + install into a fresh consumer", { timeout: 120_000 }, async () => {
-  // @covers sdd-cli:CTR-007
-  // @covers sdd-cli:GEN-001
-  await exec("npm", ["run", "build"], { cwd: projectRoot });
+test(
+	"sdd binary works after npm pack + install into a fresh consumer",
+	{ timeout: 120_000 },
+	async () => {
+		// @covers sdd-cli:CTR-007
+		// @covers sdd-cli:GEN-001
+		await exec("npm", ["run", "build"], { cwd: projectRoot });
 
-  const packDir = await mkdtemp(join(tmpdir(), "sdd-pack-"));
-  await exec("npm", ["pack", "--pack-destination", packDir], { cwd: projectRoot });
-  const tarball = (await readdir(packDir)).find((entry) => entry.endsWith(".tgz"));
-  assert.ok(tarball, "npm pack did not produce a .tgz");
+		const packDir = await mkdtemp(join(tmpdir(), "sdd-pack-"));
+		await exec("npm", ["pack", "--pack-destination", packDir], {
+			cwd: projectRoot,
+		});
+		const tarball = (await readdir(packDir)).find((entry) =>
+			entry.endsWith(".tgz"),
+		);
+		assert.ok(tarball, "npm pack did not produce a .tgz");
 
-  const consumer = await mkdtemp(join(tmpdir(), "sdd-consumer-"));
-  await writeFile(join(consumer, "package.json"), JSON.stringify({ name: "consumer", version: "0.0.0", private: true }));
-  await exec(
-    "npm",
-    ["install", "--no-audit", "--no-fund", "--prefer-offline", join(packDir, tarball!)],
-    { cwd: consumer },
-  );
+		const consumer = await mkdtemp(join(tmpdir(), "sdd-consumer-"));
+		await writeFile(
+			join(consumer, "package.json"),
+			JSON.stringify({ name: "consumer", version: "0.0.0", private: true }),
+		);
+		await exec(
+			"npm",
+			[
+				"install",
+				"--no-audit",
+				"--no-fund",
+				"--prefer-offline",
+				join(packDir, tarball!),
+			],
+			{ cwd: consumer },
+		);
 
-  const sddBin = join(consumer, "node_modules", ".bin", "sdd");
-  const help = await exec(sddBin, ["--help"], { cwd: consumer });
-  const version = await exec(sddBin, ["--version"], { cwd: consumer });
+		const sddBin = join(consumer, "node_modules", ".bin", "sdd");
+		const help = await exec(sddBin, ["--help"], { cwd: consumer });
+		const version = await exec(sddBin, ["--version"], { cwd: consumer });
 
-  assert.match(help.stdout, /sdd token/);
-  assert.match(version.stdout, /^\d+\.\d+\.\d+\n$/);
-});
+		assert.match(help.stdout, /sdd token/);
+		assert.match(version.stdout, /^\d+\.\d+\.\d+\n$/);
+	},
+);

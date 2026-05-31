@@ -1,3 +1,3 @@
 export interface FinalizeClock {
-  now(): Date;
+	now(): Date;
 }

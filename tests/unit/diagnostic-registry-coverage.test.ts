@@ -14,9 +14,9 @@ import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 
 import {
-  LINT_DIAGNOSTIC_ID_GRAMMAR,
-  LINT_DIAGNOSTIC_IDS,
-  READY_VIOLATION_KINDS,
+	LINT_DIAGNOSTIC_ID_GRAMMAR,
+	LINT_DIAGNOSTIC_IDS,
+	READY_VIOLATION_KINDS,
 } from "../../src/shared/domain/DiagnosticRegistry.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -25,84 +25,100 @@ const specPath = resolve(repoRoot, "spec/spec.md");
 const registrySrcPath = resolve(srcRoot, "shared/domain/DiagnosticRegistry.ts");
 
 async function ctr016Members(): Promise<{ lint: string[]; ready: string[] }> {
-  const md = await fs.readFile(specPath, "utf8");
-  const fenceRe = /```yaml\n([\s\S]*?)\n```/g;
-  let m: RegExpExecArray | null;
-  while ((m = fenceRe.exec(md)) !== null) {
-    const body = m[1]!;
-    if (!body.includes("id: sdd-cli:CTR-016")) continue;
-    const doc = parseYaml(body.replace(/^---\n/, "").replace(/\n---\s*$/, "")) as {
-      schema: { members: { lint: string[]; ready: string[] } };
-    };
-    return doc.schema.members;
-  }
-  throw new Error("CTR-016 block not found in spec.md");
+	const md = await fs.readFile(specPath, "utf8");
+	const fenceRe = /```yaml\n([\s\S]*?)\n```/g;
+	let m: RegExpExecArray | null;
+	while ((m = fenceRe.exec(md)) !== null) {
+		const body = m[1]!;
+		if (!body.includes("id: sdd-cli:CTR-016")) continue;
+		const doc = parseYaml(
+			body.replace(/^---\n/, "").replace(/\n---\s*$/, ""),
+		) as {
+			schema: { members: { lint: string[]; ready: string[] } };
+		};
+		return doc.schema.members;
+	}
+	throw new Error("CTR-016 block not found in spec.md");
 }
 
 async function listTsFilesUnder(root: string): Promise<string[]> {
-  const out: string[] = [];
-  async function walk(dir: string): Promise<void> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const e of entries) {
-      const full = resolve(dir, e.name);
-      if (e.isDirectory()) await walk(full);
-      else if (e.isFile() && full.endsWith(".ts")) out.push(full);
-    }
-  }
-  await walk(root);
-  return out;
+	const out: string[] = [];
+	async function walk(dir: string): Promise<void> {
+		const entries = await fs.readdir(dir, { withFileTypes: true });
+		for (const e of entries) {
+			const full = resolve(dir, e.name);
+			if (e.isDirectory()) await walk(full);
+			else if (e.isFile() && full.endsWith(".ts")) out.push(full);
+		}
+	}
+	await walk(root);
+	return out;
 }
 
-async function readAllSrcFiles(root: string): Promise<Array<{ path: string; content: string }>> {
-  const files = await listTsFilesUnder(root);
-  return Promise.all(files.map(async (p) => ({ path: p, content: await fs.readFile(p, "utf8") })));
+async function readAllSrcFiles(
+	root: string,
+): Promise<Array<{ path: string; content: string }>> {
+	const files = await listTsFilesUnder(root);
+	return Promise.all(
+		files.map(async (p) => ({
+			path: p,
+			content: await fs.readFile(p, "utf8"),
+		})),
+	);
 }
 
-test("every \"sdd:*\" literal in src/ is in LINT_DIAGNOSTIC_IDS (INV-010)", async () => {
-  const files = await readAllSrcFiles(srcRoot);
-  const offenders: Array<{ path: string; literal: string }> = [];
-  const literalRe = /"(sdd:[a-z][a-z0-9-]*)"/g;
-  const allowed = new Set<string>(LINT_DIAGNOSTIC_IDS as readonly string[]);
+test('every "sdd:*" literal in src/ is in LINT_DIAGNOSTIC_IDS (INV-010)', async () => {
+	const files = await readAllSrcFiles(srcRoot);
+	const offenders: Array<{ path: string; literal: string }> = [];
+	const literalRe = /"(sdd:[a-z][a-z0-9-]*)"/g;
+	const allowed = new Set<string>(LINT_DIAGNOSTIC_IDS as readonly string[]);
 
-  for (const { path, content } of files) {
-    if (path === registrySrcPath) continue;
-    let m: RegExpExecArray | null;
-    while ((m = literalRe.exec(content)) !== null) {
-      const lit = m[1]!;
-      if (!LINT_DIAGNOSTIC_ID_GRAMMAR.test(lit)) continue;
-      if (!allowed.has(lit)) {
-        offenders.push({ path: relative(repoRoot, path), literal: lit });
-      }
-    }
-  }
+	for (const { path, content } of files) {
+		if (path === registrySrcPath) continue;
+		let m: RegExpExecArray | null;
+		while ((m = literalRe.exec(content)) !== null) {
+			const lit = m[1]!;
+			if (!LINT_DIAGNOSTIC_ID_GRAMMAR.test(lit)) continue;
+			if (!allowed.has(lit)) {
+				offenders.push({ path: relative(repoRoot, path), literal: lit });
+			}
+		}
+	}
 
-  assert.deepEqual(offenders, []);
+	assert.deepEqual(offenders, []);
 });
 
 test("every entry in LINT_DIAGNOSTIC_IDS is referenced ≥1 time as a literal in src/ (INV-010 inverse)", async () => {
-  const files = await readAllSrcFiles(srcRoot);
-  const concatenated = files
-    .filter((f) => f.path !== registrySrcPath)
-    .map((f) => f.content)
-    .join("\n");
-  const orphans = LINT_DIAGNOSTIC_IDS.filter((id) => !concatenated.includes(`"${id}"`));
-  assert.deepEqual(orphans, []);
+	const files = await readAllSrcFiles(srcRoot);
+	const concatenated = files
+		.filter((f) => f.path !== registrySrcPath)
+		.map((f) => f.content)
+		.join("\n");
+	const orphans = LINT_DIAGNOSTIC_IDS.filter(
+		(id) => !concatenated.includes(`"${id}"`),
+	);
+	assert.deepEqual(orphans, []);
 });
 
 test("every entry in READY_VIOLATION_KINDS is referenced ≥1 time in src/features/ready/", async () => {
-  const readyRoot = resolve(srcRoot, "features/ready");
-  const files = await readAllSrcFiles(readyRoot);
-  const concatenated = files.map((f) => f.content).join("\n");
-  const orphans = READY_VIOLATION_KINDS.filter((kind) => !concatenated.includes(`"${kind}"`));
-  assert.deepEqual(orphans, []);
+	const readyRoot = resolve(srcRoot, "features/ready");
+	const files = await readAllSrcFiles(readyRoot);
+	const concatenated = files.map((f) => f.content).join("\n");
+	const orphans = READY_VIOLATION_KINDS.filter(
+		(kind) => !concatenated.includes(`"${kind}"`),
+	);
+	assert.deepEqual(orphans, []);
 });
 
 test("CTR-016 members.lint in spec.md equals LINT_DIAGNOSTIC_IDS (CTR-016 test_obligation)", async () => {
-  const members = await ctr016Members();
-  assert.deepEqual([...members.lint].sort(), [...LINT_DIAGNOSTIC_IDS].sort());
+	const members = await ctr016Members();
+	assert.deepEqual([...members.lint].sort(), [...LINT_DIAGNOSTIC_IDS].sort());
 });
 
 test("CTR-016 members.ready in spec.md equals READY_VIOLATION_KINDS (CTR-016 test_obligation)", async () => {
-  const members = await ctr016Members();
-  assert.deepEqual([...members.ready].sort(), [...READY_VIOLATION_KINDS].sort());
+	const members = await ctr016Members();
+	assert.deepEqual(
+		[...members.ready].sort(),
+		[...READY_VIOLATION_KINDS].sort(),
+	);
 });

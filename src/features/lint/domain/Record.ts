@@ -1,12 +1,12 @@
-// Re-export shim — content lives in src/shared/domain/SpecRecord.ts so the
-// ready slice can consume the same shape without crossing the cross-feature
-// import boundary (INV-004 / CST-003). Existing lint callers keep their import
-// paths unchanged.
+/*
+ * INV-004 / CST-003: re-export shim over src/shared/domain/SpecRecord.ts so
+ * lint and ready share one shape without a cross-feature import. See spec.
+ */
 
 export {
-  NORMATIVE_TEMPLATES,
-  VALID_LIFECYCLE_STATUS,
-  type LifecycleStatus,
-  type LintRecord,
-  type LintTemplate,
+	NORMATIVE_TEMPLATES,
+	VALID_LIFECYCLE_STATUS,
+	type LifecycleStatus,
+	type LintRecord,
+	type LintTemplate,
 } from "../../../shared/domain/SpecRecord.js";

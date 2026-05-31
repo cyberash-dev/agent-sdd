@@ -1,3 +1,3 @@
 export interface RefreshClockPort {
-  iso(): string;
+	iso(): string;
 }

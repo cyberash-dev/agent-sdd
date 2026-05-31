@@ -1,8 +1,7 @@
-/** Partition component of a normative ID. IDs are `<partition>:<ID-tail>`
- *  where the tail contains no `:` (CST-007), so the rightmost colon splits
- *  them unambiguously. A bare partition-name id (no colon) is its own
- *  partition. */
+/* CST-007: partition component of a normative ID. The ID-tail has no `:`,
+ * so the rightmost colon splits `<partition>:<tail>`; a bare id is its own
+ * partition. See spec record. */
 export function partitionOf(id: string): string {
-  const idx = id.lastIndexOf(":");
-  return idx === -1 ? id : id.slice(0, idx);
+	const idx = id.lastIndexOf(":");
+	return idx === -1 ? id : id.slice(0, idx);
 }

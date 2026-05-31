@@ -1,3 +1,3 @@
 export interface ApproveClock {
-  now(): Date;
+	now(): Date;
 }
