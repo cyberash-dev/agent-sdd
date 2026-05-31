@@ -18,7 +18,12 @@ export class CliInstallHandler implements InstallCommand {
 		options: InstallOptions,
 		format: "json" | "human",
 	): Promise<CommandResult> {
-		const outcome = await installRules(target, options.dryRun, this.ports);
+		const outcome = await installRules(
+			target,
+			options.dryRun,
+			this.ports,
+			options.scope,
+		);
 		return format === "json" ? toJson(outcome) : toHuman(outcome);
 	}
 }
@@ -38,6 +43,7 @@ function toJson(outcome: InstallOutcome): CommandResult {
 			format_version: 1,
 			ok: true,
 			dry_run: outcome.dryRun,
+			scope: outcome.scope,
 			targets: outcome.targets,
 			actions: outcome.actions.map((a) => ({
 				target: a.target,

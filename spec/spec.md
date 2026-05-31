@@ -590,24 +590,29 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.195Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:02.327Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
+    reviewed_test_oracle: tests/integration/install.test.ts::scope-project
 partition_id: sdd-cli
 name: sdd-cli/install
-version: "0.1.0"
+version: "1.0.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-029
   - sdd-cli:CTR-030
 consumer_compat_policy: semver_per_surface
 notes: |
-  v0.1.0 — new subcommand `install <all|claude|codex>` writes the SDD
-  methodology rules and (for Claude) PreToolUse hooks into the user-level
-  agent config (~/.claude, ~/.codex). It is the first surface that writes
-  outside the repo working tree; the write boundary is fixed by POL-003 and
-  INV-016. Driven by the declared manifest rules/manifest.json (CST-008).
-  Read-only on the repo working tree (POL-001 unaffected).
+  v1.0.0 — `install <all|claude|codex>` gains a `--scope user|project` flag
+  (default user). --scope user is byte-identical to v0.1.0: writes go only
+  under <home>/.claude and <home>/.codex (<home> = $SDD_INSTALL_HOME else
+  os.homedir()). --scope project writes the agent config into the project
+  working tree at <project_root> = process.cwd(): <project_root>/CLAUDE.md,
+  <project_root>/AGENTS.md, <project_root>/.claude/** and
+  <project_root>/.codex/**, with PreToolUse hook commands written as
+  $CLAUDE_PROJECT_DIR/.claude/sdd/hooks/<f>.sh. Major bump: the write-boundary
+  predicate of INV-016 / POL-003 / POL-001 changed (DLT-004). Driven by
+  rules/manifest.json (CST-008).
 ---
 ```
 
@@ -3957,8 +3962,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.392Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:02.043Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd install claude — install rules, skill, and hooks into ~/.claude
@@ -4018,8 +4023,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.460Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:02.099Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd install codex — copy rules and reference them in ~/.codex/AGENTS.md
@@ -4072,8 +4077,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.527Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:02.156Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd install all — run the claude and codex installs
@@ -4273,6 +4278,79 @@ test_obligation:
     - manifest references a missing source file
   failure_scenarios:
     - a missing artifact yields a half-written install
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-072
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-31T09:35:02.212Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd install --scope project — write the agent config into the project root
+given: |
+  - the packaged rules tree and rules/manifest.json (CST-008) resolve
+    relative to the running CLI
+  - --scope project is passed; the project root resolves to process.cwd()
+    (<project_root>)
+when: user runs `sdd install <all|claude|codex> --scope project` (with optional --format=json|human)
+then: |
+  - every claude-targeted artifact is written under <project_root>/.claude
+    (kind=context|reference|data|hook => .claude/sdd/<source>;
+     kind=skill => .claude/skills/<skill-path>/SKILL.md)
+  - a managed @import block is inserted or replaced in <project_root>/CLAUDE.md
+    (repo root, not .claude/CLAUDE.md), holding one `@.claude/sdd/<file>`
+    import per kind=context artifact; bytes outside the markers are unchanged
+  - the two kind=hook artifacts are merged into
+    <project_root>/.claude/settings.json as PreToolUse entries whose command is
+    `$CLAUDE_PROJECT_DIR/.claude/sdd/<source>` (matcher = artifact.event),
+    deduped by matcher+command; pre-existing user hooks are preserved
+  - every codex-targeted artifact is written under <project_root>/.codex/sdd/;
+    a managed reference block is inserted or replaced in <project_root>/AGENTS.md
+    (repo root) listing the `.codex/sdd/<file>` paths; hooks are skipped (Codex
+    has no PreToolUse host)
+  - the install opens for write only the paths above; it never writes
+    <config.spec_file>, .sdd/config.json, .git, or any other repo path
+  - exits 0; --format=json => CTR-030 envelope with `scope: "project"`
+negative_cases:
+  - --scope with an unknown value => see BEH-070 (exit 2)
+  - manifest or a packaged rule file is missing => see BEH-071
+  - --dry-run => see BEH-069 (no byte written under <project_root>)
+out_of_scope:
+  - editing repo files outside the agent-config set (CLAUDE.md, AGENTS.md, .claude/**, .codex/**)
+  - promoting any rule's lifecycle (install ships files; it does not approve)
+applicability:
+  invariant_to_all_axes: true
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-001
+  - sdd-cli:POL-003
+test_obligation:
+  predicate: |
+    With cwd set to a temp repo, `sdd install all --scope project` exits 0,
+    writes CLAUDE.md and AGENTS.md at the repo root (not under .claude/.codex),
+    copies artifacts under .claude/sdd, .claude/skills, and .codex/sdd, writes a
+    settings.json whose hook command contains $CLAUDE_PROJECT_DIR, and leaves
+    spec.md, .sdd/config.json, and .git untouched; --format=json reports
+    scope "project".
+  test_template: integration
+  boundary_classes:
+    - claude project install
+    - codex project install
+    - all project install
+    - dry-run project (no writes)
+    - json envelope scope=project
+  failure_scenarios:
+    - a write lands outside the agent-config set (e.g. spec.md or src/)
+    - CLAUDE.md is written under .claude/ instead of the repo root
+    - a hook command is an absolute path instead of $CLAUDE_PROJECT_DIR-relative
 ---
 ```
 
@@ -5999,8 +6077,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.260Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:01.878Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd install argv contract
@@ -6020,6 +6098,9 @@ schema:
         - name: --dry-run
           values: [present, absent]
           default: absent
+        - name: --scope
+          values: [user, project]
+          default: user
 preconditions:
   - cwd is anywhere
 postconditions:
@@ -6027,8 +6108,10 @@ postconditions:
 external_identifiers:
   - subcommand name (install)
   - positional target values (all, claude, codex)
-  - flag names (--format, --dry-run)
+  - flag names (--format, --dry-run, --scope)
+  - flag value (--scope user|project)
   - the $SDD_INSTALL_HOME home-root override env var
+  - the $CLAUDE_PROJECT_DIR runtime variable in project-scope hook commands
 compatibility_rules:
   - renaming the subcommand, a target value, or a flag => major bump on SUR-016
   - removing a target value => major bump on SUR-016
@@ -6051,12 +6134,15 @@ policy_refs:
 test_obligation:
   predicate: |
     The argv parser accepts `install <all|claude|codex>` with optional
-    --format and --dry-run, and rejects a missing target, an unknown target,
-    and any unknown flag with exit 2.
+    --format, --dry-run, and --scope user|project (default user), and rejects a
+    missing target, an unknown target, an unknown flag, and an unknown --scope
+    value with exit 2.
   test_template: unit
   boundary_classes:
     - each target value
     - --dry-run present and absent
+    - --scope user / project / absent
+    - unknown --scope value
     - missing target
     - unknown target
     - unknown flag
@@ -6074,8 +6160,8 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.326Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:01.933Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd install JSON output schema
@@ -6090,6 +6176,7 @@ schema:
       ok:             { const: true }
       dry_run:        { type: boolean }
       targets:        { type: array, items: { enum: [claude, codex] } }
+      scope:          { enum: [user, project] }
       actions:
         type: array
         items:
@@ -6952,20 +7039,26 @@ lifecycle:
   approval_record:
     owner_role: tech-lead
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.880Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:01.987Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
 partition_id: sdd-cli
 title: sdd install writes only under the agent-config home roots
 never: |
   `sdd install` never opens for write any path outside the resolved
-  agent-config home roots — <home>/.claude/** (claude) and <home>/.codex/**
-  (codex) — where <home> is os.homedir() or $SDD_INSTALL_HOME when set. It
-  never writes inside <repo_root> (so POL-001 holds), and it writes only the
-  relative paths enumerated by rules/manifest.json plus the managed blocks in
-  CLAUDE.md / AGENTS.md and the PreToolUse entries in settings.json. The
-  install is plan-then-apply: if the manifest or any packaged source is
-  missing, it fails before writing any byte (no partial install).
+  destination root for the selected --scope. For --scope user (default) the
+  destination root is <home> (os.homedir() or $SDD_INSTALL_HOME when set) and
+  writes stay under <home>/.claude/** and <home>/.codex/**. For --scope project
+  the destination root is <project_root> = process.cwd(), and writes stay under
+  exactly this agent-config set: <project_root>/CLAUDE.md,
+  <project_root>/AGENTS.md, <project_root>/.claude/** and
+  <project_root>/.codex/**. In project scope it never writes
+  <config.spec_file>, <repo_root>/.sdd/config.json, <repo_root>/.git, or any
+  other repo path. It writes only the relative paths enumerated by
+  rules/manifest.json plus the managed blocks in CLAUDE.md / AGENTS.md and the
+  PreToolUse entries in settings.json. The install is plan-then-apply: if the
+  manifest or any packaged source is missing, it fails before writing any byte
+  (no partial install).
 scope:
   - src/features/install/**
 evidence: test_probe
@@ -6979,20 +7072,26 @@ concurrency_model:
   idempotency: idempotent
   time_source: none
 negative_cases:
-  - install opens a file under <repo_root> for write
-  - install writes outside <home>/.claude and <home>/.codex
+  - user-scope install opens any file under <repo_root> for write
+  - project-scope install writes any repo path outside the agent-config set
+    (<config.spec_file>, .sdd/config.json, .git, or source/tests)
+  - install writes outside the resolved destination root for the chosen scope
   - a missing packaged source leaves a half-written install
 out_of_scope:
   - lifecycle promotion of the installed rules (install only ships files)
 test_obligation:
   predicate: |
-    Across BEH-065..069, every write-mode open targets a path under
-    <home>/.claude or <home>/.codex; no write-mode open targets <repo_root>;
-    a run with a missing manifest/source (BEH-071) leaves <home> byte-identical.
+    For --scope user, across BEH-065..069 every write-mode open targets a path
+    under <home>/.claude or <home>/.codex and none targets <repo_root>. For
+    --scope project (BEH-072) every write-mode open targets the agent-config
+    set under <project_root> and none targets <config.spec_file>,
+    .sdd/config.json, .git, or any other repo path. A run with a missing
+    manifest/source (BEH-071) leaves the destination root byte-identical.
   test_template: integration (fs probe)
   boundary_classes:
     - claude install
     - codex install
+    - project install
     - dry-run (no writes)
     - missing manifest (no writes)
   failure_scenarios:
@@ -7194,10 +7293,11 @@ type: Policy
 lifecycle:
   status: approved
   approval_record:
-    owner_role: partition_owner
+    owner_role: security-owner
     approver_identity: cyberash
-    timestamp: 2026-04-29T15:37:35Z
-    change_request: approve sdd-cli v1 specification block for implementation
+    timestamp: 2026-05-31T09:35:02.443Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
+    scope: first-time-approval
 partition_id: sdd-cli
 title: filesystem read-only outside stdout/stderr
 policy_kind: io_scope
@@ -7205,10 +7305,15 @@ applicability:
   applies_to: every Behavior in §6 and every Contract in §7
 predicate: |
   The CLI's process MUST NOT open any file under <repo_root> for write
-  during any invocation. Allowed write sinks are stdout and stderr.
-  Allowed read sinks are <repo_root>/.sdd/config.json,
-  <repo_root>/<config.spec_file>, and any path resolved by git
-  (read-only invocations only — see EXT-001).
+  during any invocation, with one exception: `sdd install --scope project`
+  MAY write the agent-config set under <project_root> = process.cwd()
+  (<project_root>/CLAUDE.md, <project_root>/AGENTS.md, <project_root>/.claude/**,
+  <project_root>/.codex/**) and nothing else in the repo — never
+  <config.spec_file>, <repo_root>/.sdd/config.json, or <repo_root>/.git (see
+  POL-003 / INV-016). Other invocations' allowed write sinks are stdout and
+  stderr. Allowed read sinks are <repo_root>/.sdd/config.json,
+  <repo_root>/<config.spec_file>, and any path resolved by git (read-only
+  invocations only — see EXT-001).
 negative_test_obligations:
   - run each BEH-001..010 path while monitoring open(2) syscalls (or
     equivalent fs probe); assert no write-mode opens against any path
@@ -7266,8 +7371,8 @@ lifecycle:
   approval_record:
     owner_role: security-owner
     approver_identity: cyberash
-    timestamp: 2026-05-20T22:34:08.947Z
-    change_request: approve sdd install command (SUR-016 cohort)
+    timestamp: 2026-05-31T09:35:02.384Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
     scope: first-time-approval
 partition_id: sdd-cli
 title: install write boundary
@@ -7275,23 +7380,31 @@ policy_kind: io_scope
 applicability:
   applies_to: every Behavior in §6.17 (sdd install) and CTR-029/CTR-030
 predicate: |
-  `sdd install` MUST open for write only paths under the resolved agent-config
-  home roots: <home>/.claude/** for target claude and <home>/.codex/** for
-  target codex, where <home> = $SDD_INSTALL_HOME if set else os.homedir(). The
-  set of written paths MUST be exactly the relative paths declared in
-  rules/manifest.json plus the managed blocks in <home>/.claude/CLAUDE.md and
-  <home>/.codex/AGENTS.md and the PreToolUse entries in
-  <home>/.claude/settings.json. It MUST NOT write under <repo_root> (POL-001)
-  nor any other location. With --dry-run it MUST open no file for write.
+  `sdd install` MUST open for write only paths under the resolved destination
+  root for the selected --scope. For --scope user (default): <home>/.claude/**
+  and <home>/.codex/**, where <home> = $SDD_INSTALL_HOME if set else
+  os.homedir(). For --scope project: <project_root>/CLAUDE.md,
+  <project_root>/AGENTS.md, <project_root>/.claude/** and
+  <project_root>/.codex/**, where <project_root> = process.cwd(). The set of
+  written paths MUST be exactly the relative paths declared in
+  rules/manifest.json plus the managed blocks in the destination CLAUDE.md /
+  AGENTS.md and the PreToolUse entries in the destination settings.json. In
+  project scope it MUST NOT write <config.spec_file>,
+  <repo_root>/.sdd/config.json, <repo_root>/.git, or any other repo path. In
+  user scope it MUST NOT write under <repo_root> at all. With --dry-run it MUST
+  open no file for write.
 negative_test_obligations:
   - run `sdd install all` under an fs probe with $SDD_INSTALL_HOME=<tmp>;
     assert every write-mode open is under <tmp>/.claude or <tmp>/.codex
-  - run `sdd install all --dry-run`; assert no write-mode open occurs
+  - run `sdd install all --scope project` with cwd=<repo> under an fs probe;
+    assert every write-mode open is under the agent-config set in <repo> and
+    none targets <config.spec_file>, .sdd/config.json, or .git
+  - run `sdd install all --dry-run` (either scope); assert no write-mode open
 test_obligation:
   predicate: same as negative_test_obligations
   test_template: integration
-  boundary_classes: [claude, codex, all, dry-run]
-  failure_scenarios: [a write-mode open outside the home roots]
+  boundary_classes: [claude, codex, all, project, dry-run]
+  failure_scenarios: [a write-mode open outside the destination root]
 ---
 ```
 
@@ -7875,6 +7988,80 @@ tests_old_behavior:
     separate records
 tests_new_behavior:
   - to:sdd-cli:INV-007
+---
+```
+
+```yaml
+---
+id: sdd-cli:DLT-004
+type: Delta
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-05-31T09:35:02.269Z
+    change_request: DLT-004 — add sdd install --scope user|project (project-scope write boundary)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: "v1.0.x → next — add `sdd install --scope user|project`; project scope writes the agent config into the repo"
+target_ids:
+  - sdd-cli:SUR-016    # major bump — contractual predicate change cascades to the Surface
+  - sdd-cli:CTR-029    # argv: add --scope user|project (default user)
+  - sdd-cli:CTR-030    # json: add optional `scope` field
+  - sdd-cli:INV-016    # write boundary becomes scope-conditioned
+  - sdd-cli:POL-003    # install write-boundary policy becomes scope-conditioned
+  - sdd-cli:POL-001    # core fs read-only policy gains an install --scope project carve-out
+  - sdd-cli:BEH-065    # out_of_scope line relaxed (user scope behaviour unchanged)
+  - sdd-cli:BEH-066
+  - sdd-cli:BEH-067
+  - sdd-cli:BEH-072    # new — project-scope behaviour
+kind: replace
+compatibility_action: ignore
+baseline_version: sdd-cli:BL-001@v1.0.3
+description: |
+  Adds a `--scope user|project` flag to `sdd install` (CTR-029), defaulting to
+  `user`. With `--scope user` (the default) behaviour is byte-identical to
+  today: writes go only under <home>/.claude and <home>/.codex, where
+  <home> = $SDD_INSTALL_HOME else os.homedir().
+
+  With `--scope project` the install writes into the project working tree at
+  <project_root> = process.cwd(), using a repo-root memory layout:
+    - <project_root>/CLAUDE.md   managed @import block; imports use the
+                                 `@.claude/sdd/<file>` prefix
+    - <project_root>/AGENTS.md   managed reference block; bullets use the
+                                 `.codex/sdd/<file>` prefix
+    - <project_root>/.claude/{sdd/**, skills/**, settings.json}
+    - <project_root>/.codex/sdd/**
+  PreToolUse hook commands in the project settings.json are written as
+  `$CLAUDE_PROJECT_DIR/.claude/sdd/hooks/<file>.sh` so a committed settings.json
+  is portable across machines.
+
+  This is the first time install writes inside <repo_root>, so three approved
+  boundary records change predicate:
+    - INV-016 / POL-003: the "never inside <repo_root>" clause becomes
+      scope-conditioned. Project scope writes only the agent-config set
+      enumerated above and nothing else in the repo (never <config.spec_file>,
+      .sdd/config.json, .git, or any source/test path).
+    - POL-001: gains an explicit carve-out for `sdd install --scope project`,
+      paralleling the existing per-command exceptions. The agent-config set is
+      the only writable repo region; the spec/config/git read-only guarantee
+      is preserved.
+  A contractual Invariant/Policy predicate change cascades to the referencing
+  Surface, so SUR-016 takes a MAJOR bump (0.1.0 -> 1.0.0). CTR-030 gains an
+  optional `scope` field (minor, additive).
+
+  --dry-run (BEH-069), invalid invocation (BEH-070), and missing-rules
+  (BEH-071) behaviours are unchanged and apply to both scopes.
+tests_old_behavior:
+  - existing user-scope install integration and unit tests stay green
+    (default scope == user; no path or output change without --scope project)
+  - the user-scope "never writes inside the repo working tree" probe stays green
+tests_new_behavior:
+  - to:sdd-cli:BEH-072
+caveats:
+  - "INV-016, POL-003, POL-001, CTR-029, CTR-030 are approved; their predicate/schema changes and the SUR-016 major bump are the human owner's gate (SDD §7.5). POL-003 is security-owned and POL-001 is partition-owned, so approval requires those non-agent identities. The agent drafts this Delta and BEH-072 as proposed and stops."
+  - "BL-001's freshness_token goes stale once src/** and tests/** change; a `sdd refresh` plus token re-record is required before implementation-valid (mirrors DLT-001)."
 ---
 ```
 

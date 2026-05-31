@@ -1,4 +1,4 @@
-import type { AgentTarget } from "./InstallTarget.js";
+import type { AgentTarget, InstallScope } from "./InstallTarget.js";
 import type { InstallAction } from "./InstallResult.js";
 import { upsertManagedBlock } from "./ManagedBlock.js";
 import { mergeHooks, type DesiredHook } from "./SettingsMerge.js";
@@ -21,16 +21,46 @@ export interface InstallPlanResult {
 	actions: InstallAction[];
 }
 
+export interface InstallLayout {
+	claudeMemoryRel: string;
+	codexMemoryRel: string;
+	claudeImportPrefix: string;
+	codexRulePrefix: string;
+	hookCommand(home: string, source: string): string;
+}
+
+export function installLayout(scope: InstallScope): InstallLayout {
+	if (scope === "project") {
+		return {
+			claudeMemoryRel: "CLAUDE.md",
+			codexMemoryRel: "AGENTS.md",
+			claudeImportPrefix: "@.claude/sdd/",
+			codexRulePrefix: ".codex/sdd/",
+			hookCommand: (_home, source) =>
+				`$CLAUDE_PROJECT_DIR/.claude/sdd/${source}`,
+		};
+	}
+	return {
+		claudeMemoryRel: ".claude/CLAUDE.md",
+		codexMemoryRel: ".codex/AGENTS.md",
+		claudeImportPrefix: "@sdd/",
+		codexRulePrefix: "~/.codex/sdd/",
+		hookCommand: (home, source) => homePath(home, `.claude/sdd/${source}`),
+	};
+}
+
 export function buildPlan(
 	manifest: RuleManifest,
 	agent: AgentTarget,
 	sources: ReadonlyMap<string, string>,
 	existing: ExistingTargetFiles,
 	home: string,
+	scope: InstallScope = "user",
 ): InstallPlanResult {
+	const layout = installLayout(scope);
 	return agent === "claude"
-		? planClaude(manifest, sources, existing, home)
-		: planCodex(manifest, sources, existing, home);
+		? planClaude(manifest, sources, existing, home, layout)
+		: planCodex(manifest, sources, existing, home, layout);
 }
 
 function planClaude(
@@ -38,6 +68,7 @@ function planClaude(
 	sources: ReadonlyMap<string, string>,
 	existing: ExistingTargetFiles,
 	home: string,
+	layout: InstallLayout,
 ): InstallPlanResult {
 	const writes: PlannedWrite[] = [];
 	const actions: InstallAction[] = [];
@@ -66,7 +97,7 @@ function planClaude(
 		}
 		if (artifact.kind === "hook" && artifact.event !== undefined) {
 			const event = artifact.event;
-			const command = homePath(home, `.claude/sdd/${artifact.source}`);
+			const command = layout.hookCommand(home, artifact.source);
 			desiredHooks.push({ matcher: event, command });
 			actions.push({
 				target: "claude",
@@ -78,12 +109,12 @@ function planClaude(
 		}
 	}
 
-	const claudeMdRel = ".claude/CLAUDE.md";
+	const claudeMdRel = layout.claudeMemoryRel;
 	writes.push({
 		absPath: homePath(home, claudeMdRel),
 		content: upsertManagedBlock(
 			existing.claudeMd,
-			claudeImportBody(contextSources),
+			claudeImportBody(contextSources, layout.claudeImportPrefix),
 		),
 		executable: false,
 	});
@@ -111,6 +142,7 @@ function planCodex(
 	sources: ReadonlyMap<string, string>,
 	existing: ExistingTargetFiles,
 	home: string,
+	layout: InstallLayout,
 ): InstallPlanResult {
 	const writes: PlannedWrite[] = [];
 	const actions: InstallAction[] = [];
@@ -147,12 +179,12 @@ function planCodex(
 		}
 	}
 
-	const agentsMdRel = ".codex/AGENTS.md";
+	const agentsMdRel = layout.codexMemoryRel;
 	writes.push({
 		absPath: homePath(home, agentsMdRel),
 		content: upsertManagedBlock(
 			existing.agentsMd,
-			codexReferenceBody(contextSources),
+			codexReferenceBody(contextSources, layout.codexRulePrefix),
 		),
 		executable: false,
 	});
@@ -182,20 +214,26 @@ function content(sources: ReadonlyMap<string, string>, source: string): string {
 	return value;
 }
 
-function claudeImportBody(contextSources: readonly string[]): string {
-	const imports = contextSources.map((s) => `@sdd/${s}`).join("\n");
+function claudeImportBody(
+	contextSources: readonly string[],
+	prefix: string,
+): string {
+	const imports = contextSources.map((s) => `${prefix}${s}`).join("\n");
 	return `SDD methodology rules (installed by \`sdd install\`). Loaded into context every session:\n\n${imports}`;
 }
 
-function codexReferenceBody(contextSources: readonly string[]): string {
-	const bullets = contextSources.map((s) => `- ~/.codex/sdd/${s}`).join("\n");
+function codexReferenceBody(
+	contextSources: readonly string[],
+	prefix: string,
+): string {
+	const bullets = contextSources.map((s) => `- ${prefix}${s}`).join("\n");
 	return [
-		"SDD methodology rules installed by `sdd install` at ~/.codex/sdd/.",
+		`SDD methodology rules installed by \`sdd install\` at ${prefix}.`,
 		"Read these before working in a project that carries .sdd/config.json:",
 		"",
 		bullets,
 		"",
-		"On-demand reference (read when needed): ~/.codex/sdd/skills/spec-driven-development/SKILL.md, ~/.codex/sdd/enforcement_registry.md",
+		`On-demand reference (read when needed): ${prefix}skills/spec-driven-development/SKILL.md, ${prefix}enforcement_registry.md`,
 	].join("\n");
 }
 

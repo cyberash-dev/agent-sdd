@@ -1,5 +1,6 @@
 export type AgentTarget = "claude" | "codex";
 export type InstallTarget = AgentTarget | "all";
+export type InstallScope = "user" | "project";
 
 export const AGENT_TARGETS: readonly AgentTarget[] = ["claude", "codex"];
 

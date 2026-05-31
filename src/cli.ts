@@ -41,6 +41,7 @@ import { NodeInstallSource } from "./features/install/adapters/outbound/NodeInst
 import { NodeInstallTargetFs } from "./features/install/adapters/outbound/NodeInstallTargetFs.js";
 import {
 	isInstallTarget,
+	type InstallScope,
 	type InstallTarget,
 } from "./features/install/domain/InstallTarget.js";
 import { CliTokenHandler } from "./features/token/adapters/inbound/CliTokenHandler.js";
@@ -84,6 +85,7 @@ interface CommandArgs {
 interface InstallArgs {
 	target: InstallTarget;
 	dryRun: boolean;
+	scope: InstallScope;
 }
 
 interface RecordArgs {
@@ -152,7 +154,7 @@ Usage:
   sdd record get <id>       [--format=json|human]
   sdd record set <id>       (--from-file <p> | --content <s>) [--format=json|human]
   sdd record add --after <id> (--from-file <p> | --content <s>) [--format=json|human]
-  sdd install <all|claude|codex> [--dry-run] [--format=json|human]
+  sdd install <all|claude|codex> [--scope user|project] [--dry-run] [--format=json|human]
   sdd --help
   sdd --version`;
 
@@ -173,7 +175,7 @@ const COMMAND_HELP: Record<Subcommand, string> = {
 	record:
 		"Usage: sdd record list [--partition <name>] | get <id> | set <id> (--from-file <p>|--content <s>) | add --after <id> (--from-file <p>|--content <s>) [--format=json|human]",
 	install:
-		"Usage: sdd install <all|claude|codex> [--dry-run] [--format=json|human]",
+		"Usage: sdd install <all|claude|codex> [--scope user|project] [--dry-run] [--format=json|human]",
 };
 
 export async function main(
@@ -481,7 +483,7 @@ function dispatchInstall(parsed: ParsedArgv): Promise<CommandResult> {
 	});
 	return command.execute(
 		install.target,
-		{ dryRun: install.dryRun },
+		{ dryRun: install.dryRun, scope: install.scope },
 		parsed.format === "json" ? "json" : "human",
 	);
 }
@@ -939,9 +941,11 @@ function parseInstallArgv(args: readonly string[]): ParsedArgv {
 			message: "expected: sdd install <all|claude|codex>",
 		};
 	}
-	const install: InstallArgs = { target, dryRun: false };
+	const install: InstallArgs = { target, dryRun: false, scope: "user" };
 	let format: OutputFormat = "human";
-	for (const arg of args.slice(1)) {
+	const rest = args.slice(1);
+	for (let i = 0; i < rest.length; i++) {
+		const arg = rest[i];
 		if (arg.startsWith("--format=")) {
 			const value = arg.slice("--format=".length);
 			if (!isFormat(value) || value === "yaml") {
@@ -952,6 +956,19 @@ function parseInstallArgv(args: readonly string[]): ParsedArgv {
 		}
 		if (arg === "--dry-run") {
 			install.dryRun = true;
+			continue;
+		}
+		if (arg === "--scope" || arg.startsWith("--scope=")) {
+			const value = arg.startsWith("--scope=")
+				? arg.slice("--scope=".length)
+				: rest[++i];
+			if (value !== "user" && value !== "project") {
+				return {
+					mode: "error",
+					message: `invalid scope: ${value ?? "(missing)"}`,
+				};
+			}
+			install.scope = value;
 			continue;
 		}
 		return { mode: "error", message: `unknown flag: ${arg}` };

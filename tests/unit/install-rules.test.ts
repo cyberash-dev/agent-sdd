@@ -5,6 +5,7 @@ import type { InstallSource } from "../../src/features/install/ports/outbound/In
 import type { InstallTargetFs } from "../../src/features/install/ports/outbound/InstallTargetFs.js";
 
 const HOME = "/home/test";
+const PROJECT = "/repo";
 
 const MANIFEST = JSON.stringify({
 	format_version: 1,
@@ -40,6 +41,10 @@ class FakeFs implements InstallTargetFs {
 
 	homeRoot(): string {
 		return HOME;
+	}
+
+	projectRoot(): string {
+		return PROJECT;
 	}
 
 	readText(): Promise<string | null> {
@@ -82,6 +87,35 @@ test("installRules all writes only under the agent-config home roots", async () 
 			`write escaped home roots: ${absPath}`,
 		);
 	}
+});
+
+test("installRules project scope writes only the agent-config set under the project root", async () => {
+	// @covers sdd-cli:BEH-072
+	// @covers sdd-cli:INV-016
+	// @covers sdd-cli:POL-003
+	const fs = new FakeFs();
+	const outcome = await installRules(
+		"all",
+		false,
+		{ source: new FakeSource(MANIFEST, fullFiles()), fs },
+		"project",
+	);
+
+	assert.ok(outcome.ok);
+	assert.equal(outcome.scope, "project");
+	const allowedExact = [`${PROJECT}/CLAUDE.md`, `${PROJECT}/AGENTS.md`];
+	for (const absPath of fs.writes.keys()) {
+		const inSet =
+			allowedExact.includes(absPath) ||
+			absPath.startsWith(`${PROJECT}/.claude/`) ||
+			absPath.startsWith(`${PROJECT}/.codex/`);
+		assert.ok(inSet, `write escaped the agent-config set: ${absPath}`);
+		assert.ok(!absPath.includes("/spec/"), `wrote into spec: ${absPath}`);
+		assert.ok(!absPath.includes("/.sdd/"), `wrote into .sdd: ${absPath}`);
+		assert.ok(!absPath.includes("/.git/"), `wrote into .git: ${absPath}`);
+	}
+	assert.ok([...fs.writes.keys()].includes(`${PROJECT}/CLAUDE.md`));
+	assert.ok([...fs.writes.keys()].includes(`${PROJECT}/AGENTS.md`));
 });
 
 test("installRules all reports both targets and emits a valid action set", async () => {

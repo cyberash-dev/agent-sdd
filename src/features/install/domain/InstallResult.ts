@@ -1,4 +1,4 @@
-import type { AgentTarget } from "./InstallTarget.js";
+import type { AgentTarget, InstallScope } from "./InstallTarget.js";
 
 export type ActionKind =
 	| "context"
@@ -26,6 +26,7 @@ export type InstallOutcome =
 	| {
 			ok: true;
 			dryRun: boolean;
+			scope: InstallScope;
 			targets: AgentTarget[];
 			actions: InstallAction[];
 	  }

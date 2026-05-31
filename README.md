@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node ≥ 20](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
 
+📖 Read this in other languages: [Русский](README.ru.md)
+
 A standalone CLI helper for Spec-Driven Development (SDD). Computes a
 deterministic `freshness_token` over a configurable Discovery scope of
 your repository, compares the current state against the value recorded
@@ -67,7 +69,7 @@ distributes the methodology rules into your agent config:
 | `sdd approve` | Promote a `proposed` ID to `approved` with a typed `approval_record`. Refuses agent identities (SDD §7.5). |
 | `sdd ready`   | The single CI gate-3 (`implementation-valid`) check: marker coverage, sandbox isolation, lint + check aggregation. |
 | `sdd record`  | Navigate/edit `spec.md` one record at a time (read-only `list`/`get`; atomic `set`/`add` for draft/proposed). |
-| `sdd install` | Install the SDD methodology rules (+ Claude hooks) into the user-level agent config (`~/.claude`, `~/.codex`). |
+| `sdd install` | Install the SDD methodology rules (+ Claude hooks) into the user-level agent config (`~/.claude`, `~/.codex`), or into the repo with `--scope project`. |
 
 The mechanism is fixed (`git_tree_hash_v1`), but the tool is generic:
 every SDD-following repo configures it through a small JSON file
@@ -530,7 +532,22 @@ sdd install claude              # ~/.claude
 sdd install codex               # ~/.codex
 sdd install all --dry-run       # print the planned file ops, write nothing
 sdd install claude --format=json
+sdd install all --scope project # write into THIS repo instead of the user home
 ```
+
+`--scope user|project` (default `user`) selects the destination root:
+
+- **`user`** (default) — byte-identical to before: writes under
+  `~/.claude` and `~/.codex` (`$SDD_INSTALL_HOME` overrides the home root).
+- **`project`** — writes the agent config into the current working
+  directory so a repo can carry the SDD setup for the whole team:
+  `./CLAUDE.md` and `./AGENTS.md` at the repo root, with rules, skills,
+  and `settings.json` under `./.claude/**` and `./.codex/**`. Project-scope
+  `settings.json` hook commands use `$CLAUDE_PROJECT_DIR/.claude/sdd/...`
+  so a committed `settings.json` is portable across machines. Project
+  scope writes only that agent-config set — never `spec/*.md`,
+  `.sdd/config.json`, `.git`, or your source (`INV-016` / `POL-003` /
+  `POL-001`).
 
 What lands per target:
 

@@ -177,6 +177,58 @@ test("buildPlan for codex copies under .codex/sdd, writes AGENTS.md, and skips h
 	assert.ok(plan.actions.some((a) => a.kind === "hook" && a.op === "skip"));
 });
 
+test("buildPlan for claude in project scope writes CLAUDE.md at the root with @.claude imports and $CLAUDE_PROJECT_DIR hooks", () => {
+	// @covers sdd-cli:BEH-072
+	const plan = buildPlan(
+		sampleManifest(),
+		"claude",
+		sampleSources(),
+		EMPTY_EXISTING,
+		"/repo",
+		"project",
+	);
+	const paths = plan.writes.map((w) => w.absPath);
+
+	assert.ok(paths.includes("/repo/CLAUDE.md"));
+	assert.ok(!paths.includes("/repo/.claude/CLAUDE.md"));
+	assert.ok(paths.includes("/repo/.claude/sdd/a.md"));
+	assert.ok(paths.includes("/repo/.claude/skills/x/SKILL.md"));
+	assert.ok(paths.includes("/repo/.claude/settings.json"));
+
+	const claudeMd = plan.writes.find((w) => w.absPath === "/repo/CLAUDE.md")!;
+	assert.ok(claudeMd.content.includes("@.claude/sdd/a.md"));
+	assert.ok(!claudeMd.content.includes("@sdd/a.md"));
+
+	const settings = plan.writes.find(
+		(w) => w.absPath === "/repo/.claude/settings.json",
+	)!;
+	assert.ok(
+		settings.content.includes("$CLAUDE_PROJECT_DIR/.claude/sdd/hooks/h.sh"),
+	);
+	assert.ok(!settings.content.includes("/repo/.claude/sdd/hooks/h.sh"));
+});
+
+test("buildPlan for codex in project scope writes AGENTS.md at the root referencing .codex/sdd", () => {
+	// @covers sdd-cli:BEH-072
+	const plan = buildPlan(
+		sampleManifest(),
+		"codex",
+		sampleSources(),
+		EMPTY_EXISTING,
+		"/repo",
+		"project",
+	);
+	const paths = plan.writes.map((w) => w.absPath);
+
+	assert.ok(paths.includes("/repo/AGENTS.md"));
+	assert.ok(!paths.includes("/repo/.codex/AGENTS.md"));
+	assert.ok(paths.includes("/repo/.codex/sdd/a.md"));
+
+	const agentsMd = plan.writes.find((w) => w.absPath === "/repo/AGENTS.md")!;
+	assert.ok(agentsMd.content.includes("- .codex/sdd/a.md"));
+	assert.ok(!agentsMd.content.includes("~/.codex/sdd/a.md"));
+});
+
 function occurrences(haystack: string, needle: string): number {
 	return haystack.split(needle).length - 1;
 }

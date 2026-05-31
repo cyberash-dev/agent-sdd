@@ -10,6 +10,21 @@ landed.
 
 ## [Unreleased]
 
+### Added
+
+- **`sdd install --scope user|project`** (`DLT-004`, `BEH-072`, `SUR-016`
+  v1.0.0). `--scope project` writes the SDD agent config into the current
+  repo — `./CLAUDE.md`, `./AGENTS.md`, and `./.claude/**` + `./.codex/**` —
+  instead of the user home, so a repository can carry the SDD setup for the
+  whole team. Project-scope `settings.json` hook commands use
+  `$CLAUDE_PROJECT_DIR/.claude/sdd/...` so a committed `settings.json` is
+  portable across machines. Default `--scope user` is byte-identical to
+  before. The install write-boundary records `INV-016` / `POL-003` /
+  `POL-001` are now scope-conditioned (project scope writes only that
+  agent-config set, never `spec/*.md`, `.sdd/config.json`, `.git`, or
+  source); `SUR-016` takes a major bump. `CTR-030` gains an optional
+  `scope` field.
+
 ## [1.0.3] — 2026-05-30
 
 ### Changed

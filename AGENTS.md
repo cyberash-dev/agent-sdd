@@ -121,6 +121,7 @@ node dist/cli.js record add --after <id> --content "$BODY"  # new draft/proposed
 node dist/cli.js install all --dry-run      # preview, write nothing
 node dist/cli.js install claude             # ~/.claude (@import, skill, 2 hooks)
 node dist/cli.js install codex              # ~/.codex/sdd + AGENTS.md reference
+node dist/cli.js install all --scope project  # into THIS repo (default scope=user)
 ```
 
 CI runs `tsc && test:unit && test:integration && build && sdd lint && sdd ready`.
@@ -150,6 +151,60 @@ records — those still go through a `Delta` + `sdd approve`/`sdd finalize`.
 If any of these break under your change, your change is wrong — fix
 the change, not the test. (Adjusting one of these tests requires a
 spec update, like everything else.)
+
+---
+
+## Gotchas
+
+- The composition root `src/cli.ts` is the only place that wires
+  inbound + outbound adapters. Don't construct adapters elsewhere.
+- The `yaml` package (`^2`) is the only YAML parser allowed (`CST-004`).
+  Don't add `js-yaml` or hand-roll a parser.
+- The mechanism enum in `schema/sdd.config.schema.json` is exactly
+  `["git_tree_hash_v1"]` (`CST-005`). Adding another mechanism is a
+  major bump on `SUR-002`.
+- The runtime dep tree must stay `{yaml}` only (`CST-006`). No
+  third-party glob library — the matcher under
+  `src/features/ready/domain/PartitionResolver.ts` is hand-rolled.
+- `Surface` records use semver (`"0.1.0"` etc.); every other normative
+  template uses integer `version` (`SDD §1.5`).
+- `approval_record` lives nested under `lifecycle.approval_record:` in
+  `sdd-cli`'s spec; the parser also accepts a top-level form. Both
+  work — and the rewriter (`Rewrite.ts`) supports both shapes too.
+- `sdd approve` rewrites `lifecycle.status` and `approval_record`
+  atomically (`INV-007`). Never split them.
+- The marker grammar (`CST-007`) is one-or-more colon-separated
+  lowercase tokens (`my-partition:BEH-001`,
+  `bridge:commands:CON-004`). Single source of truth lives in
+  `src/shared/domain/PartitionGrammar.ts`. Never re-write the regex
+  in two places — the duplication is exactly what landed this gap
+  pre-v0.3.0.
+- The marker scanner is byte-level (`CST-007` rationale). String
+  literals containing `@covers` patterns inside `.test.ts` files
+  WILL be picked up. Construct fixture markers via `"@cov" + "ers ..."`
+  splits so the source bytes don't match the regex.
+- `sdd ready` does NOT execute tests (`INV-008`); it byte-scans test
+  files for `@covers` markers and is read-only on the working tree
+  (`INV-009`).
+- `sdd install` is the one command that may write outside the user home:
+  `--scope user` (default) writes only under `~/.claude/**` and
+  `~/.codex/**` (or `$SDD_INSTALL_HOME`); `--scope project` writes only the
+  agent-config set under `process.cwd()` (`./CLAUDE.md`, `./AGENTS.md`,
+  `./.claude/**`, `./.codex/**`) and never `spec/*.md`, `.sdd/config.json`,
+  `.git`, or source (`INV-016` / `POL-003` / `POL-001`). Project-scope hook
+  commands use `$CLAUDE_PROJECT_DIR/...` (not absolute paths). The
+  scope→layout split lives in `installLayout()` in `InstallPlan.ts`; the
+  memory file, `@import`/reference prefix, and hook command all branch on
+  scope. It is plan-then-apply (a missing packaged source aborts before any
+  write) and idempotent (managed blocks replaced in place, hooks deduped by
+  matcher+command).
+  The artifact list lives in `rules/manifest.json`, never hardcoded in
+  `src/features/install/` (`CST-008`). The package must ship `rules/`
+  (`package.json#files`).
+
+When in doubt: read `spec/spec.md` Appendix B (Section ↔ §-rule
+cross-reference) for which section governs which template, and run
+`sdd lint --format=json` — every rule id is stable and self-explanatory.
 
 ---
 

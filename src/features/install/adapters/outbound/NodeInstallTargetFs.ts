@@ -10,6 +10,10 @@ export class NodeInstallTargetFs implements InstallTargetFs {
 		return override !== undefined && override.length > 0 ? override : homedir();
 	}
 
+	projectRoot(): string {
+		return process.cwd();
+	}
+
 	async readText(absPath: string): Promise<string | null> {
 		try {
 			return await readFile(absPath, "utf8");

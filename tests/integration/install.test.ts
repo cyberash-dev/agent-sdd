@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -212,4 +212,76 @@ test("sdd install never writes inside the repo working tree", async () => {
 
 	assert.equal(result.code, 0);
 	assert.deepEqual(await readdir(repo), []);
+});
+
+test("sdd install all --scope project writes the agent config into the project root", async () => {
+	// @covers sdd-cli:BEH-072
+	// @covers sdd-cli:DLT-004
+	const repo = await mkdtemp(join(tmpdir(), "sdd-install-proj-"));
+	await writeFile(join(repo, "untouched.txt"), "KEEP", "utf8");
+
+	const result = await runSdd(
+		repo,
+		["install", "all", "--scope", "project", "--format=json"],
+		{},
+	);
+
+	assert.equal(result.code, 0);
+	const body = JSON.parse(result.stdout) as { scope: string };
+	assert.equal(body.scope, "project");
+
+	assert.ok(await exists(join(repo, "CLAUDE.md")));
+	assert.ok(await exists(join(repo, "AGENTS.md")));
+	assert.equal(await exists(join(repo, ".claude/CLAUDE.md")), false);
+	assert.ok(await exists(join(repo, ".claude/sdd/spec-driven-development.md")));
+	assert.ok(await exists(join(repo, ".codex/sdd/spec-driven-development.md")));
+
+	const claudeMd = await readFile(join(repo, "CLAUDE.md"), "utf8");
+	assert.match(claudeMd, /@\.claude\/sdd\/spec-driven-development\.md/);
+
+	const settings = JSON.parse(
+		await readFile(join(repo, ".claude/settings.json"), "utf8"),
+	) as { hooks: { PreToolUse: { hooks: { command: string }[] }[] } };
+	const commands = settings.hooks.PreToolUse.flatMap((e) =>
+		e.hooks.map((h) => h.command),
+	);
+	assert.ok(commands.length > 0);
+	assert.ok(
+		commands.every((c) => c.startsWith("$CLAUDE_PROJECT_DIR/.claude/sdd/")),
+		`hook commands not portable: ${commands.join(", ")}`,
+	);
+
+	assert.equal(await readFile(join(repo, "untouched.txt"), "utf8"), "KEEP");
+});
+
+test("sdd install --scope project --dry-run writes nothing into the repo", async () => {
+	// @covers sdd-cli:BEH-069
+	const repo = await mkdtemp(join(tmpdir(), "sdd-install-proj-dry-"));
+
+	const result = await runSdd(
+		repo,
+		["install", "all", "--scope", "project", "--dry-run", "--format=json"],
+		{},
+	);
+
+	assert.equal(result.code, 0);
+	const body = JSON.parse(result.stdout) as { dry_run: boolean; scope: string };
+	assert.equal(body.dry_run, true);
+	assert.equal(body.scope, "project");
+	assert.deepEqual(await readdir(repo), []);
+});
+
+test("sdd install rejects an unknown --scope value with exit 2", async () => {
+	// @covers sdd-cli:BEH-070
+	// @covers sdd-cli:CTR-029
+	const home = await tmpHome();
+
+	const bogus = await runSdd(
+		process.cwd(),
+		["install", "claude", "--scope", "nope"],
+		{ env: { SDD_INSTALL_HOME: home } },
+	);
+
+	assert.equal(bogus.code, 2);
+	assert.equal(await exists(join(home, ".claude")), false);
 });
