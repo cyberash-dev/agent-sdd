@@ -1,13 +1,7 @@
 /*
- * BEH-073: materialise an approved Delta's surface_impact into the target
- * Surface. Pure module (no I/O): given the parsed records, the set of IDs that
- * are >=approved after the plan, and spec content, it rewrites the Surface's
- * `version` to the declared `intended_version` and unions `members` with the
- * >=approved records that declare `surface_ref` to that Surface.
- *
- * Mutating an already-approved Surface is the privileged finalize operation
- * authorised by the approved Delta — `sdd record set` deliberately refuses it,
- * so this is the only legal path to evolve an approved Surface.
+ * BEH-073: materialise an approved Delta's surface_impact — bump the target
+ * Surface.version to its intended_version and union its members with the
+ * now-approved surface_ref children. Pure module (no I/O).
  */
 
 import type { LintRecord } from "../../../shared/domain/SpecRecord.js";

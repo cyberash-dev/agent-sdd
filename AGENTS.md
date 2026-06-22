@@ -69,7 +69,7 @@ approver, which writes a typed `approval_record` block atomically
 
 ```
 src/
-  cli.ts                                 # composition root (DI only)
+  cli.ts + cli*.ts                       # composition-root entry layer (parse, wire, route)
   features/{token,check,refresh,lint,approve,ready,record,install,…}/
     domain/                              # pure logic
     application/                         # use cases
@@ -156,8 +156,12 @@ spec update, like everything else.)
 
 ## Gotchas
 
-- The composition root `src/cli.ts` is the only place that wires
-  inbound + outbound adapters. Don't construct adapters elsewhere.
+- The composition root is the `cli*` entry layer: `src/cli.ts` plus
+  `cliParse.ts`, `cliParseApprove.ts`, `cliDispatch.ts`, and `cliTypes.ts`.
+  These modules parse argv and wire inbound + outbound adapters. Construct
+  adapters only in this entry layer, never inside a feature. The layer is
+  split across files because `max-lines` (350) will not fit the whole entry
+  in `cli.ts` alone.
 - The `yaml` package (`^2`) is the only YAML parser allowed (`CST-004`).
   Don't add `js-yaml` or hand-roll a parser.
 - The mechanism enum in `schema/sdd.config.schema.json` is exactly

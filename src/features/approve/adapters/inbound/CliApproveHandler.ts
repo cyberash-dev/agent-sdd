@@ -36,9 +36,9 @@ export class CliApproveHandler implements ApproveCommand {
 		format: Exclude<OutputFormat, "yaml">,
 		mode?: ApproveExecutionMode,
 	): Promise<CommandResult> {
-		const inline = mode?.inline === true;
+		const isInline = mode?.inline === true;
 		try {
-			if (inline) {
+			if (isInline) {
 				return await this.executeInline(cwd, req, format);
 			}
 			return await this.executePlan(cwd, req, mode?.planId, format);

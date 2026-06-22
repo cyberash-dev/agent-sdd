@@ -109,10 +109,10 @@ async function readActive(dirAbs: string): Promise<string | null> {
 }
 
 async function writeAtomic(path: string, content: string): Promise<void> {
-	const tmp = `${path}.tmp.${process.pid}.${Date.now()}`;
+	const tmpPath = `${path}.tmp.${process.pid}.${Date.now()}`;
 	await fs.mkdir(dirname(path), { recursive: true });
-	await fs.writeFile(tmp, content, "utf8");
-	await fs.rename(tmp, path);
+	await fs.writeFile(tmpPath, content, "utf8");
+	await fs.rename(tmpPath, path);
 }
 
 async function pathExists(p: string): Promise<boolean> {

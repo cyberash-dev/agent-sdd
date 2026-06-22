@@ -103,14 +103,57 @@ export async function runFinalize(
 			unflippableIds: applied.unflippableIds,
 		};
 	}
-	const { fileContent, finalizedIds } = applied;
+	const { filesChanged, archivedPath } = await materializeFinalize({
+		cwd,
+		plansDir: config.plansDir,
+		planId: plan.planId,
+		ports,
+		entries,
+		records,
+		attestations: plan.pendingAttestations,
+		applied,
+	});
 
-	/*
-	 * BEH-073: after the lifecycle flips, materialise the surface_impact of any
-	 * Delta approved in this plan — bump the target Surface.version and union
-	 * its members with the now-approved surface_ref children.
-	 */
-	const approvedIds = approvedAfterPlan(records, plan.pendingAttestations);
+	return {
+		kind: "finalized",
+		planId: plan.planId,
+		finalizedIds: applied.finalizedIds,
+		filesChanged,
+		archivedPath,
+	};
+}
+
+interface MaterializeFinalizeInput {
+	cwd: string;
+	plansDir: string;
+	planId: string;
+	ports: RunFinalizePorts;
+	entries: ReadonlyArray<SpecEntry>;
+	records: ReadonlyArray<LintRecord>;
+	attestations: ReadonlyArray<PendingAttestation>;
+	applied: AppliedAttestations;
+}
+
+/*
+ * BEH-073: after the lifecycle flips, materialise the surface_impact of any
+ * Delta approved in this plan, then write the batch and archive the plan.
+ */
+async function materializeFinalize(
+	input: MaterializeFinalizeInput,
+): Promise<{ filesChanged: string[]; archivedPath: string }> {
+	const {
+		cwd,
+		plansDir,
+		planId,
+		ports,
+		entries,
+		records,
+		attestations,
+		applied,
+	} = input;
+	const fileContent = applied.fileContent;
+
+	const approvedIds = approvedAfterPlan(records, attestations);
 	const mutations = computeSurfaceMutations(records, approvedIds);
 	if (mutations.length > 0) {
 		for (const e of entries) {
@@ -133,14 +176,8 @@ export async function runFinalize(
 	}
 	await ports.files.writeBatch(cwd, batch);
 
-	const archive = await ports.plans.archive(cwd, config.plansDir, plan.planId);
-	return {
-		kind: "finalized",
-		planId: plan.planId,
-		finalizedIds,
-		filesChanged,
-		archivedPath: archive.archivedPath,
-	};
+	const archive = await ports.plans.archive(cwd, plansDir, planId);
+	return { filesChanged, archivedPath: archive.archivedPath };
 }
 
 interface SpecEntry {
@@ -160,7 +197,10 @@ function approvedAfterPlan(
 ): Set<string> {
 	const out = new Set<string>();
 	for (const r of records) {
-		if (r.lifecycleStatus !== null && TERMINAL_STATUSES.has(r.lifecycleStatus)) {
+		if (
+			r.lifecycleStatus !== null &&
+			TERMINAL_STATUSES.has(r.lifecycleStatus)
+		) {
 			out.add(r.id);
 		}
 	}
@@ -205,7 +245,7 @@ function applyAttestations(
 		const reqWhen = new Date(a.timestamp);
 		const reqClock = isNaN(reqWhen.valueOf()) ? when : reqWhen;
 
-		let matched = false;
+		let isMatched = false;
 		for (const e of entries) {
 			const current = fileContent.get(e.path);
 			if (current === undefined) {
@@ -215,7 +255,7 @@ function applyAttestations(
 			if (result.matched.length === 0) {
 				continue;
 			}
-			matched = true;
+			isMatched = true;
 			if (result.flipped.length === 0) {
 				unflippableIds.push(a.id);
 				break;
@@ -226,7 +266,7 @@ function applyAttestations(
 			}
 			break;
 		}
-		if (!matched) {
+		if (!isMatched) {
 			missingIds.push(a.id);
 		}
 	}

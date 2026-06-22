@@ -80,22 +80,22 @@ export class NodeFinalizeFileSystem
 		if (entries.length === 0) {
 			return;
 		}
-		const tmps: Array<{ tmp: string; final: string }> = [];
+		const tmps: Array<{ tmpPath: string; final: string }> = [];
 		try {
 			for (const e of entries) {
 				const finalAbs = resolve(repoRoot, e.path);
-				const tmp = `${finalAbs}.finalize.tmp.${process.pid}.${Date.now()}.${tmps.length}`;
-				await writeFile(tmp, e.content, "utf8");
-				tmps.push({ tmp, final: finalAbs });
+				const tmpPath = `${finalAbs}.finalize.tmp.${process.pid}.${Date.now()}.${tmps.length}`;
+				await writeFile(tmpPath, e.content, "utf8");
+				tmps.push({ tmpPath, final: finalAbs });
 			}
-			for (const { tmp, final } of tmps) {
-				await rename(tmp, final);
+			for (const { tmpPath, final } of tmps) {
+				await rename(tmpPath, final);
 			}
 		} catch (e) {
 			/* Best-effort cleanup of any tmp files left behind. */
-			for (const { tmp } of tmps) {
+			for (const { tmpPath } of tmps) {
 				try {
-					await unlink(tmp);
+					await unlink(tmpPath);
 				} catch {
 					/* tmp may already be gone; original error is rethrown */
 				}
@@ -187,12 +187,15 @@ async function walk(
 function segmentToRegExp(seg: string): RegExp {
 	let body = "^";
 	for (const ch of seg) {
-		if (ch === "*") {
-			body += "[^/]*";
-		} else if (ch === "?") {
-			body += "[^/]";
-		} else {
-			body += ch.replace(/[-./\\^$+?()|[\]{}]/g, "\\$&");
+		switch (ch) {
+			case "*":
+				body += "[^/]*";
+				break;
+			case "?":
+				body += "[^/]";
+				break;
+			default:
+				body += ch.replace(/[-./\\^$+?()|[\]{}]/g, "\\$&");
 		}
 	}
 	body += "$";

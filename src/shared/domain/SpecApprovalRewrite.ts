@@ -179,15 +179,18 @@ function applyOne(
 		return { lines: [...before, ...block, ...after], flipped: false };
 	}
 
-	if (statusKind === "flat") {
-		block[statusIdx] = `${statusIndent}lifecycle.status: ${req.targetStatus}`;
-	} else if (statusKind === "flow") {
-		block[statusIdx] = block[statusIdx].replace(
-			/(lifecycle:\s*\{[^}]*\bstatus:\s*)[A-Za-z_][\w-]*/,
-			`$1${req.targetStatus}`,
-		);
-	} else {
-		block[statusIdx] = `${statusIndent}status: ${req.targetStatus}`;
+	switch (statusKind) {
+		case "flat":
+			block[statusIdx] = `${statusIndent}lifecycle.status: ${req.targetStatus}`;
+			break;
+		case "flow":
+			block[statusIdx] = block[statusIdx].replace(
+				/(lifecycle:\s*\{[^}]*\bstatus:\s*)[A-Za-z_][\w-]*/,
+				`$1${req.targetStatus}`,
+			);
+			break;
+		case "nested":
+			block[statusIdx] = `${statusIndent}status: ${req.targetStatus}`;
 	}
 
 	const approvalLines = approvalBlock(req, when, approvalIndent);
@@ -231,9 +234,9 @@ function yamlScalar(value: string): string {
 	if (value.length === 0) {
 		return '""';
 	}
-	const needsQuoting =
+	const shouldQuote =
 		/:\s/.test(value) || /^[\s?\-#&*!|>'"%@`]/.test(value) || /\s$/.test(value);
-	if (!needsQuoting) {
+	if (!shouldQuote) {
 		return value;
 	}
 	return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
@@ -324,23 +327,23 @@ export function findMatches(
 ): IdMatch[] {
 	const out: IdMatch[] = [];
 	const cursor = new RecordCursor(idOrGlob, out);
-	let inFence = false;
+	let isInFence = false;
 	let fenceStart = -1;
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
-		if (!inFence && /^```yaml\s*$/.test(line)) {
-			inFence = true;
+		if (!isInFence && /^```yaml\s*$/.test(line)) {
+			isInFence = true;
 			fenceStart = i;
 			continue;
 		}
-		if (inFence && /^```\s*$/.test(line)) {
+		if (isInFence && /^```\s*$/.test(line)) {
 			cursor.close(i);
-			inFence = false;
+			isInFence = false;
 			fenceStart = -1;
 			continue;
 		}
-		if (!inFence) {
+		if (!isInFence) {
 			continue;
 		}
 

@@ -28,11 +28,11 @@ export class NodeInstallTargetFs implements InstallTargetFs {
 		executable: boolean,
 	): Promise<void> {
 		await mkdir(dirname(absPath), { recursive: true });
-		const tmp = `${absPath}.tmp.${process.pid}.${Date.now()}`;
-		await writeFile(tmp, content, "utf8");
+		const tmpPath = `${absPath}.tmp.${process.pid}.${Date.now()}`;
+		await writeFile(tmpPath, content, "utf8");
 		if (executable) {
-			await chmod(tmp, 0o755);
+			await chmod(tmpPath, 0o755);
 		}
-		await rename(tmp, absPath);
+		await rename(tmpPath, absPath);
 	}
 }

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Pre-commit gate: formatting, types, lint, then a test + coverage no-regression
+# ratchet (coverage-baseline.json). A commit whose total coverage drops below
+# the recorded floor is rejected; an improvement raises the floor and is staged
+# into this commit. Bypass in emergencies with `git commit -n`.
+set -e
+npm run format:check
+npm run tsc
+npm run lint
+npm run coverage:gate

@@ -99,23 +99,23 @@ interface YamlFence {
 function yamlFences(markdown: string): YamlFence[] {
 	const lines = markdown.split(/\r?\n/);
 	const fences: YamlFence[] = [];
-	let inFence = false;
+	let isInFence = false;
 	let buffer: string[] = [];
 	let startLine = 0;
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
-		if (!inFence && /^```yaml\s*$/.test(line)) {
-			inFence = true;
+		if (!isInFence && /^```yaml\s*$/.test(line)) {
+			isInFence = true;
 			buffer = [];
 			startLine = i + 2;
 			continue;
 		}
-		if (inFence && /^```\s*$/.test(line)) {
+		if (isInFence && /^```\s*$/.test(line)) {
 			fences.push({ raw: buffer.join("\n"), startLine });
-			inFence = false;
+			isInFence = false;
 			continue;
 		}
-		if (inFence) {
+		if (isInFence) {
 			buffer.push(line);
 		}
 	}

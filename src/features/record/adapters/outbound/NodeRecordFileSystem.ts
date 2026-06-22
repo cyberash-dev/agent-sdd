@@ -28,9 +28,9 @@ export class NodeRecordFileSystem
 		content: string,
 	): Promise<void> {
 		const abs = resolve(repoRoot, relativePath);
-		const tmp = `${abs}.tmp.${process.pid}.${Date.now()}`;
-		await writeFile(tmp, content, "utf8");
-		await rename(tmp, abs);
+		const tmpPath = `${abs}.tmp.${process.pid}.${Date.now()}`;
+		await writeFile(tmpPath, content, "utf8");
+		await rename(tmpPath, abs);
 	}
 
 	async resolveSpecFiles(

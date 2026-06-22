@@ -1,3 +1,12 @@
+import {
+	isObject,
+	nonEmptyStringArray,
+	optionalGlobArrayField,
+	optionalStringArray,
+	optionalStringField,
+	stringArrayField,
+	stringField,
+} from "./ConfigFields.js";
 import { configFailure } from "./Errors.js";
 import { NORMATIVE_ID_RE, PARTITION_NAME_RE } from "./PartitionGrammar.js";
 
@@ -32,10 +41,6 @@ export interface LintConfig {
 	specFiles: string[]; /* glob patterns; defaults to [spec_file] when absent */
 	approverBlocklist: string[]; /* additional identities forbidden as approvers */
 	partitionGlob: string[]; /* globs selecting partition-spec files for the §2 structure check; [] = heading-based detection */
-}
-
-interface ConfigObject {
-	readonly [key: string]: unknown;
 }
 
 const TOP_LEVEL_FIELDS = new Set([
@@ -205,38 +210,6 @@ function partitionsField(
 	return out;
 }
 
-function optionalGlobArrayField(
-	value: ConfigObject,
-	key: string,
-	path: string,
-): string[] {
-	const field = value[key];
-	if (field === undefined) {
-		return [];
-	}
-	if (!Array.isArray(field)) {
-		throw configFailure(
-			"config-invalid",
-			`${key} must be an array`,
-			undefined,
-			path,
-		);
-	}
-	if (
-		!field.every(
-			(entry): entry is string => typeof entry === "string" && entry.length > 0,
-		)
-	) {
-		throw configFailure(
-			"config-invalid",
-			`${key} entries must be non-empty strings`,
-			undefined,
-			path,
-		);
-	}
-	return [...field];
-}
-
 function lintConfig(
 	value: unknown,
 	path: string,
@@ -285,61 +258,6 @@ function lintConfig(
 	return { specFiles, approverBlocklist, partitionGlob };
 }
 
-function nonEmptyStringArray(
-	raw: unknown,
-	field: string,
-	path: string,
-): string[] {
-	if (!Array.isArray(raw) || raw.length === 0) {
-		throw configFailure(
-			"config-invalid",
-			`${field} must be a non-empty array`,
-			undefined,
-			path,
-		);
-	}
-	return assertStringEntries(raw, field, path);
-}
-
-function optionalStringArray(
-	raw: unknown,
-	field: string,
-	path: string,
-): string[] {
-	if (raw === undefined) {
-		return [];
-	}
-	if (!Array.isArray(raw)) {
-		throw configFailure(
-			"config-invalid",
-			`${field} must be an array`,
-			undefined,
-			path,
-		);
-	}
-	return assertStringEntries(raw, field, path);
-}
-
-function assertStringEntries(
-	raw: unknown[],
-	field: string,
-	path: string,
-): string[] {
-	if (
-		!raw.every(
-			(entry): entry is string => typeof entry === "string" && entry.length > 0,
-		)
-	) {
-		throw configFailure(
-			"config-invalid",
-			`${field} entries must be non-empty strings`,
-			undefined,
-			path,
-		);
-	}
-	return [...raw];
-}
-
 function footprintConfig(value: unknown, path: string): FootprintConfig {
 	if (value === undefined) {
 		return { bindingIdPrefix: "IMP-", bindingField: "binding" };
@@ -367,70 +285,4 @@ function footprintConfig(value: unknown, path: string): FootprintConfig {
 	const bindingField =
 		optionalStringField(value, "binding_field", path) ?? "binding";
 	return { bindingIdPrefix, bindingField };
-}
-
-function stringField(value: ConfigObject, key: string, path: string): string {
-	const field = value[key];
-	if (typeof field !== "string" || field.length === 0) {
-		throw configFailure(
-			"config-invalid",
-			`${key} must be a non-empty string`,
-			undefined,
-			path,
-		);
-	}
-	return field;
-}
-
-function optionalStringField(
-	value: ConfigObject,
-	key: string,
-	path: string,
-): string | undefined {
-	const field = value[key];
-	if (field === undefined) {
-		return undefined;
-	}
-	if (typeof field !== "string" || field.length === 0) {
-		throw configFailure(
-			"config-invalid",
-			`${key} must be a non-empty string`,
-			undefined,
-			path,
-		);
-	}
-	return field;
-}
-
-function stringArrayField(
-	value: ConfigObject,
-	key: string,
-	path: string,
-): string[] {
-	const field = value[key];
-	if (!Array.isArray(field) || field.length === 0) {
-		throw configFailure(
-			"config-invalid",
-			`${key} must be a non-empty array`,
-			undefined,
-			path,
-		);
-	}
-	if (
-		!field.every(
-			(entry): entry is string => typeof entry === "string" && entry.length > 0,
-		)
-	) {
-		throw configFailure(
-			"config-invalid",
-			`${key} entries must be non-empty strings`,
-			undefined,
-			path,
-		);
-	}
-	return field;
-}
-
-function isObject(value: unknown): value is ConfigObject {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,70 +1,35 @@
 import type { Partition, SddConfig } from "../../../shared/domain/Config.js";
-import { CliFailure } from "../../../shared/domain/Errors.js";
 import {
 	appendDiagnostic,
-	emptyReport,
 	type Diagnostic,
 	type LintReport,
 } from "../../../shared/domain/LintReport.js";
 import {
-	applicabilityRequiredRule,
-	approvalRecordRules,
-	assumptionDowngradeApprovalRule,
-	baselineVersionRequiredRule,
-	boundaryConcurrencyModelRule,
-	boundaryPolicyRefRule,
-	dataScopeRequiredRule,
-	debtBudgetFormRule,
-	deprecatedFieldsRequiredRule,
-	fieldTypeRules,
-	generatedArtifactSurfaceRefRule,
-	lifecycleStatusRules,
-	migrationCrossPartitionRule,
-	migrationEnforcementStageRule,
-	partitionDefaultPolicySetRule,
-	REQUIRED_PARTITION_SECTIONS,
-	sectionViolations,
-	testObligationRules,
-	weaselFindings,
-} from "../../../shared/domain/LintRules.js";
-import { reachableBoundaryIds } from "../../../shared/domain/BoundaryReachability.js";
-import {
 	lintRecordsFromMarkdown,
 	type LintRecord,
 } from "../../../shared/domain/SpecRecord.js";
-import {
-	actualBump,
-	bumpAtLeast,
-	classifyDiff,
-	generatedArtifactStructuralDiffs,
-	requiredSurfaceBumps,
-} from "../domain/SpecDiff.js";
-import {
-	TOKEN_MECHANISM,
-	token as computeToken,
-} from "../../../shared/domain/Token.js";
+import { TOKEN_MECHANISM } from "../../../shared/domain/Token.js";
 import {
 	aggregatedCheckViolations,
 	aggregatedLintViolations,
-	type AggregatedCheckOutcome,
 } from "../domain/AggregatedRules.js";
+import type { Marker } from "../domain/MarkerParser.js";
 import {
-	parseMarkers,
-	parseNearMisses,
-	type Marker,
-} from "../domain/MarkerParser.js";
+	cascadeViolations,
+	debtBudgetViolations,
+} from "../domain/ReadyCascade.js";
+import { toReadyError } from "../domain/ReadyErrors.js";
 import {
-	ruleOrphanCovers,
-	ruleRemovedCompatActionMismatch,
-	ruleRemovedNoCompatTest,
-	ruleSurfaceMemberDrift,
-	ruleSurfaceUnapprovedRef,
-	ruleUnapproved,
-	ruleUncovered,
-	ruleUnknownPartitionCovers,
-	type PartitionView,
-	type ScannedMarker,
-} from "../domain/Rules.js";
+	markerLevelViolations,
+	perPartitionViolations,
+	uniqueSpecPaths,
+} from "../domain/ReadyEvaluation.js";
+import { aggregatedCheckOutcome } from "../domain/ReadyFreshness.js";
+import { aggregateLintReport } from "../domain/ReadyLintFile.js";
+import {
+	parsePartitionRecords,
+	scanPartitionMarkers,
+} from "../domain/ReadyParse.js";
 import type { ReadyInput } from "../domain/ReadyInput.js";
 import {
 	envelopeFromError,
@@ -119,21 +84,26 @@ export async function runReady(
 			? partitions
 			: partitions.filter((p) => p.name === filterName);
 
-	/* 1. Parse spec files for every configured partition. */
-	const recordsResult = await parseAllPartitionRecords(cwd, partitions, ports);
+	const recordsResult = await parseAllPartitionRecords(
+		cwd,
+		partitions,
+		ports.files,
+	);
 	if (recordsResult.kind === "error") {
 		return envelopeFromError(recordsResult.error);
 	}
 	const recordsByPartition = recordsResult.recordsByPartition;
 
-	/* 2. Scan test files for every configured partition. */
-	const markersResult = await scanAllPartitionMarkers(cwd, partitions, ports);
+	const markersResult = await scanAllPartitionMarkers(
+		cwd,
+		partitions,
+		ports.files,
+	);
 	if (markersResult.kind === "error") {
 		return envelopeFromError(markersResult.error);
 	}
 	const { markersByPartition, advisories } = markersResult;
 
-	/* 3 + 4. Per-partition and marker-level rule evaluation. */
 	const violations: ReadyViolation[] = [
 		...perPartitionViolations(
 			evaluatedPartitions,
@@ -147,34 +117,58 @@ export async function runReady(
 		),
 	];
 
-	/* 5. Aggregated lint over the union of evaluated partitions' spec files. */
-	const lintSpecPaths = uniqueSpecPaths(evaluatedPartitions, config);
-	const lintReport = await aggregatedLintReport(
-		cwd,
+	const aggregate = await collectAggregateViolations(
+		{ cwd, config, evaluatedPartitions, recordsByPartition, input },
+		ports,
+	);
+	if ("error" in aggregate) {
+		return envelopeFromError(aggregate.error);
+	}
+	violations.push(...aggregate.violations);
+
+	return { ok: violations.length === 0, error: null, violations, advisories };
+}
+
+interface AggregateInput {
+	cwd: string;
+	config: SddConfig;
+	evaluatedPartitions: readonly Partition[];
+	recordsByPartition: Map<string, LintRecord[]>;
+	input: ReadyInput;
+}
+
+/* Steps 5-7: aggregated lint, freshness check, and the --against cascade. */
+async function collectAggregateViolations(
+	a: AggregateInput,
+	ports: RunReadyPorts,
+): Promise<{ violations: ReadyViolation[] } | { error: ReadyError }> {
+	const lintSpecPaths = uniqueSpecPaths(a.evaluatedPartitions, a.config);
+	const out: ReadyViolation[] = [];
+
+	const entries = await resolveSpecEntriesSafe(
+		a.cwd,
 		ports.files,
 		lintSpecPaths,
-		config.lint.approverBlocklist,
 	);
-	violations.push(...aggregatedLintViolations(lintReport.diagnostics));
+	const lintReport = aggregateLintReport(
+		entries,
+		a.config.lint.approverBlocklist,
+	);
+	out.push(...aggregatedLintViolations(lintReport.diagnostics));
 
-	/* 6. Aggregated check (skipped silently when not in a git repository). */
 	const checkOutcome = await aggregatedCheckOutcome(
-		cwd,
-		config,
-		recordsByPartition,
+		a.cwd,
+		a.config,
+		a.recordsByPartition,
 		ports.git,
 	);
 	if (checkOutcome.kind === "error") {
-		return envelopeFromError(checkOutcome.error);
+		return { error: checkOutcome.error };
 	}
-	violations.push(...aggregatedCheckViolations(checkOutcome.outcome));
+	out.push(...aggregatedCheckViolations(checkOutcome.outcome));
 
-	/* 7. Semver cascade + debt-budget monotonicity (only with --against). */
-	violations.push(
-		...(await againstViolations(cwd, input, lintSpecPaths, ports)),
-	);
-
-	return { ok: violations.length === 0, error: null, violations, advisories };
+	out.push(...(await againstViolations(a.cwd, a.input, lintSpecPaths, ports)));
+	return { violations: out };
 }
 
 /* ENF-004A / ENF-020 — semver cascade and debt-budget monotonicity run only
@@ -188,21 +182,23 @@ async function againstViolations(
 	if (input.against === undefined || ports.git === undefined) {
 		return [];
 	}
+	const loaded = await loadComparisonRecords(
+		cwd,
+		input.against,
+		lintSpecPaths,
+		ports.files,
+		ports.git,
+	);
+	if (loaded === null) {
+		return [];
+	}
 	return [
-		...(await semverCascadeViolations(
-			cwd,
+		...cascadeViolations(loaded.prevRecords, loaded.currRecords),
+		...debtBudgetViolations(
+			loaded.prevRecords,
+			loaded.currRecords,
 			input.against,
-			lintSpecPaths,
-			ports.files,
-			ports.git,
-		)),
-		...(await debtBudgetMonotonicityViolations(
-			cwd,
-			input.against,
-			lintSpecPaths,
-			ports.files,
-			ports.git,
-		)),
+		),
 	];
 }
 
@@ -215,32 +211,28 @@ type RecordsResult =
 async function parseAllPartitionRecords(
 	cwd: string,
 	partitions: readonly Partition[],
-	ports: RunReadyPorts,
+	files: ReadyFileReader,
 ): Promise<RecordsResult> {
 	const recordsByPartition = new Map<string, LintRecord[]>();
 	for (const p of partitions) {
 		let entries: SpecFileEntry[];
 		try {
-			entries = await ports.files.resolveSpecFiles(cwd, p.specPaths);
+			entries = await files.resolveSpecFiles(cwd, p.specPaths);
 		} catch (error) {
 			return { kind: "error", error: toReadyError(error, "config_invalid") };
 		}
-		const records: LintRecord[] = [];
-		for (const entry of entries) {
-			try {
-				records.push(...lintRecordsFromMarkdown(entry.path, entry.content));
-			} catch (error) {
-				return {
-					kind: "error",
-					error: {
-						kind: "spec_parse_failed",
-						message: error instanceof Error ? error.message : String(error),
-						file: entry.path,
-					},
-				};
-			}
+		const parsed = parsePartitionRecords(entries);
+		if (parsed.kind === "error") {
+			return {
+				kind: "error",
+				error: {
+					kind: "spec_parse_failed",
+					message: parsed.message,
+					file: parsed.file,
+				},
+			};
 		}
-		recordsByPartition.set(p.name, records);
+		recordsByPartition.set(p.name, parsed.records);
 	}
 	return { kind: "ok", recordsByPartition };
 }
@@ -258,7 +250,7 @@ type MarkersResult =
 async function scanAllPartitionMarkers(
 	cwd: string,
 	partitions: readonly Partition[],
-	ports: RunReadyPorts,
+	files: ReadyFileReader,
 ): Promise<MarkersResult> {
 	const markersByPartition = new Map<string, Marker[]>();
 	const nearMissByKey = new Map<string, ReadyAdvisory>();
@@ -269,7 +261,7 @@ async function scanAllPartitionMarkers(
 		}
 		let entries: TestFileEntry[];
 		try {
-			entries = await ports.files.resolveTestFiles(cwd, p.testPaths);
+			entries = await files.resolveTestFiles(cwd, p.testPaths);
 		} catch (error) {
 			return {
 				kind: "error",
@@ -279,20 +271,11 @@ async function scanAllPartitionMarkers(
 				},
 			};
 		}
-		const markers: Marker[] = [];
-		for (const entry of entries) {
-			markers.push(...parseMarkers(entry.content, entry.path));
-			for (const nm of parseNearMisses(entry.content, entry.path)) {
-				nearMissByKey.set(`${nm.file}:${nm.line}:${nm.text}`, {
-					kind: "covers_near_miss",
-					file: nm.file,
-					line: nm.line,
-					text: nm.text,
-					remediation: `\`@covers ${nm.text}\` looks like a marker but fails the partition grammar (lowercase segments only); fix the prefix or remove the stray @covers text`,
-				});
-			}
+		const scanned = scanPartitionMarkers(entries);
+		markersByPartition.set(p.name, scanned.markers);
+		for (const nm of scanned.nearMisses) {
+			nearMissByKey.set(`${nm.file}:${nm.line}:${nm.text}`, nm);
 		}
-		markersByPartition.set(p.name, markers);
 	}
 	return {
 		kind: "ok",
@@ -301,94 +284,30 @@ async function scanAllPartitionMarkers(
 	};
 }
 
-function perPartitionViolations(
-	evaluatedPartitions: readonly Partition[],
-	recordsByPartition: ReadonlyMap<string, LintRecord[]>,
-	markersByPartition: ReadonlyMap<string, Marker[]>,
-): ReadyViolation[] {
-	const violations: ReadyViolation[] = [];
-	for (const partition of evaluatedPartitions) {
-		const records = recordsByPartition.get(partition.name) ?? [];
-		const recordsById = new Map<string, LintRecord>();
-		for (const r of records) {
-			recordsById.set(r.id, r);
-		}
-
-		const credited = new Map<string, Marker[]>();
-		const ownMarkers = markersByPartition.get(partition.name) ?? [];
-		for (const m of ownMarkers) {
-			if (m.partition !== partition.name) {
-				continue;
-			}
-			const id = `${m.partition}:${m.id}`;
-			const list = credited.get(id) ?? [];
-			list.push(m);
-			credited.set(id, list);
-		}
-
-		const view: PartitionView = {
-			partition,
-			records,
-			recordsById,
-			creditedMarkersById: credited,
-		};
-
-		violations.push(
-			...ruleUnapproved(view),
-			...ruleUncovered(view),
-			...ruleRemovedNoCompatTest(view),
-			...ruleRemovedCompatActionMismatch(view),
-			...ruleSurfaceUnapprovedRef(view),
-			...ruleSurfaceMemberDrift(view),
-		);
+async function resolveSpecEntriesSafe(
+	cwd: string,
+	files: ReadyFileReader,
+	specPaths: readonly string[],
+): Promise<SpecFileEntry[]> {
+	if (specPaths.length === 0) {
+		return [];
 	}
-	return violations;
+	try {
+		return await files.resolveSpecFiles(cwd, specPaths);
+	} catch {
+		return [];
+	}
 }
 
-/* Phase 4 dedups markers by (file, line, partition, id) — a file listed in
- * multiple partitions' test_paths must not be double-counted — then surfaces
- * unknown_partition_covers and orphan_covers globally regardless of --partition. */
-function markerLevelViolations(
-	partitions: readonly Partition[],
-	recordsByPartition: ReadonlyMap<string, LintRecord[]>,
-	markersByPartition: ReadonlyMap<string, Marker[]>,
-): ReadyViolation[] {
-	const partitionsByName = new Map(partitions.map((p) => [p.name, p] as const));
-	const seen = new Set<string>();
-	const allMarkers: Marker[] = [];
-	for (const ms of markersByPartition.values()) {
-		for (const m of ms) {
-			const key = `${m.file}:${m.line}:${m.partition}:${m.id}`;
-			if (seen.has(key)) {
-				continue;
-			}
-			seen.add(key);
-			allMarkers.push(m);
-		}
-	}
-	const scanned: ScannedMarker[] = [];
-	for (const m of allMarkers) {
-		const fullId = `${m.partition}:${m.id}`;
-		const partition = partitionsByName.get(m.partition);
-		const isPartitionConfigured = partition !== undefined;
-		const records = isPartitionConfigured
-			? (recordsByPartition.get(m.partition) ?? [])
-			: [];
-		const hasMatchingRecord = records.some((r) => r.id === fullId);
-		scanned.push({ marker: m, isPartitionConfigured, hasMatchingRecord });
-	}
-	return [...ruleUnknownPartitionCovers(scanned), ...ruleOrphanCovers(scanned)];
-}
-
-async function debtBudgetMonotonicityViolations(
+async function loadComparisonRecords(
 	cwd: string,
 	ref: string,
 	specPaths: readonly string[],
 	files: ReadyFileReader,
 	git: ReadyGitPort,
-): Promise<ReadyViolation[]> {
+): Promise<{ prevRecords: LintRecord[]; currRecords: LintRecord[] } | null> {
 	if (!(await git.isGitRepo(cwd))) {
-		return [];
+		return null;
 	}
 	const repoRoot = await git.repoRoot(cwd);
 
@@ -396,446 +315,22 @@ async function debtBudgetMonotonicityViolations(
 	try {
 		curr = await files.resolveSpecFiles(cwd, specPaths);
 	} catch {
-		return [];
+		return null;
 	}
 
 	const currRecords: LintRecord[] = [];
 	for (const e of curr) {
 		currRecords.push(...lintRecordsFromMarkdown(e.path, e.content));
 	}
-	const prevRecordsByFile = new Map<string, LintRecord[]>();
-	for (const e of curr) {
-		const prevContent = await git.readAtRef(repoRoot, ref, e.path);
-		if (prevContent === null) {
-			continue;
-		}
-		prevRecordsByFile.set(e.path, lintRecordsFromMarkdown(e.path, prevContent));
-	}
-	const prevRecords: LintRecord[] = [];
-	for (const arr of prevRecordsByFile.values()) {
-		prevRecords.push(...arr);
-	}
-
-	const out: ReadyViolation[] = [];
-	for (const part of currRecords.filter((r) => r.template === "Partition")) {
-		const currBudget = readDebtBudget(part);
-		if (currBudget === null) {
-			continue;
-		}
-		const prevPart = prevRecords.find((r) => r.id === part.id);
-		if (prevPart === undefined) {
-			continue;
-		}
-		const prevBudget = readDebtBudget(prevPart);
-		if (prevBudget === null) {
-			continue;
-		}
-		const violationKind = compareBudgets(currBudget, prevBudget);
-		if (violationKind === null) {
-			continue;
-		}
-		out.push({
-			kind: "debt_budget_increased",
-			id: part.id,
-			file: part.file,
-			line: part.line,
-			expected: violationKind.expected,
-			actual: violationKind.actual,
-			remediation: `Partition ${part.id} unmodeled_budget.current=${currBudget.current} (was ${prevBudget.current} at ${ref}, trend=${currBudget.trend}); ${violationKind.remediation}`,
-		});
-	}
-	return out;
-}
-
-interface DebtBudget {
-	current: number;
-	trend: "monotonic_non_increasing" | "monotonic_decreasing";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readDebtBudget(rec: LintRecord): DebtBudget | null {
-	const b = rec.parsed.unmodeled_budget;
-	if (!isRecord(b)) {
-		return null;
-	}
-	const current = b.current;
-	const trend = b.trend;
-	if (typeof current !== "number") {
-		return null;
-	}
-	if (
-		trend !== "monotonic_non_increasing" &&
-		trend !== "monotonic_decreasing"
-	) {
-		return null;
-	}
-	return { current, trend };
-}
-
-function compareBudgets(
-	curr: DebtBudget,
-	prev: DebtBudget,
-): { expected: string; actual: string; remediation: string } | null {
-	if (curr.trend === "monotonic_non_increasing") {
-		if (curr.current > prev.current) {
-			return {
-				expected: `<= ${prev.current}`,
-				actual: String(curr.current),
-				remediation:
-					"trend=monotonic_non_increasing requires current <= previous current; reduce debt or weaken the trend",
-			};
-		}
-		return null;
-	}
-	/* monotonic_decreasing */
-	if (curr.current >= prev.current) {
-		return {
-			expected: `< ${prev.current}`,
-			actual: String(curr.current),
-			remediation:
-				"trend=monotonic_decreasing requires current < previous current; reduce debt this PR",
-		};
-	}
-	return null;
-}
-
-async function semverCascadeViolations(
-	cwd: string,
-	ref: string,
-	specPaths: readonly string[],
-	files: ReadyFileReader,
-	git: ReadyGitPort,
-): Promise<ReadyViolation[]> {
-	if (!(await git.isGitRepo(cwd))) {
-		return [];
-	}
-	const repoRoot = await git.repoRoot(cwd);
-
-	let curr: SpecFileEntry[];
-	try {
-		curr = await files.resolveSpecFiles(cwd, specPaths);
-	} catch {
-		return [];
-	}
-
-	const currRecords: LintRecord[] = [];
-	for (const e of curr) {
-		currRecords.push(...lintRecordsFromMarkdown(e.path, e.content));
-	}
-
 	const prevRecords: LintRecord[] = [];
 	for (const e of curr) {
 		const prevContent = await git.readAtRef(repoRoot, ref, e.path);
 		if (prevContent === null) {
 			continue;
-		} /* file new at HEAD — every record reads as additive content_change */
+		}
 		prevRecords.push(...lintRecordsFromMarkdown(e.path, prevContent));
 	}
-
-	const diffs = classifyDiff(prevRecords, currRecords);
-	const bumps = requiredSurfaceBumps(prevRecords, currRecords, diffs);
-
-	return [
-		...surfaceCascadeViolations(bumps, currRecords),
-		...gaStructuralViolations(prevRecords, currRecords, diffs, bumps),
-	];
-}
-
-function surfaceCascadeViolations(
-	bumps: ReturnType<typeof requiredSurfaceBumps>,
-	currRecords: readonly LintRecord[],
-): ReadyViolation[] {
-	const out: ReadyViolation[] = [];
-	for (const b of bumps) {
-		const actual = actualBump(b.prevDeclaredVersion, b.declaredVersion);
-		if (b.required === "patch") {
-			continue;
-		}
-		if (bumpAtLeast(actual, b.required)) {
-			continue;
-		}
-		const surfaceRec = currRecords.find((r) => r.id === b.surfaceId);
-		out.push({
-			kind: "surface_semver_cascade",
-			id: b.surfaceId,
-			file: surfaceRec?.file,
-			line: surfaceRec?.line,
-			expected: b.required,
-			actual: actual ?? "patch",
-			remediation: `Surface ${b.surfaceId} reachable change requires a ${b.required} bump (declared ${b.prevDeclaredVersion ?? "?"} → ${b.declaredVersion ?? "?"}). Driven by: ${b.drivenBy
-				.map((d) => `${d.id} (${d.classification})`)
-				.slice(0, 4)
-				.join(", ")}${b.drivenBy.length > 4 ? "..." : ""}`,
-		});
-	}
-	return out;
-}
-
-/*
- * ENF-019 — emit a dedicated GA-naming violation (always, for traceability)
- * when a published GA structural diff lacks a major Surface bump.
- */
-function gaStructuralViolations(
-	prevRecords: readonly LintRecord[],
-	currRecords: readonly LintRecord[],
-	diffs: ReturnType<typeof classifyDiff>,
-	bumps: ReturnType<typeof requiredSurfaceBumps>,
-): ReadyViolation[] {
-	const out: ReadyViolation[] = [];
-	const gaDiffs = generatedArtifactStructuralDiffs(
-		prevRecords,
-		currRecords,
-		diffs,
-	);
-	for (const ga of gaDiffs) {
-		const surfaceRec = currRecords.find((r) => r.id === ga.surfaceId);
-		const bump = bumps.find((b) => b.surfaceId === ga.surfaceId);
-		const actual =
-			bump !== undefined
-				? actualBump(bump.prevDeclaredVersion, bump.declaredVersion)
-				: null;
-		if (bumpAtLeast(actual, "major")) {
-			continue;
-		}
-		out.push({
-			kind: "generated_artifact_structural_diff_unbumped",
-			id: ga.surfaceId,
-			file: surfaceRec?.file,
-			line: surfaceRec?.line,
-			expected: "major",
-			actual: actual ?? "patch",
-			remediation: `Surface ${ga.surfaceId} reaches GeneratedArtifact ${ga.generatedArtifactId} (published_surface=yes) with ${ga.classification}; structural diff in a published GA requires a major bump on the parent Surface (ENF-019).`,
-		});
-	}
-	return out;
-}
-
-function uniqueSpecPaths(
-	evaluated: readonly Partition[],
-	config: SddConfig,
-): string[] {
-	const all =
-		evaluated.length > 0
-			? evaluated.flatMap((p) => p.specPaths)
-			: config.lint.specFiles;
-	return [...new Set(all)];
-}
-
-async function aggregatedLintReport(
-	cwd: string,
-	files: ReadyFileReader,
-	specPaths: readonly string[],
-	approverBlocklist: readonly string[],
-): Promise<LintReport> {
-	let report = emptyReport();
-	if (specPaths.length === 0) {
-		return report;
-	}
-	let entries: SpecFileEntry[];
-	try {
-		entries = await files.resolveSpecFiles(cwd, specPaths);
-	} catch {
-		return report;
-	}
-	for (const entry of entries) {
-		report = lintFileInto(report, entry, approverBlocklist);
-	}
-	return report;
-}
-
-function lintFileInto(
-	report: LintReport,
-	entry: SpecFileEntry,
-	approverBlocklist: readonly string[],
-): LintReport {
-	let next = report;
-	if (looksLikePartitionFile(entry.content)) {
-		for (const v of sectionViolations(entry.content)) {
-			next = appendDiagnostic(next, {
-				severity: "error",
-				rule: v.rule,
-				file: entry.path,
-				message: v.message,
-			});
-		}
-	}
-	const records = lintRecordsFromMarkdown(entry.path, entry.content);
-	const boundaryIds = reachableBoundaryIds(records);
-	for (const w of weaselFindings(entry.content, records)) {
-		const where =
-			w.field !== undefined
-				? `normative field ${w.field}`
-				: `normative section "${w.section}"`;
-		next = appendDiagnostic(next, {
-			severity: "error",
-			rule: "sdd:weasel-word",
-			file: entry.path,
-			line: w.line,
-			message: `Banned phrase "${w.word}" in ${where} (SDD §5.1).`,
-		});
-	}
-	for (const rec of records) {
-		for (const d of [
-			...lifecycleStatusRules(rec),
-			...approvalRecordRules(rec),
-			...testObligationRules(rec),
-			...fieldTypeRules(rec),
-			...baselineVersionRequiredRule(rec),
-			...deprecatedFieldsRequiredRule(rec),
-			...assumptionDowngradeApprovalRule(rec, approverBlocklist),
-			...partitionDefaultPolicySetRule(rec),
-			...generatedArtifactSurfaceRefRule(rec),
-			...boundaryPolicyRefRule(rec, boundaryIds),
-			...boundaryConcurrencyModelRule(rec, boundaryIds),
-			...applicabilityRequiredRule(rec, boundaryIds),
-			...dataScopeRequiredRule(rec, boundaryIds),
-			...migrationEnforcementStageRule(rec, records),
-			...migrationCrossPartitionRule(rec),
-			...debtBudgetFormRule(rec),
-		]) {
-			next = appendDiagnostic(next, d);
-		}
-	}
-	return next;
-}
-
-function looksLikePartitionFile(markdown: string): boolean {
-	const firstNumberedHeading = REQUIRED_PARTITION_SECTIONS[0];
-	const re = new RegExp(
-		`^##\\s+${firstNumberedHeading.replace(/\./g, "\\.").replace(/ /g, "\\s+")}`,
-		"m",
-	);
-	return re.test(markdown);
-}
-
-interface CheckOutcomeResult {
-	kind: "outcome";
-	outcome: AggregatedCheckOutcome;
-}
-
-interface CheckErrorResult {
-	kind: "error";
-	error: ReadyError;
-}
-
-async function aggregatedCheckOutcome(
-	cwd: string,
-	config: SddConfig,
-	recordsByPartition: ReadonlyMap<string, readonly LintRecord[]>,
-	git: ReadyGitPort,
-): Promise<CheckOutcomeResult | CheckErrorResult> {
-	const inRepo = await git.isGitRepo(cwd).catch(() => false);
-	if (!inRepo) {
-		return { kind: "outcome", outcome: { kind: "skipped" } };
-	}
-
-	const baseline = findBaseline(config.baselineId, recordsByPartition);
-	if (baseline === null) {
-		/*
-		 * Baseline-id pattern is enforced by config; absence of the block in spec
-		 * is itself a baseline-stale-equivalent. We surface it via aggregated
-		 * check rather than treating it as evaluate-failure, to match `sdd lint`'s
-		 * tolerance of unparseable BL blocks (it just doesn't lint them).
-		 */
-		return { kind: "outcome", outcome: { kind: "skipped" } };
-	}
-	if (
-		baseline.freshnessToken === "TODO" ||
-		baseline.freshnessToken.length === 0
-	) {
-		return { kind: "outcome", outcome: { kind: "skipped" } };
-	}
-
-	let repoRoot: string;
-	try {
-		repoRoot = await git.repoRoot(cwd);
-	} catch {
-		return { kind: "outcome", outcome: { kind: "skipped" } };
-	}
-
-	let dirty: string[];
-	try {
-		dirty = await git.dirtyPaths(repoRoot, config.discoveryScope);
-	} catch (error) {
-		return {
-			kind: "error",
-			error: {
-				kind: "internal",
-				message: error instanceof Error ? error.message : String(error),
-			},
-		};
-	}
-	if (dirty.length > 0) {
-		return { kind: "outcome", outcome: { kind: "dirty", dirtyPaths: dirty } };
-	}
-
-	let bytes: Uint8Array;
-	try {
-		bytes = await git.treeBytes(repoRoot, config.discoveryScope);
-	} catch (error) {
-		return {
-			kind: "error",
-			error: {
-				kind: "internal",
-				message: error instanceof Error ? error.message : String(error),
-			},
-		};
-	}
-	const recomputed = computeToken(bytes);
-	if (recomputed === baseline.freshnessToken) {
-		return { kind: "outcome", outcome: { kind: "match" } };
-	}
-	return {
-		kind: "outcome",
-		outcome: {
-			kind: "stale",
-			recordedToken: baseline.freshnessToken,
-			recomputedToken: recomputed,
-		},
-	};
-}
-
-function findBaseline(
-	baselineId: string,
-	recordsByPartition: ReadonlyMap<string, readonly LintRecord[]>,
-): { freshnessToken: string } | null {
-	for (const records of recordsByPartition.values()) {
-		for (const rec of records) {
-			if (rec.id !== baselineId) {
-				continue;
-			}
-			const ft = rec.parsed.freshness_token;
-			if (typeof ft === "string") {
-				return { freshnessToken: ft };
-			}
-		}
-	}
-	return null;
-}
-
-function toReadyError(
-	error: unknown,
-	fallback: ReadyError["kind"],
-): ReadyError {
-	if (error instanceof CliFailure) {
-		if (
-			error.reason === "config-missing" ||
-			error.reason === "config-invalid"
-		) {
-			return {
-				kind: "config_invalid",
-				message: error.message,
-				file: error.path,
-			};
-		}
-	}
-	return {
-		kind: fallback,
-		message: error instanceof Error ? error.message : String(error),
-	};
+	return { prevRecords, currRecords };
 }
 
 /* Side-effect-free public helper for tests/unit symmetry. */

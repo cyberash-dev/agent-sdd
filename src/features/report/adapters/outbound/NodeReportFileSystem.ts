@@ -137,12 +137,15 @@ async function walk(
 function segmentToRegExp(seg: string): RegExp {
 	let body = "^";
 	for (const ch of seg) {
-		if (ch === "*") {
-			body += "[^/]*";
-		} else if (ch === "?") {
-			body += "[^/]";
-		} else {
-			body += ch.replace(/[-./\\^$+?()|[\]{}]/g, "\\$&");
+		switch (ch) {
+			case "*":
+				body += "[^/]*";
+				break;
+			case "?":
+				body += "[^/]";
+				break;
+			default:
+				body += ch.replace(/[-./\\^$+?()|[\]{}]/g, "\\$&");
 		}
 	}
 	body += "$";

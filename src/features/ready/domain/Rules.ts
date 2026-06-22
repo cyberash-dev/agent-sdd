@@ -3,6 +3,15 @@ import type { LintRecord } from "../../../shared/domain/SpecRecord.js";
 import type { Marker } from "./MarkerParser.js";
 import { fileInGlobs } from "./PartitionResolver.js";
 import type { ReadyViolation } from "./ReadyViolation.js";
+import {
+	isNormative,
+	isNotApplicableTestObligation,
+	isObject,
+	isTerminalStatus,
+	readCompatibilityAction,
+	readMembers,
+	readVersion,
+} from "./RulesHelpers.js";
 
 /*
  * Per-partition parsed records and credited markers. Built by RunReady before
@@ -20,22 +29,6 @@ export interface PartitionView {
 		Marker[]
 	>; /* markers in partition.test_paths whose prefix == partition.name */
 }
-
-const NORMATIVE: ReadonlySet<string> = new Set([
-	"Behavior",
-	"Invariant",
-	"Contract",
-	"Scenario",
-	"NFR",
-	"Constraint",
-	"Policy",
-	"Migration",
-	"Delta",
-	"GeneratedArtifact",
-	"ExternalDependency",
-	"LocalizationContract",
-	"Surface",
-]);
 
 /*
  * Surface is normative but exempt from individual coverage requirements; its
@@ -116,10 +109,10 @@ export function ruleRemovedNoCompatTest(view: PartitionView): ReadyViolation[] {
 			continue;
 		}
 		const markers = view.creditedMarkersById.get(rec.id) ?? [];
-		const haveCompat = markers.some(
+		const hasCompat = markers.some(
 			(m) => typeof m.tail.compatibility_action === "string",
 		);
-		if (haveCompat) {
+		if (hasCompat) {
 			continue;
 		}
 		out.push({
@@ -220,10 +213,9 @@ export function ruleSurfaceUnapprovedRef(
 }
 
 /*
- * BEH-075: surface_ref/members drift and unapplied surface_impact. The
- * complement of ruleSurfaceUnapprovedRef — that rule walks members forward;
- * this one walks surface_ref back, and checks that an approved Delta's declared
- * surface_impact bump was actually applied to the target Surface.
+ * BEH-075: surface_ref/members drift and unapplied surface_impact — the
+ * back-walking complement of ruleSurfaceUnapprovedRef; also checks an approved
+ * Delta's declared surface_impact bump was applied to the target Surface.
  */
 export function ruleSurfaceMemberDrift(view: PartitionView): ReadyViolation[] {
 	const out: ReadyViolation[] = [];
@@ -345,45 +337,4 @@ export function ruleUnknownPartitionCovers(
 		});
 	}
 	return out;
-}
-
-function isNormative(rec: LintRecord): boolean {
-	return rec.template !== null && NORMATIVE.has(rec.template);
-}
-
-function isNotApplicableTestObligation(rec: LintRecord): boolean {
-	const v = rec.parsed.test_obligation;
-	if (typeof v === "string" && v.startsWith("not_applicable")) {
-		return true;
-	}
-	if (isObject(v) && v.not_applicable !== undefined) {
-		return true;
-	}
-	return false;
-}
-
-function readCompatibilityAction(rec: LintRecord): string | null {
-	const ca = rec.parsed.compatibility_action;
-	return typeof ca === "string" ? ca : null;
-}
-
-function readMembers(rec: LintRecord): string[] {
-	const m = rec.parsed.members;
-	if (!Array.isArray(m)) {
-		return [];
-	}
-	return m.filter((v): v is string => typeof v === "string");
-}
-
-function readVersion(rec: LintRecord): string | null {
-	const v = rec.parsed.version;
-	return typeof v === "string" ? v : null;
-}
-
-function isTerminalStatus(status: string | null): boolean {
-	return status === "approved" || status === "deprecated" || status === "removed";
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

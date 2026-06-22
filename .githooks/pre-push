@@ -1,0 +1,8 @@
+#!/bin/sh
+# Full gate before push: formatting, types, lint, then tests + c8 coverage
+# no-regression (thresholds in .c8rc.json). Bypass with `git push --no-verify`.
+set -e
+npm run format:check
+npm run tsc
+npm run lint
+npm run test:coverage

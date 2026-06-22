@@ -64,11 +64,11 @@ function readCompatibilityRange(markdown: string): string | null {
 function readRegistryRows(markdown: string): RegistryRow[] {
 	const out: RegistryRow[] = [];
 	const lines = markdown.split(/\r?\n/);
-	let inTable = false;
+	let isInTable = false;
 	let cols: string[] = [];
 
 	for (const line of lines) {
-		if (!inTable) {
+		if (!isInTable) {
 			const header = parseTableRow(line);
 			if (
 				header !== null &&
@@ -78,7 +78,7 @@ function readRegistryRows(markdown: string): RegistryRow[] {
 				header.includes("diagnostic_id")
 			) {
 				cols = header;
-				inTable = true;
+				isInTable = true;
 			}
 			continue;
 		}
@@ -88,7 +88,7 @@ function readRegistryRows(markdown: string): RegistryRow[] {
 		}
 		const row = parseTableRow(line);
 		if (row === null) {
-			inTable = false;
+			isInTable = false;
 			continue;
 		}
 		if (row.length !== cols.length) {
