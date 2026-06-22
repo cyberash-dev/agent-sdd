@@ -110,6 +110,20 @@ function renderRefusal(
 			format,
 		);
 	}
+	if (outcome.kind === "unflippable") {
+		return refusal(
+			{
+				format_version: 1,
+				ok: false,
+				kind: "unflippable",
+				plan_id: outcome.planId,
+				unflippable_ids: outcome.unflippableIds,
+			},
+			`${outcome.unflippableIds.length} attestation id(s) matched a record with no rewritable lifecycle anchor`,
+			1,
+			format,
+		);
+	}
 	return refusal(
 		{
 			format_version: 1,

@@ -57,6 +57,7 @@ import {
 	ruleOrphanCovers,
 	ruleRemovedCompatActionMismatch,
 	ruleRemovedNoCompatTest,
+	ruleSurfaceMemberDrift,
 	ruleSurfaceUnapprovedRef,
 	ruleUnapproved,
 	ruleUncovered,
@@ -338,6 +339,7 @@ function perPartitionViolations(
 			...ruleRemovedNoCompatTest(view),
 			...ruleRemovedCompatActionMismatch(view),
 			...ruleSurfaceUnapprovedRef(view),
+			...ruleSurfaceMemberDrift(view),
 		);
 	}
 	return violations;

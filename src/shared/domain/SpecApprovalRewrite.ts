@@ -25,6 +25,10 @@ export interface IdMatch {
 export interface RewriteResult {
 	newContent: string;
 	matched: IdMatch[];
+	/* Subset of `matched` whose lifecycle.status was actually rewritten. A
+	 * record matched by id but carrying no rewritable lifecycle anchor stays in
+	 * `matched` yet is absent here, so callers never over-count flips. */
+	flipped: IdMatch[];
 }
 
 export function rewriteApproval(
@@ -35,20 +39,27 @@ export function rewriteApproval(
 	const lines = content.split(/\r?\n/);
 	const matches = findMatches(lines, req.id);
 	if (matches.length === 0) {
-		return { newContent: content, matched: [] };
+		return { newContent: content, matched: [], flipped: [] };
 	}
 
 	/* Apply matches from last to first so line indices stay stable. */
 	const sorted = [...matches].sort((a, b) => b.startLine - a.startLine);
 	let buf = [...lines];
+	const flipped: IdMatch[] = [];
 	for (const m of sorted) {
-		buf = applyOne(buf, m, req, when);
+		const result = applyOne(buf, m, req, when);
+		buf = result.lines;
+		if (result.flipped) {
+			flipped.push(m);
+		}
 	}
-	return { newContent: buf.join("\n"), matched: matches };
+	return { newContent: buf.join("\n"), matched: matches, flipped };
 }
 
+type StatusKind = "flat" | "nested" | "flow" | null;
+
 interface AnchorScan {
-	statusKind: "flat" | "nested" | null;
+	statusKind: StatusKind;
 	statusIdx: number;
 	statusIndent: string;
 	approvalIndent: string;
@@ -61,7 +72,7 @@ interface AnchorScan {
  * anchor found so it can be written back in the same shape.
  */
 function scanAnchors(block: string[], fallbackIndent: string): AnchorScan {
-	let statusKind: "flat" | "nested" | null = null;
+	let statusKind: StatusKind = null;
 	let statusIdx = -1;
 	let statusIndent = fallbackIndent;
 	let approvalIndent = fallbackIndent;
@@ -76,6 +87,17 @@ function scanAnchors(block: string[], fallbackIndent: string): AnchorScan {
 				statusIdx = i;
 				statusIndent = flat[1];
 				approvalIndent = flat[1];
+				continue;
+			}
+			/* INV-007: inline flow form `lifecycle: { status: … }`. The nested
+			 * header below requires `lifecycle:` at end-of-line, so the two
+			 * shapes never collide. */
+			const flow = /^(\s*)lifecycle:\s*\{[^}]*\bstatus:\s*\S/.exec(line);
+			if (flow !== null) {
+				statusKind = "flow";
+				statusIdx = i;
+				statusIndent = flow[1];
+				approvalIndent = flow[1];
 				continue;
 			}
 			const nestedHeader = /^(\s*)lifecycle:\s*$/.exec(line);
@@ -143,7 +165,7 @@ function applyOne(
 	m: IdMatch,
 	req: ApprovalAttestation,
 	when: Date,
-): string[] {
+): { lines: string[]; flipped: boolean } {
 	const sliceStart = m.startLine - 1;
 	const sliceEndExclusive = m.endLine - 1;
 	const before = lines.slice(0, sliceStart);
@@ -154,11 +176,16 @@ function applyOne(
 		scanAnchors(block, m.indent);
 
 	if (statusKind === null) {
-		return [...before, ...block, ...after];
+		return { lines: [...before, ...block, ...after], flipped: false };
 	}
 
 	if (statusKind === "flat") {
 		block[statusIdx] = `${statusIndent}lifecycle.status: ${req.targetStatus}`;
+	} else if (statusKind === "flow") {
+		block[statusIdx] = block[statusIdx].replace(
+			/(lifecycle:\s*\{[^}]*\bstatus:\s*)[A-Za-z_][\w-]*/,
+			`$1${req.targetStatus}`,
+		);
 	} else {
 		block[statusIdx] = `${statusIndent}status: ${req.targetStatus}`;
 	}
@@ -171,7 +198,7 @@ function applyOne(
 		block.splice(statusIdx + 1, 0, ...approvalLines);
 	}
 
-	return [...before, ...block, ...after];
+	return { lines: [...before, ...block, ...after], flipped: true };
 }
 
 function approvalBlock(

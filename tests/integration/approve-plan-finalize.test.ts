@@ -3,6 +3,9 @@
 // @covers sdd-cli:BEH-023
 // @covers sdd-cli:BEH-024
 // @covers sdd-cli:BEH-025
+// @covers sdd-cli:BEH-073
+// @covers sdd-cli:BEH-074
+// @covers sdd-cli:DLT-005
 // @covers sdd-cli:CTR-017
 // @covers sdd-cli:CTR-018
 // @covers sdd-cli:CTR-019
@@ -391,6 +394,171 @@ test("finalize refuses on graph violation, leaves spec byte-stable (BEH-025, INV
 		await exists(join(root, ".sdd", "plans", "finalized", `${active}.yaml`)),
 		false,
 	);
+});
+
+test("finalize flips an inline flow-form lifecycle record and counts it (BEH-074)", async () => {
+	const flowBlock = [
+		"```yaml",
+		"- id: fixture:beh-1",
+		"  template: Behavior",
+		"  lifecycle: { status: proposed }",
+		"  approval_record: not_applicable_for_proposed",
+		"  test_obligations: [to:fixture:beh-1:happy]",
+		"```",
+	].join("\n");
+	const { root } = await fixtureProject(flowBlock);
+
+	await runSdd(root, [
+		"approve",
+		"--id",
+		"fixture:beh-1",
+		"--approver",
+		"alice",
+		"--owner-role",
+		"tech-lead",
+		"--change-request",
+		"https://example.com/pr/9",
+	]);
+
+	const result = await runSdd(root, ["finalize", "--format=json"]);
+	assert.equal(
+		result.code,
+		0,
+		`stdout=${result.stdout}\nstderr=${result.stderr}`,
+	);
+	const body = JSON.parse(result.stdout) as {
+		ok: boolean;
+		finalized_ids: string[];
+	};
+	assert.equal(body.ok, true);
+	assert.deepEqual(body.finalized_ids, ["fixture:beh-1"]);
+
+	const spec = await readFile(join(root, "spec", "spec.md"), "utf8");
+	assert.match(spec, /lifecycle: \{ status: approved \}/);
+	assert.match(spec, /approver_identity: alice/);
+});
+
+test("finalize fails loudly when a queued record exposes no rewritable lifecycle anchor (BEH-074)", async () => {
+	const { root } = await fixtureProject();
+
+	await runSdd(root, [
+		"approve",
+		"--id",
+		"fixture:beh-1",
+		"--approver",
+		"alice",
+		"--owner-role",
+		"tech-lead",
+		"--change-request",
+		"https://example.com/pr/10",
+	]);
+
+	// The record loses its lifecycle anchor between approve and finalize.
+	const noAnchor = [
+		"```yaml",
+		"- id: fixture:beh-1",
+		"  template: Behavior",
+		"  test_obligations: [to:fixture:beh-1:happy]",
+		"```",
+	].join("\n");
+	await writeFile(
+		join(root, "spec", "spec.md"),
+		`${PARTITION_SHELL}\n${noAnchor}\n`,
+	);
+	const before = await readFile(join(root, "spec", "spec.md"), "utf8");
+
+	const result = await runSdd(root, ["finalize", "--format=json"]);
+	assert.equal(result.code, 1);
+	const body = JSON.parse(result.stdout) as {
+		ok: boolean;
+		kind: string;
+		unflippable_ids: string[];
+	};
+	assert.equal(body.ok, false);
+	assert.equal(body.kind, "unflippable");
+	assert.deepEqual(body.unflippable_ids, ["fixture:beh-1"]);
+
+	// Byte-stable on refusal — no partial write.
+	const after = await readFile(join(root, "spec", "spec.md"), "utf8");
+	assert.equal(after, before);
+});
+
+const SURFACE_IMPACT_BLOCK = [
+	"```yaml",
+	"- id: fixture:sur-1",
+	"  template: Surface",
+	"  lifecycle.status: approved",
+	'  version: "1.0.0"',
+	"  members:",
+	"    - fixture:ctr-1",
+	"  test_obligations: [to:fixture:sur-1:happy]",
+	"- id: fixture:ctr-1",
+	"  template: Contract",
+	"  lifecycle.status: approved",
+	"  surface_ref: fixture:sur-1",
+	"  test_obligations: [to:fixture:ctr-1:happy]",
+	"- id: fixture:ctr-2",
+	"  template: Contract",
+	"  lifecycle.status: proposed",
+	"  approval_record: not_applicable_for_proposed",
+	"  surface_ref: fixture:sur-1",
+	"  test_obligations: [to:fixture:ctr-2:happy]",
+	"- id: fixture:del-1",
+	"  template: Delta",
+	"  lifecycle.status: proposed",
+	"  approval_record: not_applicable_for_proposed",
+	"  target_ids:",
+	"    - fixture:sur-1",
+	"    - fixture:ctr-2",
+	"  surface_impact:",
+	"    - id: fixture:sur-1",
+	"      intended_bump: minor",
+	'      intended_version: "1.1.0"',
+	"  baseline_version: fixture:BL-001@v1.0.0",
+	"  test_obligations: [to:fixture:del-1:happy]",
+	"```",
+].join("\n");
+
+async function approveInto(
+	root: string,
+	id: string,
+	pr: string,
+): Promise<void> {
+	await runSdd(root, [
+		"approve",
+		"--id",
+		id,
+		"--approver",
+		"alice",
+		"--owner-role",
+		"tech-lead",
+		"--change-request",
+		pr,
+	]);
+}
+
+test("finalize materialises an approved Delta's surface_impact: bumps Surface.version and unions members (BEH-073)", async () => {
+	const { root } = await fixtureProject(SURFACE_IMPACT_BLOCK);
+
+	await approveInto(root, "fixture:del-1", "https://example.com/pr/11");
+	await approveInto(root, "fixture:ctr-2", "https://example.com/pr/11");
+
+	const result = await runSdd(root, ["finalize", "--format=json"]);
+	assert.equal(
+		result.code,
+		0,
+		`stdout=${result.stdout}\nstderr=${result.stderr}`,
+	);
+	const body = JSON.parse(result.stdout) as { finalized_ids: string[] };
+	assert.deepEqual([...body.finalized_ids].sort(), [
+		"fixture:ctr-2",
+		"fixture:del-1",
+	]);
+
+	const sur = await runSdd(root, ["record", "get", "fixture:sur-1"]);
+	assert.match(sur.stdout, /version: ["']?1\.1\.0/);
+	assert.match(sur.stdout, /- fixture:ctr-1/);
+	assert.match(sur.stdout, /- fixture:ctr-2/);
 });
 
 test("approve queues multiple attestations into the same active plan", async () => {

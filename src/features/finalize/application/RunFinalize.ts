@@ -3,7 +3,14 @@ import {
 	rewriteApproval,
 	type ApprovalAttestation,
 } from "../../../shared/domain/SpecApprovalRewrite.js";
-import { lintRecordsFromMarkdown } from "../../../shared/domain/SpecRecord.js";
+import {
+	lintRecordsFromMarkdown,
+	type LintRecord,
+} from "../../../shared/domain/SpecRecord.js";
+import {
+	applySurfaceMutations,
+	computeSurfaceMutations,
+} from "../domain/ApplySurfaceImpact.js";
 import {
 	validateFinalizeGraph,
 	type GraphViolation,
@@ -25,6 +32,7 @@ export type RunFinalizeOutcome =
 	| { kind: "invalid-plan"; planId: string; sourcePath: string; reason: string }
 	| { kind: "graph-violation"; planId: string; violations: GraphViolation[] }
 	| { kind: "no-id-match"; planId: string; missingIds: string[] }
+	| { kind: "unflippable"; planId: string; unflippableIds: string[] }
 	| {
 			kind: "finalized";
 			planId: string;
@@ -83,7 +91,36 @@ export async function runFinalize(
 			missingIds: applied.missingIds,
 		};
 	}
+	/*
+	 * BEH-074: a record matched by id but with no rewritable lifecycle anchor
+	 * must fail finalize loudly rather than be counted as flipped. Abort before
+	 * any write so the spec stays byte-stable, mirroring graph-violation.
+	 */
+	if (applied.unflippableIds.length > 0) {
+		return {
+			kind: "unflippable",
+			planId: plan.planId,
+			unflippableIds: applied.unflippableIds,
+		};
+	}
 	const { fileContent, finalizedIds } = applied;
+
+	/*
+	 * BEH-073: after the lifecycle flips, materialise the surface_impact of any
+	 * Delta approved in this plan — bump the target Surface.version and union
+	 * its members with the now-approved surface_ref children.
+	 */
+	const approvedIds = approvedAfterPlan(records, plan.pendingAttestations);
+	const mutations = computeSurfaceMutations(records, approvedIds);
+	if (mutations.length > 0) {
+		for (const e of entries) {
+			const current = fileContent.get(e.path);
+			if (current === undefined) {
+				continue;
+			}
+			fileContent.set(e.path, applySurfaceMutations(current, mutations));
+		}
+	}
 
 	const filesChanged: string[] = [];
 	const batch: Array<{ path: string; content: string }> = [];
@@ -111,10 +148,35 @@ interface SpecEntry {
 	content: string;
 }
 
+const TERMINAL_STATUSES = new Set(["approved", "deprecated", "removed"]);
+
+/*
+ * IDs that are >=approved after the plan is applied: those already terminal in
+ * the spec plus those the plan flips to a terminal status.
+ */
+function approvedAfterPlan(
+	records: ReadonlyArray<LintRecord>,
+	attestations: ReadonlyArray<PendingAttestation>,
+): Set<string> {
+	const out = new Set<string>();
+	for (const r of records) {
+		if (r.lifecycleStatus !== null && TERMINAL_STATUSES.has(r.lifecycleStatus)) {
+			out.add(r.id);
+		}
+	}
+	for (const a of attestations) {
+		if (TERMINAL_STATUSES.has(a.targetStatus)) {
+			out.add(a.id);
+		}
+	}
+	return out;
+}
+
 interface AppliedAttestations {
 	fileContent: Map<string, string>;
 	finalizedIds: string[];
 	missingIds: string[];
+	unflippableIds: string[];
 }
 
 function applyAttestations(
@@ -128,6 +190,7 @@ function applyAttestations(
 	}
 	const finalizedIds: string[] = [];
 	const missingIds: string[] = [];
+	const unflippableIds: string[] = [];
 
 	for (const a of attestations) {
 		const req: ApprovalAttestation = {
@@ -152,9 +215,13 @@ function applyAttestations(
 			if (result.matched.length === 0) {
 				continue;
 			}
-			fileContent.set(e.path, result.newContent);
 			matched = true;
-			for (const m of result.matched) {
+			if (result.flipped.length === 0) {
+				unflippableIds.push(a.id);
+				break;
+			}
+			fileContent.set(e.path, result.newContent);
+			for (const m of result.flipped) {
 				finalizedIds.push(m.id);
 			}
 			break;
@@ -164,5 +231,5 @@ function applyAttestations(
 		}
 	}
 
-	return { fileContent, finalizedIds, missingIds };
+	return { fileContent, finalizedIds, missingIds, unflippableIds };
 }

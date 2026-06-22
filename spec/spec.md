@@ -333,12 +333,13 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/ready
-version: "0.5.0"
+version: "0.6.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-013
   - sdd-cli:CTR-014
   - sdd-cli:CTR-015
+  - sdd-cli:CTR-025
 consumer_compat_policy: semver_per_surface
 notes: |
   v0.3.0 — added the `sdd ready` subcommand. Closes the gate-3
@@ -374,7 +375,7 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/diagnostics
-version: "0.6.0"
+version: "0.7.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-016
@@ -415,7 +416,7 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/finalize
-version: "0.4.0"
+version: "0.5.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-017
@@ -2024,6 +2025,108 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:BEH-073
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-22T07:22:36.255Z
+    change_request: approve finalize surface_impact + inline-flip + ready surface_member_drift (DLT-005 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd finalize materialises an approved Delta's surface_impact (Surface version + members)
+given: |
+  - a plan flips a Delta <D> to approved, where <D> carries
+    surface_impact[] entries shaped { id: <SUR>, intended_version: <V> }
+  - <SUR> is an approved Surface whose declared version differs from <V>
+  - zero or more records declare surface_ref: <SUR> and are >=approved
+    after the plan is applied
+when: |
+  user runs `sdd finalize`
+then: |
+  - exits 0
+  - <SUR>.version is rewritten to <V>
+  - every >=approved record whose surface_ref is <SUR> appears in
+    <SUR>.members (union, order-preserving, no duplicates)
+  - block-list and flow-list members forms are both handled
+  - re-running finalize on an already-materialised surface changes nothing
+applicability:
+  invariant_to_all_axes: true
+data_scope: new_writes_only
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    finalize on a plan that flips a Delta carrying surface_impact sets the
+    target Surface.version to intended_version and unions members with the
+    >=approved surface_ref children; the operation is idempotent on re-run.
+  test_template: integration
+  boundary_classes:
+    - surface with flow-list members
+    - surface with block-list members
+    - no new surface_ref children (version-only bump)
+    - idempotent re-run
+  failure_scenarios:
+    - version left stale after finalize
+    - surface_ref child missing from members
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-074
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-22T07:22:36.320Z
+    change_request: approve finalize surface_impact + inline-flip + ready surface_member_drift (DLT-005 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd finalize flips inline-form lifecycle and counts only records whose status changed
+given: |
+  - a plan whose attestations include records written in the inline flow
+    form `lifecycle: { status: proposed }` and records in the block form
+  - each attestation id matches exactly one spec record
+when: |
+  user runs `sdd finalize`
+then: |
+  - exits 0
+  - records in inline flow form have status rewritten to <target_status>,
+    preserving the flow shape
+  - finalized_ids contains exactly the records whose lifecycle.status was
+    rewritten
+  - an attestation that matches a record by id but exposes no rewritable
+    lifecycle anchor makes finalize exit non-zero, report that id as
+    unflippable, and write no spec file
+applicability:
+  invariant_to_all_axes: true
+data_scope: new_writes_only
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    finalize rewrites lifecycle.status for inline flow-form records and for
+    block-form records alike; finalized_ids counts only rewritten records;
+    an id matched but not rewritten yields a non-zero exit and an unflippable
+    report with no spec write.
+  test_template: integration
+  boundary_classes:
+    - inline flow-form record
+    - block-form record
+    - matched id with no rewritable lifecycle anchor
+  failure_scenarios:
+    - counter reports a record that was not rewritten
+    - inline-form record left proposed
+---
+```
+
 ### 6.9 `sdd doctor --rule-version`
 
 ```yaml
@@ -2476,6 +2579,55 @@ test_obligation:
   test_template: integration
   boundary_classes: [uppercase segment near-miss, valid marker, non-marker prose]
   failure_scenarios: [near-miss flips exit code, valid marker flagged as near-miss]
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-075
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-22T07:22:36.385Z
+    change_request: approve finalize surface_impact + inline-flip + ready surface_member_drift (DLT-005 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: sdd ready flags surface_ref/members drift and unapplied surface_impact (surface_member_drift)
+given: |
+  - an approved Surface <SUR>
+  - case A: a record declares surface_ref: <SUR> but is absent from
+    <SUR>.members
+  - case B: an approved Delta declares surface_impact { id: <SUR>,
+    intended_version: <V> } while <SUR>.version differs from <V>
+when: |
+  user runs `sdd ready`
+then: |
+  - emits a violation of kind surface_member_drift for case A and for case B
+  - exits 1
+  - when members and version are consistent with surface_ref and
+    surface_impact, no surface_member_drift violation is emitted
+applicability:
+  invariant_to_all_axes: true
+data_scope: not_applicable
+applicability_reason: ready scans spec text, touches no persistent state
+policy_refs:
+  - sdd-cli:POL-001
+test_obligation:
+  predicate: |
+    ready emits surface_member_drift when a surface_ref child is missing from
+    its Surface.members, or when an approved Delta's surface_impact
+    intended_version differs from the target Surface.version; it emits no such
+    violation when both are consistent.
+  test_template: unit
+  boundary_classes:
+    - surface_ref child missing from members
+    - approved Delta surface_impact version mismatch
+    - consistent surface (negative case)
+  failure_scenarios:
+    - drift reported as green
 ---
 ```
 
@@ -5436,6 +5588,7 @@ schema:
       - generated_artifact_structural_diff_unbumped
       # P3.2 — debt budget monotonicity (ENF-020 runtime side)
       - debt_budget_increased
+      - surface_member_drift
 preconditions:
   not_applicable: contract_publishes_static_id_grammar
   reason: id grammar has no runtime preconditions
@@ -8062,6 +8215,92 @@ tests_new_behavior:
 caveats:
   - "INV-016, POL-003, POL-001, CTR-029, CTR-030 are approved; their predicate/schema changes and the SUR-016 major bump are the human owner's gate (SDD §7.5). POL-003 is security-owned and POL-001 is partition-owned, so approval requires those non-agent identities. The agent drafts this Delta and BEH-072 as proposed and stops."
   - "BL-001's freshness_token goes stale once src/** and tests/** change; a `sdd refresh` plus token re-record is required before implementation-valid (mirrors DLT-001)."
+---
+```
+
+```yaml
+---
+id: sdd-cli:DLT-005
+type: Delta
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-22T07:22:36.176Z
+    change_request: approve finalize surface_impact + inline-flip + ready surface_member_drift (DLT-005 cohort)
+    scope: first-time-approval
+partition_id: sdd-cli
+title: v1.1.0 → next — finalize materialises surface_impact, flips inline lifecycle; ready gains surface_member_drift
+target_ids:
+  - sdd-cli:BEH-073
+  - sdd-cli:BEH-074
+  - sdd-cli:BEH-075
+  - sdd-cli:SUR-008
+  - sdd-cli:SUR-009
+  - sdd-cli:SUR-010
+  - sdd-cli:CTR-016
+  - sdd-cli:CTR-017
+  - sdd-cli:CTR-018
+kind: replace
+compatibility_action: ignore
+baseline_version: sdd-cli:BL-001@v1.1.0
+surface_impact:
+  - id: sdd-cli:SUR-008
+    intended_bump: minor
+    intended_version: 0.6.0
+    reason: reconciles CTR-025 into members (pre-existing surface_ref drift surfaced by surface_member_drift)
+  - id: sdd-cli:SUR-009
+    intended_bump: minor
+    intended_version: 0.7.0
+    reason: adds the ready violation kind surface_member_drift to members.ready
+  - id: sdd-cli:SUR-010
+    intended_bump: minor
+    intended_version: 0.5.0
+    reason: finalize materialises surface_impact and gains the unflippable failure path
+description: |
+  Closes two finalize defects and adds a ready safety-net.
+
+  finalize now materialises an approved Delta's surface_impact: it rewrites
+  the target Surface.version to intended_version and unions Surface.members
+  with the >=approved records that declare surface_ref to that Surface. This
+  gives a legal path to evolve an already-approved Surface, which record set
+  refuses to touch.
+
+  finalize also rewrites the inline flow form `lifecycle: { status: ... }`,
+  not only the block form, and its finalized_ids count reflects records whose
+  status was actually rewritten; an id matched without a rewritable lifecycle
+  anchor now fails finalize rather than counting as flipped.
+
+  ready gains the violation kind surface_member_drift: it fires when a
+  surface_ref child is missing from its Surface.members, or when an approved
+  Delta's declared surface_impact intended_version has not been applied to the
+  target Surface.version. The change is additive at every Surface; existing
+  consumers see identical behaviour on inputs that were already consistent.
+
+  The new rule surfaced one pre-existing drift in this spec: CTR-025 declares
+  surface_ref SUR-008 but was never added to SUR-008.members. This Delta's
+  surface_impact on SUR-008 reconciles it: finalising this Delta adds CTR-025
+  to SUR-008.members and bumps SUR-008 to 0.6.0 through the new code path.
+tests_old_behavior:
+  - existing approve/finalize integration tests stay green (block-form flip,
+    graph-violation refusal, byte-stable refusal path)
+  - existing ready rule tests stay green (no false positives on consistent
+    surfaces)
+tests_new_behavior:
+  - to:sdd-cli:BEH-073
+  - to:sdd-cli:BEH-074
+  - to:sdd-cli:BEH-075
+caveats:
+  - BL-001's freshness_token is stale w.r.t. the source added by this Delta
+    (new ApplySurfaceImpact module, ready rule, registry kind). A separate
+    sdd refresh run regenerates the token; this Delta documents intent but
+    does not itself update BL-001.
+  - v-next ships BEH-073/074/075 in proposed status. Approval is the human
+    owner's gate (SDD §7.5); until approved the IDs are not implementation-valid.
+  - SUR-008 / SUR-009 / SUR-010 version bumps and the CTR-016 members.ready
+    append are applied as append-only minors; finalize materialises the SUR
+    versions and the SUR-008 membership when this Delta is finalised.
 ---
 ```
 

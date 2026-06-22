@@ -7,6 +7,7 @@ import {
 	ruleOrphanCovers,
 	ruleRemovedCompatActionMismatch,
 	ruleRemovedNoCompatTest,
+	ruleSurfaceMemberDrift,
 	ruleSurfaceUnapprovedRef,
 	ruleUnapproved,
 	ruleUncovered,
@@ -232,6 +233,132 @@ test("ruleSurfaceUnapprovedRef does not fire when all members are approved", () 
 	const view = viewWith([surface, member]);
 
 	assert.equal(ruleSurfaceUnapprovedRef(view).length, 0);
+});
+
+test("ruleSurfaceMemberDrift fires when an approved surface_ref child is absent from members", () => {
+	// @covers sdd-cli:BEH-075
+	const surface = record({
+		id: "fixture:SUR-001",
+		template: "Surface",
+		lifecycleStatus: "approved",
+		parsed: { version: "1.0.0", members: ["fixture:CTR-001"] },
+	});
+	const child = record({
+		id: "fixture:CTR-002",
+		template: "Contract",
+		lifecycleStatus: "approved",
+		parsed: { surface_ref: "fixture:SUR-001" },
+	});
+	const view = viewWith([surface, child]);
+
+	const violations = ruleSurfaceMemberDrift(view);
+	assert.equal(violations.length, 1);
+	assert.equal(violations[0]!.kind, "surface_member_drift");
+	assert.equal(violations[0]!.id, "fixture:SUR-001");
+});
+
+test("ruleSurfaceMemberDrift does not fire when the child is already a member", () => {
+	// @covers sdd-cli:BEH-075
+	const surface = record({
+		id: "fixture:SUR-001",
+		template: "Surface",
+		lifecycleStatus: "approved",
+		parsed: {
+			version: "1.0.0",
+			members: ["fixture:CTR-001", "fixture:CTR-002"],
+		},
+	});
+	const child = record({
+		id: "fixture:CTR-002",
+		template: "Contract",
+		lifecycleStatus: "approved",
+		parsed: { surface_ref: "fixture:SUR-001" },
+	});
+
+	assert.equal(ruleSurfaceMemberDrift(viewWith([surface, child])).length, 0);
+});
+
+test("ruleSurfaceMemberDrift ignores a proposed surface_ref child (pre-finalize)", () => {
+	// @covers sdd-cli:BEH-075
+	const surface = record({
+		id: "fixture:SUR-001",
+		template: "Surface",
+		lifecycleStatus: "approved",
+		parsed: { version: "1.0.0", members: ["fixture:CTR-001"] },
+	});
+	const child = record({
+		id: "fixture:CTR-002",
+		template: "Contract",
+		lifecycleStatus: "proposed",
+		parsed: { surface_ref: "fixture:SUR-001" },
+	});
+
+	assert.equal(ruleSurfaceMemberDrift(viewWith([surface, child])).length, 0);
+});
+
+test("ruleSurfaceMemberDrift fires when an approved Delta's surface_impact version is unapplied", () => {
+	// @covers sdd-cli:BEH-075
+	const surface = record({
+		id: "fixture:SUR-001",
+		template: "Surface",
+		lifecycleStatus: "approved",
+		parsed: { version: "1.0.0", members: ["fixture:CTR-001"] },
+	});
+	const delta = record({
+		id: "fixture:DLT-001",
+		template: "Delta",
+		lifecycleStatus: "approved",
+		parsed: {
+			surface_impact: [{ id: "fixture:SUR-001", intended_version: "1.1.0" }],
+		},
+	});
+	const view = viewWith([surface, delta]);
+
+	const violations = ruleSurfaceMemberDrift(view);
+	assert.equal(violations.length, 1);
+	assert.equal(violations[0]!.kind, "surface_member_drift");
+	assert.equal(violations[0]!.expected, "1.1.0");
+	assert.equal(violations[0]!.actual, "1.0.0");
+});
+
+test("ruleSurfaceMemberDrift does not fire when surface_impact version is applied", () => {
+	// @covers sdd-cli:BEH-075
+	const surface = record({
+		id: "fixture:SUR-001",
+		template: "Surface",
+		lifecycleStatus: "approved",
+		parsed: { version: "1.1.0", members: ["fixture:CTR-001"] },
+	});
+	const delta = record({
+		id: "fixture:DLT-001",
+		template: "Delta",
+		lifecycleStatus: "approved",
+		parsed: {
+			surface_impact: [{ id: "fixture:SUR-001", intended_version: "1.1.0" }],
+		},
+	});
+
+	assert.equal(ruleSurfaceMemberDrift(viewWith([surface, delta])).length, 0);
+});
+
+test("ruleSurfaceMemberDrift ignores a proposed Delta's surface_impact", () => {
+	// @covers sdd-cli:BEH-075
+	const surface = record({
+		id: "fixture:SUR-001",
+		template: "Surface",
+		lifecycleStatus: "approved",
+		parsed: { version: "1.0.0", members: ["fixture:CTR-001"] },
+	});
+	const delta = record({
+		id: "fixture:DLT-001",
+		template: "Delta",
+		lifecycleStatus: "proposed",
+		parsed: {
+			surface_impact: [{ id: "fixture:SUR-001", intended_version: "1.1.0" }],
+		},
+	});
+
+	assert.equal(ruleSurfaceMemberDrift(viewWith([surface, delta])).length, 0);
 });
 
 test("ruleOrphanCovers fires when marker partition is configured but ID is missing", () => {

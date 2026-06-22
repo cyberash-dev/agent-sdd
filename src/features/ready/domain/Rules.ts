@@ -219,6 +219,83 @@ export function ruleSurfaceUnapprovedRef(
 	return out;
 }
 
+/*
+ * BEH-075: surface_ref/members drift and unapplied surface_impact. The
+ * complement of ruleSurfaceUnapprovedRef — that rule walks members forward;
+ * this one walks surface_ref back, and checks that an approved Delta's declared
+ * surface_impact bump was actually applied to the target Surface.
+ */
+export function ruleSurfaceMemberDrift(view: PartitionView): ReadyViolation[] {
+	const out: ReadyViolation[] = [];
+
+	for (const rec of view.records) {
+		const ref = rec.parsed.surface_ref;
+		if (typeof ref !== "string" || !isTerminalStatus(rec.lifecycleStatus)) {
+			continue;
+		}
+		const surface = view.recordsById.get(ref);
+		if (
+			surface === undefined ||
+			surface.template !== "Surface" ||
+			!isTerminalStatus(surface.lifecycleStatus)
+		) {
+			continue;
+		}
+		if (readMembers(surface).includes(rec.id)) {
+			continue;
+		}
+		out.push({
+			kind: "surface_member_drift",
+			id: surface.id,
+			partition: view.partition.name,
+			status: surface.lifecycleStatus ?? undefined,
+			file: surface.file,
+			line: surface.line,
+			remediation: `record ${rec.id} declares surface_ref ${surface.id} but is absent from its members; finalise the Delta that adds it`,
+		});
+	}
+
+	for (const rec of view.records) {
+		if (rec.template !== "Delta" || !isTerminalStatus(rec.lifecycleStatus)) {
+			continue;
+		}
+		const impact = rec.parsed.surface_impact;
+		if (!Array.isArray(impact)) {
+			continue;
+		}
+		for (const entry of impact) {
+			if (!isObject(entry) || typeof entry.id !== "string") {
+				continue;
+			}
+			const intended = entry.intended_version;
+			if (typeof intended !== "string") {
+				continue;
+			}
+			const surface = view.recordsById.get(entry.id);
+			if (surface === undefined || surface.template !== "Surface") {
+				continue;
+			}
+			const actual = readVersion(surface);
+			if (actual === intended) {
+				continue;
+			}
+			out.push({
+				kind: "surface_member_drift",
+				id: surface.id,
+				partition: view.partition.name,
+				status: surface.lifecycleStatus ?? undefined,
+				file: rec.file,
+				line: rec.line,
+				expected: intended,
+				actual: actual ?? undefined,
+				remediation: `Delta ${rec.id} declares surface_impact ${surface.id}@${intended} but the surface is at ${actual ?? "unset"}; finalise the Delta to apply the bump`,
+			});
+		}
+	}
+
+	return out;
+}
+
 export interface ScannedMarker {
 	marker: Marker;
 	isPartitionConfigured: boolean;
@@ -296,6 +373,15 @@ function readMembers(rec: LintRecord): string[] {
 		return [];
 	}
 	return m.filter((v): v is string => typeof v === "string");
+}
+
+function readVersion(rec: LintRecord): string | null {
+	const v = rec.parsed.version;
+	return typeof v === "string" ? v : null;
+}
+
+function isTerminalStatus(status: string | null): boolean {
+	return status === "approved" || status === "deprecated" || status === "removed";
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

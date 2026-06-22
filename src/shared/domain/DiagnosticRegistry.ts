@@ -60,6 +60,8 @@ export const READY_VIOLATION_KINDS = [
 	"generated_artifact_structural_diff_unbumped",
 	/* P3.2 — debt-budget monotonicity check (ENF-020 runtime side) */
 	"debt_budget_increased",
+	/* surface_ref/members drift and unapplied surface_impact (BEH-075) */
+	"surface_member_drift",
 ] as const;
 
 export type ReadyViolationKindId = (typeof READY_VIOLATION_KINDS)[number];

@@ -336,6 +336,33 @@ test("glob enumerates only top-level records, not nested `- id:` items (INV-007)
 	);
 });
 
+test("rewrites the inline flow lifecycle form (lifecycle: { status: ... })", () => {
+	// @covers sdd-cli:BEH-074
+	// spec.md records may carry the inline flow form `lifecycle: { status: … }`.
+	// The rewriter must flip the status inside the braces, preserving the flow
+	// shape — otherwise `sdd finalize` silently no-ops on those records.
+	const md = [
+		"```yaml",
+		"---",
+		"id: demo:beh-flow",
+		"type: Behavior",
+		"lifecycle: { status: proposed }",
+		"partition_id: demo",
+		"---",
+		"```",
+	].join("\n");
+
+	const result = rewriteApproval(
+		md,
+		{ ...REQ, id: "demo:beh-flow" },
+		FROZEN_TIME,
+	);
+
+	assert.equal(result.matched.length, 1);
+	assert.match(result.newContent, /lifecycle: \{ status: approved \}/);
+	assert.match(result.newContent, /approver_identity: cyberash/);
+});
+
 test("flips nested-lifecycle record whose `- id:` list precedes lifecycle (INV-007)", () => {
 	// @covers sdd-cli:INV-007
 	// The canonical brownfield form (--- delimited, nested lifecycle:) with a
