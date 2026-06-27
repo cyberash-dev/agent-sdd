@@ -10,6 +10,39 @@ landed.
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-06-27
+
+### Added
+
+- **Pluggable VCS adapters** (`DLT-006`, `SUR-017` v0.1.0). Version control
+  is now reached through a single `Vcs` port. The built-in `git` adapter is
+  the default and unchanged; an external adapter can ship as a separate npm
+  package and be selected with `.sdd/config.json#vcs` (a module specifier),
+  resolved from the consumer repo's `node_modules`, loaded via its
+  `createVcs` factory, and shape-validated before use (`CTR-031`, `CTR-032`,
+  `BEH-077`). Loading is fail-closed and repo-scoped: a missing,
+  non-conformant, mechanism-mismatched, or out-of-repo adapter exits 2 with
+  no mutation (`POL-004`, `EXT-003`, `BEH-078`, `BEH-079`). External
+  adapters run in-process and are trusted (`ASM-010`).
+- `.sdd/config.json#vcs` — optional, defaults to `"git"`. The built-in git
+  path is byte-identical to before (`BEH-076`, `SUR-002` 0.2.0, `CTR-003`).
+
+### Changed
+
+- **`mechanism` is now adapter-declared** instead of the fixed constant
+  `git_tree_hash_v1` (`INV-003`, `CTR-004`). The built-in git adapter still
+  declares `git_tree_hash_v1`, so the default `git` path is unchanged; the
+  `token` / `check` JSON `mechanism` field now reflects the active adapter.
+  This is a predicate change on `Surface: sdd-cli/json-output`, so `SUR-003`
+  takes a **major** bump to 1.0.0. The `mechanism` field in
+  `.sdd/config.json` and in the published JSON Schema relaxes from a fixed
+  enum to the id grammar `^[a-z][a-z0-9_]*$`, pinned to `git_tree_hash_v1`
+  for the git default (`CST-005`).
+- The four near-identical per-feature git adapters were consolidated into a
+  single built-in `GitVcs` (`IMP-012`). `git show <ref>:<path>` — already
+  used by `ready` and `report --against` — is now declared in `EXT-001` and
+  covered by the `POL-002` allowlist test.
+
 ## [1.1.0] — 2026-05-31
 
 ### Added
@@ -321,7 +354,9 @@ landed.
 - Shipped via `npm pack` tarball (`@cyberash/sdd-cli@0.1.0.tgz`); npm
   registry publication intentionally out of scope.
 
-[Unreleased]: https://github.com/cyberash-dev/sdd-cli/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/cyberash-dev/sdd-cli/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v1.3.0
+[1.1.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v1.1.0
 [1.0.3]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v1.0.3
 [0.2.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v0.2.0
 [0.1.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v0.1.0
