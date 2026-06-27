@@ -96,6 +96,34 @@ function cjsAdapter(
 	};
 }
 
+function cjsDefaultAdapter(name: string, mechanism: string): AdapterPackage {
+	return {
+		name,
+		files: {
+			"package.json": JSON.stringify({
+				name,
+				version: "1.0.0",
+				main: "index.js",
+			}),
+			"index.js": `${adapterBody(mechanism)}\nmodule.exports = createVcs;\n`,
+		},
+	};
+}
+
+function throwingAdapter(name: string): AdapterPackage {
+	return {
+		name,
+		files: {
+			"package.json": JSON.stringify({
+				name,
+				version: "1.0.0",
+				main: "index.js",
+			}),
+			"index.js": `function createVcs() { throw new Error("factory boom"); }\nmodule.exports = { createVcs };\n`,
+		},
+	};
+}
+
 function esmAdapter(name: string, mechanism: string): AdapterPackage {
 	return {
 		name,
@@ -202,4 +230,45 @@ test("token exits 2 when config mechanism disagrees with the adapter mechanism",
 
 	assert.equal(result.code, 2);
 	assert.match(`${result.stdout}${result.stderr}`, /declared_v1|actual_v1/);
+});
+
+test("token loads an adapter exposed as a default factory export", async () => {
+	// @covers sdd-cli:CTR-031
+	const root = await makeRepo({
+		vcs: "@fake/sdd-vcs-default",
+		mechanism: "fake_fingerprint_v1",
+		adapter: cjsDefaultAdapter("@fake/sdd-vcs-default", "fake_fingerprint_v1"),
+	});
+
+	const result = await runSdd(root, ["token", "--format=json"]);
+
+	assert.equal(result.code, 0, result.stderr);
+	assert.equal(tokenMechanism(result.stdout), "fake_fingerprint_v1");
+});
+
+test("token exits 2 when the adapter factory throws", async () => {
+	// @covers sdd-cli:POL-004
+	const root = await makeRepo({
+		vcs: "@fake/sdd-vcs-throws",
+		mechanism: "fake_fingerprint_v1",
+		adapter: throwingAdapter("@fake/sdd-vcs-throws"),
+	});
+
+	const result = await runSdd(root, ["token", "--format=json"]);
+
+	assert.equal(result.code, 2);
+	assert.match(`${result.stdout}${result.stderr}`, /factory boom/);
+});
+
+test("token exits 2 when the vcs adapter path escapes the repo root", async () => {
+	// @covers sdd-cli:POL-004
+	const root = await makeRepo({
+		vcs: "../evil-adapter.js",
+		mechanism: "fake_fingerprint_v1",
+	});
+
+	const result = await runSdd(root, ["token", "--format=json"]);
+
+	assert.equal(result.code, 2);
+	assert.match(`${result.stdout}${result.stderr}`, /escapes the repo root/);
 });

@@ -40,7 +40,11 @@
     },
     "mechanism": {
       "type": "string",
-      "enum": ["git_tree_hash_v1"]
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "vcs": {
+      "type": "string",
+      "minLength": 1
     },
     "lint": {
       "type": "object",
@@ -100,5 +104,18 @@
       "minLength": 1,
       "default": ".sdd/plans"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "anyOf": [
+          { "not": { "required": ["vcs"] } },
+          { "required": ["vcs"], "properties": { "vcs": { "const": "git" } } }
+        ]
+      },
+      "then": {
+        "properties": { "mechanism": { "const": "git_tree_hash_v1" } }
+      }
+    }
+  ]
 }

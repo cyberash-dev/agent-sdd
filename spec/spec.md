@@ -8149,22 +8149,22 @@ lifecycle:
     change_request: approve sdd-cli v1 specification block for implementation
 partition_id: sdd-cli
 constraint: |
-  v1 mechanism is fixed at "git_tree_hash_v1". The mechanism field of
-  CTR-003 is a closed enum with this single value. Other mechanisms
-  (sha256_of_concat, git_tag_based) are reserved but not implemented;
-  introducing one is a major bump on SUR-002 (config schema).
+  mechanism is an adapter-declared fingerprint id matching the grammar
+  ^[a-z][a-z0-9_]*$. The built-in git adapter declares "git_tree_hash_v1".
+  The mechanism field of CTR-003 is a grammar-constrained string, not a
+  closed enum; external adapters declare their own id (see SUR-017 / DLT-006).
 rationale: |
   Keeps v1 narrow per PLAN.md §Out of scope.
 test_obligation:
   predicate: |
-    schema/sdd.config.schema.json#properties.mechanism.enum equals
-    ["git_tree_hash_v1"] (exactly one element).
+    schema/sdd.config.schema.json#properties.mechanism.pattern equals
+    "^[a-z][a-z0-9_]*$"; properties.vcs is present.
   test_template: contract
   boundary_classes:
     - canonical schema file
   failure_scenarios:
-    - additional mechanism value silently added to the enum
-    - mechanism property removed or made non-required
+    - mechanism constrained to a closed enum again
+    - vcs property removed from the schema
 ---
 ```
 

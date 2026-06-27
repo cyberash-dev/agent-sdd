@@ -6,7 +6,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	BUILTIN_GIT_VCS,
@@ -66,7 +66,14 @@ async function loadExternalVcs(
 
 function resolveModuleUrl(repoRoot: string, spec: string): string {
 	if (isAbsolute(spec) || spec.startsWith(".")) {
-		return pathToFileURL(resolve(repoRoot, spec)).href;
+		const resolved = resolve(repoRoot, spec);
+		if (!isInsideRepo(repoRoot, resolved)) {
+			throw configFailure(
+				"config-invalid",
+				`vcs adapter path "${spec}" escapes the repo root ${repoRoot}`,
+			);
+		}
+		return pathToFileURL(resolved).href;
 	}
 	try {
 		const requireFromRepo = createRequire(
@@ -156,6 +163,11 @@ function readBootstrapConfig(cwd: string): BootstrapConfig | null {
 		}
 		current = parent;
 	}
+}
+
+function isInsideRepo(repoRoot: string, target: string): boolean {
+	const rel = relative(repoRoot, target);
+	return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
 
 function isFactory(value: unknown): value is Factory {

@@ -41,6 +41,10 @@ interface ConfigSchema {
 	properties?: {
 		mechanism?: {
 			enum?: string[];
+			pattern?: string;
+		};
+		vcs?: {
+			type?: string;
 		};
 	};
 }
@@ -88,11 +92,13 @@ test("CST-004: yaml@^2 is the only YAML parser, no js-yaml", () => {
 	);
 });
 
-test('CST-005: schema/sdd.config.schema.json mechanism enum is exactly ["git_tree_hash_v1"]', () => {
+test("CST-005: schema/sdd.config.schema.json mechanism is a grammar and vcs is allowed", () => {
 	// @covers sdd-cli:CST-005
 	const schema = readJson<ConfigSchema>("schema/sdd.config.schema.json");
 
-	assert.deepEqual(schema.properties?.mechanism?.enum, ["git_tree_hash_v1"]);
+	assert.equal(schema.properties?.mechanism?.pattern, "^[a-z][a-z0-9_]*$");
+	assert.equal(schema.properties?.mechanism?.enum, undefined);
+	assert.ok(schema.properties?.vcs);
 });
 
 test("CST-006: no third-party glob library in runtime dependencies", () => {
