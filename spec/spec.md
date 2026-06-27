@@ -177,7 +177,7 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/config
-version: "0.1.0"
+version: "0.2.0"
 boundary_type: public_storage
 members:
   - sdd-cli:CTR-003
@@ -199,7 +199,7 @@ lifecycle:
     scope: first-time-approval
 partition_id: sdd-cli
 name: sdd-cli/json-output
-version: "0.1.0"
+version: "1.0.0"
 boundary_type: cli
 members:
   - sdd-cli:CTR-004
@@ -614,6 +614,34 @@ notes: |
   $CLAUDE_PROJECT_DIR/.claude/sdd/hooks/<f>.sh. Major bump: the write-boundary
   predicate of INV-016 / POL-003 / POL-001 changed (DLT-004). Driven by
   rules/manifest.json (CST-008).
+---
+```
+
+```yaml
+---
+id: sdd-cli:SUR-017
+type: Surface
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.205Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+name: sdd-cli/vcs-plugin
+version: "0.1.0"
+boundary_type: sdk
+members:
+  - sdd-cli:CTR-031
+  - sdd-cli:CTR-032
+consumer_compat_policy: semver_per_surface
+notes: |
+  Published contract that external VCS adapter packages implement. An adapter
+  package exports a createVcs factory returning a Vcs and declares a mechanism
+  id; sdd-cli loads it by the config `vcs` field, resolved from the consumer
+  repo.
 ---
 ```
 
@@ -2628,6 +2656,185 @@ test_obligation:
     - consistent surface (negative case)
   failure_scenarios:
     - drift reported as green
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-076
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:28.946Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: token/check use the built-in git adapter when config vcs is absent
+given: |
+  - .sdd/config.json omits `vcs` (or sets it to "git")
+  - mechanism is "git_tree_hash_v1"
+when: user runs `sdd token --format=json` (or `sdd check`)
+then: |
+  - the built-in git adapter is used
+  - the JSON `mechanism` field equals "git_tree_hash_v1"
+  - output matches the pre-vcs-plugin behaviour for the git path
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-002
+test_obligation:
+  predicate: |
+    With no `vcs` field, token JSON carries mechanism "git_tree_hash_v1".
+  test_template: integration
+  boundary_classes:
+    - vcs absent
+    - vcs set to "git"
+  failure_scenarios:
+    - mechanism changes for the default git path
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-077
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.012Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: an external vcs adapter is loaded from the consumer repo and its mechanism is echoed
+given: |
+  - .sdd/config.json sets `vcs` to a module specifier of an installed,
+    conformant adapter package and `mechanism` to that adapter's id
+when: user runs `sdd token --format=json`
+then: |
+  - the module is resolved from <repo_root>/node_modules, not sdd-cli's own
+  - its createVcs factory (or default export) produces the adapter
+  - the JSON `mechanism` field equals the adapter's declared mechanism
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-004
+test_obligation:
+  predicate: |
+    A conformant CJS or ESM adapter named by `vcs` drives token and its
+    declared mechanism appears in the JSON output.
+  test_template: integration
+  boundary_classes:
+    - CJS adapter package
+    - ESM adapter package
+  failure_scenarios:
+    - module resolved from sdd-cli's node_modules instead of the repo
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-078
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.076Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: a missing vcs adapter package fails closed with exit 2
+given: |
+  - config `vcs` names a package that is not installed under <repo_root>
+when: user runs a command that resolves the adapter (e.g. `sdd token`)
+then: |
+  - exits 2 (configuration error)
+  - the message names the unresolved specifier
+  - no spec file or working-tree path is mutated
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: not_applicable
+applicability_reason: failure path performs no writes
+policy_refs:
+  - sdd-cli:POL-004
+test_obligation:
+  predicate: |
+    A `vcs` pointing at an uninstalled package exits 2 with a message that
+    names the specifier.
+  test_template: integration
+  boundary_classes:
+    - bare package name not installed
+  failure_scenarios:
+    - exit code other than 2 on a missing adapter
+---
+```
+
+```yaml
+---
+id: sdd-cli:BEH-079
+type: Behavior
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.141Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: a non-conformant or mechanism-mismatched vcs adapter fails closed with exit 2
+given: |
+  - config `vcs` names a package that loads but lacks a required Vcs method,
+    or whose declared mechanism differs from config `mechanism`
+when: user runs a command that resolves the adapter
+then: |
+  - exits 2 (configuration error)
+  - the message names the missing method or the mechanism mismatch
+  - no spec file or working-tree path is mutated
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  actor_concurrency: single_per_process
+  read_consistency: strong
+  idempotency: none
+  time_source: none
+data_scope: not_applicable
+applicability_reason: failure path performs no writes
+policy_refs:
+  - sdd-cli:POL-004
+test_obligation:
+  predicate: |
+    An adapter missing a method, or whose mechanism differs from config,
+    exits 2 with a descriptive message.
+  test_template: integration
+  boundary_classes:
+    - adapter missing a required method
+    - adapter mechanism != config mechanism
+  failure_scenarios:
+    - a malformed adapter is accepted and used
 ---
 ```
 
@@ -4689,7 +4896,15 @@ schema:
           default: "binding"
     mechanism:
       type: string
-      enum: [git_tree_hash_v1]
+      pattern: "^[a-z][a-z0-9_]*$"
+      description: |
+        fingerprint algorithm id of the active VCS adapter; the built-in
+        git adapter declares git_tree_hash_v1
+    vcs:
+      type: string
+      description: |
+        VCS adapter selector: "git" (built-in) or a module specifier of an
+        external adapter package resolved from <repo_root>. Defaults to "git".
 preconditions:
   - file exists at <repo_root>/.sdd/config.json
 postconditions:
@@ -4752,7 +4967,7 @@ schema:
       ok:             { const: true }
       token:          { type: string, pattern: "^[0-9a-f]{64}$" }
       commit_sha:     { type: string, pattern: "^[0-9a-f]{40}$" }
-      mechanism:      { const: git_tree_hash_v1 }
+      mechanism:      { type: string, pattern: "^[a-z][a-z0-9_]*$" }
       scope:          { type: array, items: { type: string } }
   on_baseline_dirty:
     type: object
@@ -6384,6 +6599,120 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:CTR-031
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.270Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: VCS adapter ABI
+surface_ref: sdd-cli:SUR-017
+schema:
+  module_exports:
+    createVcs: "(options: { repoRoot: string }) => Vcs | Promise<Vcs>"
+    accepted_forms: |
+      a named createVcs export, a default factory function, or a default
+      object exposing createVcs
+  vcs_interface:
+    mechanism: string
+    isGitRepo: "(cwd) => Promise<boolean>"
+    repoRoot: "(cwd) => Promise<string>"
+    headSha: "(repoRoot) => Promise<string>"
+    treeBytes: "(repoRoot, scope) => Promise<Uint8Array>"
+    treePaths: "(repoRoot, scope) => Promise<string[]>"
+    dirtyPaths: "(repoRoot, scope) => Promise<string[]>"
+    changedPaths: "(repoRoot, baseline, scope) => Promise<string[]>"
+    readAtRef: "(repoRoot, ref, path) => Promise<string | null>"
+preconditions:
+  - config `vcs` names an installed module exporting the factory
+postconditions:
+  - the returned object passes shape conformance before any feature uses it
+external_identifiers:
+  - the createVcs export name; the Vcs method names; the mechanism field
+compatibility_rules:
+  - renaming a Vcs method        => major bump on SUR-017
+  - adding a required Vcs method => major bump on SUR-017
+  - removing a Vcs method        => major bump on SUR-017
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: abi_describes_static_module_shape
+  reason: the ABI is a static contract with no runtime concurrency dimension
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-004
+test_obligation:
+  predicate: |
+    A conformant adapter (CJS or ESM) loads and drives token; a malformed one
+    is rejected by conformance.
+  test_template: integration
+  boundary_classes:
+    - CJS adapter
+    - ESM adapter
+    - malformed adapter
+  failure_scenarios:
+    - a malformed adapter is accepted
+---
+```
+
+```yaml
+---
+id: sdd-cli:CTR-032
+type: Contract
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.333Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: VCS mechanism id grammar
+surface_ref: sdd-cli:SUR-017
+schema:
+  mechanism_id:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*$"
+    examples:
+      - git_tree_hash_v1
+      - arc_tree_hash_v1
+preconditions:
+  - an adapter declares a mechanism string
+postconditions:
+  - a mechanism matching the grammar is echoed verbatim in token/check output
+external_identifiers:
+  - the mechanism id grammar pattern
+compatibility_rules:
+  - tightening the grammar => major bump on SUR-017
+applicability:
+  invariant_to_all_axes: true
+concurrency_model:
+  not_applicable: grammar_is_a_static_string_shape
+  reason: no runtime concurrency dimension
+data_scope: all_data
+policy_refs:
+  - sdd-cli:POL-004
+test_obligation:
+  predicate: |
+    A mechanism breaking the grammar is rejected by conformance; a conformant
+    one is accepted and echoed.
+  test_template: unit
+  boundary_classes:
+    - valid id
+    - invalid id
+  failure_scenarios:
+    - an invalid mechanism id is accepted
+---
+```
+
 ---
 
 ## 8. Invariants
@@ -6501,9 +6830,9 @@ lifecycle:
 partition_id: sdd-cli
 title: token mechanism is git_tree_hash_v1
 always: |
-  Every emitted token is computed via the algorithm declared in §11
-  (git_tree_hash_v1). The string `mechanism` in CTR-004 / CTR-005
-  output equals "git_tree_hash_v1".
+  Every emitted token is computed via the algorithm the active VCS adapter
+  declares. The string `mechanism` in CTR-004 output equals that adapter's
+  declared mechanism id; the built-in git adapter declares "git_tree_hash_v1".
 scope: sdd-cli/json-output
 evidence: public_api
 stability: contractual
@@ -7378,6 +7707,60 @@ test_obligation:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:EXT-003
+type: ExternalDependency
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.465Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+provider: consumer-supplied VCS adapter npm package (named by config `vcs`)
+provider_surface: "implements sdd-cli/vcs-plugin (SUR-017)"
+authority_url_or_doc: "see SUR-017 / CTR-031 in this spec"
+consumer_contract:
+  surface_used:
+    - default or named createVcs(options) factory
+    - the Vcs method set declared in CTR-031
+  expectations:
+    - the package is installed under <repo_root>/node_modules
+    - the factory returns a shape-conformant Vcs with a grammar-valid mechanism
+drift_detection:
+  mechanism: contract_test_against_fake_adapter
+  artefact: tests/integration/vcs-external-adapter.test.ts
+last_verified_at: 2026-06-26
+auth_scope:
+  not_applicable: local_module_no_auth
+  reason: adapter is a local npm package loaded in-process
+rate_limits:
+  not_applicable: local_module_no_rate_limit
+  reason: same as above
+retry/idempotency:
+  not_applicable: load_once_per_invocation
+  reason: the adapter is imported once and reused within a single command
+error_taxonomy:
+  - missing / unloadable / non-conformant module => exit 2 config error
+sandbox_or_fixture:
+  - tests/integration/vcs-external-adapter.test.ts builds a fake adapter package
+test_obligation:
+  predicate: |
+    A fake conformant adapter package drives token; malformed ones fail closed.
+  test_template: integration
+  boundary_classes:
+    - CJS package
+    - ESM package
+    - missing package
+    - non-conformant package
+  failure_scenarios:
+    - a module-format change silently breaks loading
+---
+```
+
 ---
 
 ## 10. Generated artifacts
@@ -7558,6 +7941,47 @@ test_obligation:
   test_template: integration
   boundary_classes: [claude, codex, all, project, dry-run]
   failure_scenarios: [a write-mode open outside the destination root]
+---
+```
+
+```yaml
+---
+id: sdd-cli:POL-004
+type: Policy
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.400Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: external vcs adapter loading is fail-closed and repo-scoped
+policy_kind: io_scope
+applicability:
+  applies_to: every command that resolves a VCS adapter via config `vcs`
+predicate: |
+  When config `vcs` is absent or "git", the built-in git adapter is used.
+  Otherwise the named module MUST be resolved from <repo_root> (the consumer
+  repo), not from sdd-cli's own node_modules. A module that is missing, fails
+  to load, exposes no createVcs factory, fails shape conformance, or whose
+  mechanism differs from config `mechanism` MUST cause exit 2 (config error)
+  with no spec or working-tree mutation. Loaded adapter code is trusted to be
+  read-only; sdd-cli validates its shape, not its semantics.
+negative_test_obligations:
+  - a vcs naming an uninstalled package exits 2
+  - a vcs whose adapter lacks a required method exits 2
+  - a vcs whose adapter mechanism differs from config mechanism exits 2
+test_obligation:
+  predicate: same as negative_test_obligations
+  test_template: integration
+  boundary_classes:
+    - missing package
+    - non-conformant adapter
+    - mechanism mismatch
+  failure_scenarios:
+    - a malformed adapter is loaded and used
 ---
 ```
 
@@ -8304,6 +8728,81 @@ caveats:
 ---
 ```
 
+```yaml
+---
+id: sdd-cli:DLT-006
+type: Delta
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.726Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+title: v1.2.0 → next — pluggable VCS adapter contract; git built-in; mechanism parameterized per adapter
+target_ids:
+  - sdd-cli:BEH-076
+  - sdd-cli:BEH-077
+  - sdd-cli:BEH-078
+  - sdd-cli:BEH-079
+  - sdd-cli:SUR-017
+  - sdd-cli:CTR-031
+  - sdd-cli:CTR-032
+  - sdd-cli:POL-004
+  - sdd-cli:EXT-003
+  - sdd-cli:ASM-010
+  - sdd-cli:IMP-035
+  - sdd-cli:IMP-036
+  - sdd-cli:INV-003
+  - sdd-cli:CTR-004
+  - sdd-cli:CTR-003
+  - sdd-cli:IMP-012
+  - sdd-cli:SUR-003
+  - sdd-cli:SUR-002
+kind: replace
+compatibility_action: ignore
+baseline_version: sdd-cli:BL-001@v1.2.0
+surface_impact:
+  - id: sdd-cli:SUR-003
+    intended_bump: major
+    intended_version: "1.0.0"
+    reason: |
+      mechanism stops being the fixed const git_tree_hash_v1; it now equals
+      the active adapter's declared mechanism (predicate change on the
+      contractual INV-003)
+  - id: sdd-cli:SUR-002
+    intended_bump: minor
+    intended_version: "0.2.0"
+    reason: |
+      config gains the optional `vcs` field and loosens mechanism from a fixed
+      enum to a grammar; additive for the git default
+description: |
+  Extracts git behind a single Vcs port with a built-in GitVcs adapter and
+  adds support for external adapters shipped as separate npm packages, loaded
+  by the config `vcs` field and resolved from the consumer repo. mechanism is
+  parameterized per adapter (built-in git declares git_tree_hash_v1).
+
+  The predicate edits to the already-approved INV-003, CTR-004, CTR-003, and
+  IMP-012 were applied by a one-off manual spec edit, sanctioned by the
+  partition owner, because the CLI offers no in-place predicate-edit path for
+  approved records. This Delta records that exception; finalising it
+  materialises the SUR-003 major and SUR-002 minor version bumps.
+tests_old_behavior:
+  - the git default path keeps emitting mechanism git_tree_hash_v1 (BEH-076)
+  - existing token/check/refresh/ready/report integration tests stay green
+tests_new_behavior:
+  - to:sdd-cli:BEH-077
+  - to:sdd-cli:BEH-078
+  - to:sdd-cli:BEH-079
+caveats:
+  - BL-001's freshness_token is stale w.r.t. the src/tests changes; a separate
+    sdd refresh run regenerates it after the source lands.
+  - external adapters are trusted in-process code (ASM-010).
+---
+```
+
 ---
 
 ## 16. Implementation bindings
@@ -8664,9 +9163,10 @@ target_ids:
   - sdd-cli:POL-002
 binding:
   outbound_adapters:
-    token: src/features/token/adapters/outbound/ChildProcessTokenGit.ts
-    check: src/features/check/adapters/outbound/ChildProcessCheckGit.ts
-    refresh: src/features/refresh/adapters/outbound/ChildProcessRefreshGit.ts
+    builtin_git: src/vcs/GitVcs.ts
+    loader: src/vcs/resolveVcs.ts
+    port: src/shared/domain/Vcs.ts
+    conformance: src/shared/domain/VcsConformance.ts
 authority: code_annotation
 verification_method: tests/integration/e2e.test.ts (real git) + POL-002 shim test
 ---
@@ -9326,6 +9826,63 @@ binding:
 authority: code_annotation
 verification_method: |
   tests/integration/ready-semver-cascade.test.ts § INV-014 + § CTR-025
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-035
+type: ImplementationBinding
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.594Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+target_ids:
+  - sdd-cli:BEH-076
+  - sdd-cli:BEH-077
+  - sdd-cli:BEH-078
+  - sdd-cli:BEH-079
+  - sdd-cli:CTR-031
+  - sdd-cli:CTR-032
+binding:
+  port: src/shared/domain/Vcs.ts
+  conformance: src/shared/domain/VcsConformance.ts
+  builtin_adapter: src/vcs/GitVcs.ts
+  loader: src/vcs/resolveVcs.ts
+  config_extension: src/shared/domain/Config.ts
+  composition_root: src/cliDispatch.ts
+authority: code_annotation
+verification_method: tests/integration/vcs-external-adapter.test.ts + tests/unit/VcsConformance.test.ts
+---
+```
+
+```yaml
+---
+id: sdd-cli:IMP-036
+type: ImplementationBinding
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.660Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+target_ids:
+  - sdd-cli:SUR-017
+  - sdd-cli:EXT-003
+  - sdd-cli:POL-004
+binding:
+  loader: src/vcs/resolveVcs.ts
+  conformance: src/shared/domain/VcsConformance.ts
+authority: code_annotation
+verification_method: tests/integration/vcs-external-adapter.test.ts (fake adapter package)
 ---
 ```
 
@@ -10139,6 +10696,32 @@ review_by: 2026-10-29
 default_if_unresolved: keep_assumption
 tests:
   - tests/integration/e2e.test.ts § "sdd --version prints package version"
+---
+```
+
+```yaml
+---
+id: sdd-cli:ASM-010
+type: ASSUMPTION
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-27T06:09:29.532Z
+    change_request: DLT-006 vcs plugin
+    scope: first-time-approval
+partition_id: sdd-cli
+assumption: |
+  An external VCS adapter named by config `vcs` is trusted code: it runs
+  in-process without a sandbox. The consumer owns supply-chain trust;
+  sdd-cli validates only the adapter's shape (conformance), not its runtime
+  behaviour or read-only-ness.
+blocking: no
+review_by: 2026-09-26
+default_if_unresolved: keep_assumption
+tests:
+  - tests/integration/vcs-external-adapter.test.ts
 ---
 ```
 

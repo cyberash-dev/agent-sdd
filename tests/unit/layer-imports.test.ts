@@ -9,6 +9,7 @@ test("source tree follows vertical-slice hexagonal import boundaries", async () 
 	const files = [
 		...(await tsFiles(join("src", "features"))),
 		...(await tsFiles(join("src", "shared", "domain"))),
+		...(await tsFiles(join("src", "vcs"))),
 	];
 	const violations: string[] = [];
 
@@ -69,6 +70,9 @@ function importViolation(file: string, specifier: string): string | undefined {
 		if (source[1] === "features" && source[3] === "adapters") {
 			return undefined;
 		}
+		if (source[1] === "vcs") {
+			return undefined;
+		}
 		const isAllowed =
 			file === join("src", "shared", "domain", "Token.ts") &&
 			specifier === "node:crypto";
@@ -85,10 +89,23 @@ function importViolation(file: string, specifier: string): string | undefined {
 		".ts",
 	);
 	const targetParts = parts(target);
+	if (source[1] === "vcs") {
+		if (targetParts[1] === "vcs") {
+			return undefined;
+		}
+		if (targetParts[1] === "shared" && targetParts[2] === "domain") {
+			return undefined;
+		}
+		return `${file}: vcs imports outside shared/domain ${target}`;
+	}
 	if (source[1] === "shared") {
-		return targetParts[1] === "features"
-			? `${file}: shared imports feature ${target}`
-			: undefined;
+		if (targetParts[1] === "features") {
+			return `${file}: shared imports feature ${target}`;
+		}
+		if (targetParts[1] === "vcs") {
+			return `${file}: shared imports vcs ${target}`;
+		}
+		return undefined;
 	}
 	if (source[1] !== "features") {
 		return undefined;

@@ -1,11 +1,6 @@
-export interface RefreshGitPort {
-	repoRoot(cwd: string): Promise<string>;
-	headSha(repoRoot: string): Promise<string>;
-	treePaths(repoRoot: string, scope: readonly string[]): Promise<string[]>;
-	dirtyPaths(repoRoot: string, scope: readonly string[]): Promise<string[]>;
-	changedPaths(
-		repoRoot: string,
-		baselineCommitSha: string,
-		scope: readonly string[],
-	): Promise<string[]>;
-}
+import type { Vcs } from "../../../../shared/domain/Vcs.js";
+
+export type RefreshGitPort = Pick<
+	Vcs,
+	"repoRoot" | "headSha" | "treePaths" | "dirtyPaths" | "changedPaths"
+>;

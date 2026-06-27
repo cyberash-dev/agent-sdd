@@ -9,8 +9,12 @@ import {
 } from "./ConfigFields.js";
 import { configFailure } from "./Errors.js";
 import { NORMATIVE_ID_RE, PARTITION_NAME_RE } from "./PartitionGrammar.js";
+import { MECHANISM_ID_RE } from "./VcsConformance.js";
 
-export type Mechanism = "git_tree_hash_v1";
+export type Mechanism = string;
+
+export const BUILTIN_GIT_VCS = "git";
+export const GIT_TREE_HASH_MECHANISM = "git_tree_hash_v1";
 
 export interface FootprintConfig {
 	bindingIdPrefix: string;
@@ -30,6 +34,9 @@ export interface SddConfig {
 	discoveryScope: string[];
 	footprint: FootprintConfig;
 	mechanism: Mechanism;
+	/** Selected VCS adapter: "git" (built-in) or a module specifier of an
+	 *  external adapter package resolved from <repo_root>. Defaults to "git". */
+	vcs: string;
 	lint: LintConfig;
 	partitions: Partition[];
 	/** Directory under <repo_root> where attestation plan files live (P0.6).
@@ -50,6 +57,7 @@ const TOP_LEVEL_FIELDS = new Set([
 	"discovery_scope",
 	"footprint",
 	"mechanism",
+	"vcs",
 	"lint",
 	"partitions",
 	"plans_dir",
@@ -93,10 +101,20 @@ export function configFromJson(value: unknown, path: string): SddConfig {
 	const baselineId = stringField(value, "baseline_id", path);
 	const discoveryScope = stringArrayField(value, "discovery_scope", path);
 	const mechanism = stringField(value, "mechanism", path);
-	if (mechanism !== "git_tree_hash_v1") {
+	const vcs = optionalStringField(value, "vcs", path) ?? BUILTIN_GIT_VCS;
+	if (vcs === BUILTIN_GIT_VCS) {
+		if (mechanism !== GIT_TREE_HASH_MECHANISM) {
+			throw configFailure(
+				"config-invalid",
+				`unsupported mechanism for built-in git vcs: ${mechanism}`,
+				undefined,
+				path,
+			);
+		}
+	} else if (!MECHANISM_ID_RE.test(mechanism)) {
 		throw configFailure(
 			"config-invalid",
-			`unsupported mechanism: ${mechanism}`,
+			`invalid mechanism id: ${mechanism}`,
 			undefined,
 			path,
 		);
@@ -134,6 +152,7 @@ export function configFromJson(value: unknown, path: string): SddConfig {
 		discoveryScope,
 		footprint: footprintConfig(value.footprint, path),
 		mechanism,
+		vcs,
 		lint,
 		partitions,
 		plansDir,

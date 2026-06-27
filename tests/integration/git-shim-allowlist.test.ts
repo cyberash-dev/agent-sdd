@@ -9,7 +9,13 @@ import { promisify } from "node:util";
 import { fixtureRepo, runSdd } from "./_helpers.js";
 
 const exec = promisify(execFile);
-const ALLOWED_SUBCOMMANDS = new Set(["diff", "ls-tree", "rev-parse", "status"]);
+const ALLOWED_SUBCOMMANDS = new Set([
+	"diff",
+	"ls-tree",
+	"rev-parse",
+	"status",
+	"show",
+]);
 
 interface Shim {
 	dir: string;
@@ -85,6 +91,14 @@ test("sdd invokes only EXT-001-allowed git subcommands", async () => {
 	await runSdd(repo.root, ["token", "--format=json"], { env });
 	await runSdd(repo.root, ["check", "--format=json"], { env });
 	await runSdd(repo.root, ["refresh", "--format=json"], { env });
+	await runSdd(repo.root, ["ready", "--against", "HEAD~1", "--format=json"], {
+		env,
+	});
+	await runSdd(
+		repo.root,
+		["report", "--pr-summary", "--against", "HEAD~1", "--format=json"],
+		{ env },
+	);
 
 	const subcommands = await recordedSubcommands(shim.logPath);
 	assert.ok(subcommands.length > 0, "shim recorded no git invocations");

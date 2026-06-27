@@ -3,7 +3,6 @@ import { NodeApproveFileSystem } from "./features/approve/adapters/outbound/Node
 import { NodePlanFileWriter } from "./features/approve/adapters/outbound/NodePlanFileWriter.js";
 import { SystemApproveClock } from "./features/approve/adapters/outbound/SystemApproveClock.js";
 import { CliCheckHandler } from "./features/check/adapters/inbound/CliCheckHandler.js";
-import { ChildProcessCheckGit } from "./features/check/adapters/outbound/ChildProcessCheckGit.js";
 import { NodeCheckFileReader } from "./features/check/adapters/outbound/NodeCheckFileReader.js";
 import { CliDoctorHandler } from "./features/doctor/adapters/inbound/CliDoctorHandler.js";
 import { NodeRegistryReader } from "./features/doctor/adapters/outbound/NodeRegistryReader.js";
@@ -19,43 +18,41 @@ import { NodeLintFileReader } from "./features/lint/adapters/outbound/NodeLintFi
 import { CliPlanShowHandler } from "./features/plan/adapters/inbound/CliPlanShowHandler.js";
 import { NodePlanReader } from "./features/plan/adapters/outbound/NodePlanReader.js";
 import { CliReadyHandler } from "./features/ready/adapters/inbound/CliReadyHandler.js";
-import { ChildProcessReadyGit } from "./features/ready/adapters/outbound/ChildProcessReadyGit.js";
 import { NodeReadyFileSystem } from "./features/ready/adapters/outbound/NodeReadyFileSystem.js";
 import { CliRecordHandler } from "./features/record/adapters/inbound/CliRecordHandler.js";
 import { NodeRecordFileSystem } from "./features/record/adapters/outbound/NodeRecordFileSystem.js";
 import type { RecordAction } from "./features/record/ports/inbound/RecordCommand.js";
 import { CliRefreshHandler } from "./features/refresh/adapters/inbound/CliRefreshHandler.js";
-import { ChildProcessRefreshGit } from "./features/refresh/adapters/outbound/ChildProcessRefreshGit.js";
 import { NodeRefreshFileReader } from "./features/refresh/adapters/outbound/NodeRefreshFileReader.js";
 import { SystemRefreshClock } from "./features/refresh/adapters/outbound/SystemRefreshClock.js";
 import { CliReportHandler } from "./features/report/adapters/inbound/CliReportHandler.js";
 import { NodeReportFileSystem } from "./features/report/adapters/outbound/NodeReportFileSystem.js";
 import { CliTokenHandler } from "./features/token/adapters/inbound/CliTokenHandler.js";
-import { ChildProcessTokenGit } from "./features/token/adapters/outbound/ChildProcessTokenGit.js";
 import { NodeTokenConfigReader } from "./features/token/adapters/outbound/NodeTokenConfigReader.js";
 import type { CommandResult, OutputFormat } from "./shared/domain/CliOutput.js";
+import { resolveVcs } from "./vcs/resolveVcs.js";
 import { approveRequest, resolveRecordBody } from "./cliParseApprove.js";
 import { COMMAND_HELP, type ParsedArgv } from "./cliTypes.js";
 
-export function dispatchToken(
+export async function dispatchToken(
 	cwd: string,
 	format: OutputFormat | undefined,
 ): Promise<CommandResult> {
 	const command = new CliTokenHandler({
 		config: new NodeTokenConfigReader(),
-		git: new ChildProcessTokenGit(),
+		git: await resolveVcs(cwd),
 	});
 	return command.execute(cwd, format === "json" ? "json" : "human");
 }
 
-export function dispatchCheck(
+export async function dispatchCheck(
 	cwd: string,
 	format: OutputFormat | undefined,
 ): Promise<CommandResult> {
 	const files = new NodeCheckFileReader();
 	const command = new CliCheckHandler({
 		config: files,
-		git: new ChildProcessCheckGit(),
+		git: await resolveVcs(cwd),
 		spec: files,
 	});
 	return command.execute(cwd, format === "json" ? "json" : "human");
@@ -166,20 +163,20 @@ export function dispatchDoctor(
 	);
 }
 
-export function dispatchReport(
+export async function dispatchReport(
 	parsed: ParsedArgv,
 	cwd: string,
 ): Promise<CommandResult> {
 	const report = parsed.command?.report;
 	if (report === undefined) {
-		return Promise.resolve({
+		return {
 			exitCode: 2,
 			stdout: "",
 			stderr: `${COMMAND_HELP.report}\n`,
-		});
+		};
 	}
 	const reportFs = new NodeReportFileSystem();
-	const git = new ChildProcessReadyGit();
+	const git = await resolveVcs(cwd);
 	const command = new CliReportHandler({
 		config: reportFs,
 		files: reportFs,
@@ -291,7 +288,7 @@ export function dispatchInstall(parsed: ParsedArgv): Promise<CommandResult> {
 	);
 }
 
-export function dispatchReady(
+export async function dispatchReady(
 	parsed: ParsedArgv,
 	cwd: string,
 ): Promise<CommandResult> {
@@ -299,7 +296,7 @@ export function dispatchReady(
 	const command = new CliReadyHandler({
 		config: fs,
 		files: fs,
-		git: new ChildProcessReadyGit(),
+		git: await resolveVcs(cwd),
 	});
 	return command.execute(
 		cwd,
@@ -309,7 +306,7 @@ export function dispatchReady(
 	);
 }
 
-export function dispatchRefresh(
+export async function dispatchRefresh(
 	parsed: ParsedArgv,
 	cwd: string,
 ): Promise<CommandResult> {
@@ -317,7 +314,7 @@ export function dispatchRefresh(
 	const refreshCommand = new CliRefreshHandler({
 		clock: new SystemRefreshClock(),
 		config: refreshFiles,
-		git: new ChildProcessRefreshGit(),
+		git: await resolveVcs(cwd),
 		spec: refreshFiles,
 	});
 	return refreshCommand.execute(cwd, parsed.format ?? "yaml");

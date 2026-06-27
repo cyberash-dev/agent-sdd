@@ -19,7 +19,12 @@ import {
 	dispatchToken,
 } from "./cliDispatch.js";
 import { COMMAND_HELP, TOP_LEVEL_HELP } from "./cliTypes.js";
-import type { CommandResult } from "./shared/domain/CliOutput.js";
+import {
+	failed,
+	type CommandResult,
+	type OutputFormat,
+} from "./shared/domain/CliOutput.js";
+import { CliFailure } from "./shared/domain/Errors.js";
 
 export async function main(
 	argv: readonly string[],
@@ -44,40 +49,49 @@ export async function main(
 		};
 	}
 
-	if (parsed.subcommand === "token") {
-		return dispatchToken(cwd, parsed.format);
+	const errorFormat: Exclude<OutputFormat, "yaml"> =
+		parsed.format === "json" ? "json" : "human";
+	try {
+		if (parsed.subcommand === "token") {
+			return await dispatchToken(cwd, parsed.format);
+		}
+		if (parsed.subcommand === "check") {
+			return await dispatchCheck(cwd, parsed.format);
+		}
+		if (parsed.subcommand === "lint") {
+			return await dispatchLint(cwd, parsed.format);
+		}
+		if (parsed.subcommand === "approve") {
+			return await dispatchApprove(parsed, cwd);
+		}
+		if (parsed.subcommand === "finalize") {
+			return await dispatchFinalize(parsed, cwd);
+		}
+		if (parsed.subcommand === "plan") {
+			return await dispatchPlan(parsed, cwd);
+		}
+		if (parsed.subcommand === "doctor") {
+			return await dispatchDoctor(parsed, cwd);
+		}
+		if (parsed.subcommand === "report") {
+			return await dispatchReport(parsed, cwd);
+		}
+		if (parsed.subcommand === "record") {
+			return await dispatchRecord(parsed, cwd);
+		}
+		if (parsed.subcommand === "install") {
+			return await dispatchInstall(parsed);
+		}
+		if (parsed.subcommand === "ready") {
+			return await dispatchReady(parsed, cwd);
+		}
+		return await dispatchRefresh(parsed, cwd);
+	} catch (error) {
+		if (error instanceof CliFailure) {
+			return failed(error, errorFormat);
+		}
+		throw error;
 	}
-	if (parsed.subcommand === "check") {
-		return dispatchCheck(cwd, parsed.format);
-	}
-	if (parsed.subcommand === "lint") {
-		return dispatchLint(cwd, parsed.format);
-	}
-	if (parsed.subcommand === "approve") {
-		return dispatchApprove(parsed, cwd);
-	}
-	if (parsed.subcommand === "finalize") {
-		return dispatchFinalize(parsed, cwd);
-	}
-	if (parsed.subcommand === "plan") {
-		return dispatchPlan(parsed, cwd);
-	}
-	if (parsed.subcommand === "doctor") {
-		return dispatchDoctor(parsed, cwd);
-	}
-	if (parsed.subcommand === "report") {
-		return dispatchReport(parsed, cwd);
-	}
-	if (parsed.subcommand === "record") {
-		return dispatchRecord(parsed, cwd);
-	}
-	if (parsed.subcommand === "install") {
-		return dispatchInstall(parsed);
-	}
-	if (parsed.subcommand === "ready") {
-		return dispatchReady(parsed, cwd);
-	}
-	return dispatchRefresh(parsed, cwd);
 }
 
 function packageVersion(): string {

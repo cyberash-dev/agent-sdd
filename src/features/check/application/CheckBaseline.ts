@@ -4,7 +4,7 @@ import {
 	typedBlock,
 	type SpecBlock,
 } from "../../../shared/domain/SpecBlocks.js";
-import { TOKEN_MECHANISM, token } from "../../../shared/domain/Token.js";
+import { token } from "../../../shared/domain/Token.js";
 import { baselineComparison } from "../domain/BaselineComparison.js";
 import type { CheckConfigPort } from "../ports/outbound/CheckConfigPort.js";
 import type { CheckGitPort } from "../ports/outbound/CheckGitPort.js";
@@ -17,7 +17,7 @@ export type CheckOutcome =
 			recomputedToken: string;
 			baselineCommitSha: string;
 			currentCommitSha: string;
-			mechanism: typeof TOKEN_MECHANISM;
+			mechanism: string;
 	  }
 	| {
 			kind: "dirty";
@@ -88,7 +88,7 @@ export async function checkBaseline(
 		recomputedToken: comparison.recomputedToken,
 		baselineCommitSha: recorded.baselineCommitSha,
 		currentCommitSha,
-		mechanism: TOKEN_MECHANISM,
+		mechanism: ports.git.mechanism,
 	};
 }
 

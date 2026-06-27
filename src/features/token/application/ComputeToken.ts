@@ -1,5 +1,5 @@
 import { configFailure } from "../../../shared/domain/Errors.js";
-import { TOKEN_MECHANISM, token } from "../../../shared/domain/Token.js";
+import { token } from "../../../shared/domain/Token.js";
 import type { TokenConfigPort } from "../ports/outbound/TokenConfigPort.js";
 import type { TokenGitPort } from "../ports/outbound/TokenGitPort.js";
 
@@ -8,7 +8,7 @@ export type TokenOutcome =
 			kind: "success";
 			token: string;
 			commitSha: string;
-			mechanism: typeof TOKEN_MECHANISM;
+			mechanism: string;
 			scope: string[];
 	  }
 	| {
@@ -42,7 +42,7 @@ export async function computeToken(
 		kind: "success",
 		token: token(await ports.git.treeBytes(repoRoot, config.discoveryScope)),
 		commitSha,
-		mechanism: TOKEN_MECHANISM,
+		mechanism: ports.git.mechanism,
 		scope: config.discoveryScope,
 	};
 }
