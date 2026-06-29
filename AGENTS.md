@@ -61,7 +61,9 @@ approver, which writes a typed `approval_record` block atomically
   minor bump on the owning Surface.
 - The architecture invariant `INV-004` / `CST-003` (vertical slice +
   hexagonal, no global layer folders, no cross-feature imports).
-- The git subcommand allowlist `EXT-001` / `POL-002`.
+- The built-in git subcommand allowlist `EXT-001` / `POL-002`, or the
+  pluggable-VCS contract (`SUR-017`, `CTR-031` / `CTR-032`, `POL-004`),
+  without a `Delta`.
 
 ---
 
@@ -77,8 +79,10 @@ src/
     adapters/{inbound,outbound}/         # only here you may import node:*
   shared/
     domain/                              # cross-feature primitives, incl. PartitionGrammar
-                                         # (single source of truth for CST-007 marker
-                                         #  + CTR-015 partition-name regex)
+                                         # (CST-007 marker + CTR-015 regex) and the Vcs
+                                         # port + VcsConformance (pure types/validator)
+  vcs/                                   # built-in GitVcs + resolveVcs loader (node:* allowed);
+                                         # wired only from the composition root
 ```
 
 - Inside a feature: `adapters → ports → application → domain`. No
@@ -86,6 +90,8 @@ src/
 - Cross-feature imports: forbidden. Reach via `src/shared/domain/`.
 - `src/shared/domain/` imports no `node:*` module **except**
   `node:crypto` inside `src/shared/domain/Token.ts`.
+- `src/vcs/` may import `node:*` and `src/shared/domain`, but never a
+  feature; only the composition root (`cli*`) imports `src/vcs`.
 - New feature? Mirror the same layout.
 
 `tests/unit/layer-imports.test.ts` mechanically enforces all of the
@@ -142,6 +148,7 @@ records — those still go through a `Delta` + `sdd approve`/`sdd finalize`.
 |--------------------------------------------------|-----------------------------------------------|
 | `tests/unit/layer-imports.test.ts`               | `INV-004` / `CST-003` (architecture)          |
 | `tests/integration/git-shim-allowlist.test.ts`   | `POL-002` (git command allowlist)             |
+| `tests/integration/vcs-external-adapter.test.ts`  | `SUR-017` / `POL-004` (pluggable VCS loading)  |
 | `tests/integration/fs-readonly.test.ts`          | `INV-002` / `INV-008` / `INV-009` / `POL-001` |
 | `tests/integration/lint-and-approve.test.ts`     | `BEH-011..016`, `INV-005..007`, `DLT-001`     |
 | `tests/unit/constraints.test.ts`                 | `CST-001/002/004/005/006`, `EXT-002`          |
@@ -164,9 +171,12 @@ spec update, like everything else.)
   in `cli.ts` alone.
 - The `yaml` package (`^2`) is the only YAML parser allowed (`CST-004`).
   Don't add `js-yaml` or hand-roll a parser.
-- The mechanism enum in `schema/sdd.config.schema.json` is exactly
-  `["git_tree_hash_v1"]` (`CST-005`). Adding another mechanism is a
-  major bump on `SUR-002`.
+- `mechanism` in `schema/sdd.config.schema.json` is a grammar
+  (`^[a-z][a-z0-9_]*$`), pinned to `git_tree_hash_v1` when `vcs` is absent
+  or `"git"` (`CST-005`). The active VCS adapter declares its own
+  `mechanism`; the `vcs` config field selects the adapter — built-in git
+  (`src/vcs/GitVcs.ts`) or an external package loaded by
+  `src/vcs/resolveVcs.ts` (see `docs/writing-vcs-adapters.md`).
 - The runtime dep tree must stay `{yaml}` only (`CST-006`). No
   third-party glob library — the matcher under
   `src/features/ready/domain/PartitionResolver.ts` is hand-rolled.

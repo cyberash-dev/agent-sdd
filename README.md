@@ -24,21 +24,21 @@ content. The single exception is `sdd approve`, which atomically
 writes `lifecycle.status` + `approval_record` and refuses agent
 identities (SDD §7.5: self-approval is forbidden).
 
-> **Status**: v1.0.0, governed by `spec/spec.md`. The full normative
+> **Status**: v1.3.0, governed by `spec/spec.md`. The full normative
 > specification (Surfaces, Behaviors, Contracts, Invariants, Policies,
 > Constraints, External dependencies, Migrations, Deltas,
 > Implementation bindings) lives there. This README is the
 > consumer-facing manual — for spec details, read `spec/spec.md`.
 > Release notes: [CHANGELOG.md](CHANGELOG.md).
 >
-> **What's new in v1.0.0** — sync to SDD methodology Plan 2: two-step
-> approval (`sdd approve` → `.sdd/plans/<plan_id>.yaml` attestation,
-> then `sdd finalize` for the atomic flip with prospective graph
-> validation), `sdd report --pr-summary`, debt-budget mechanics on
-> `Partition` (`unmodeled_budget`), semver cascade in `sdd ready`
-> (Policy / Invariant(contractual) → referencing Surface).
-> Legacy direct-rewrite path survives one minor as
-> `sdd approve --inline` (deprecated; removed in v1.1.0).
+> **What's new in v1.3.0** — pluggable VCS adapters. Version control is
+> reached through a single `Vcs` port; the built-in adapter is **git**
+> (default, unchanged), and an external adapter for any other VCS can ship
+> as a separate npm package and be selected with `.sdd/config.json`'s `vcs`
+> field. The `mechanism` is now declared by the active adapter (built-in
+> git: `git_tree_hash_v1`) rather than a fixed constant — so the `git`
+> default is byte-identical, while other backends carry their own id. See
+> [Writing a VCS adapter](https://github.com/cyberash-dev/agent-sdd/blob/main/docs/writing-vcs-adapters.md).
 
 ---
 
@@ -71,17 +71,21 @@ distributes the methodology rules into your agent config:
 | `sdd record`  | Navigate/edit `spec.md` one record at a time (read-only `list`/`get`; atomic `set`/`add` for draft/proposed). |
 | `sdd install` | Install the SDD methodology rules (+ Claude hooks) into the user-level agent config (`~/.claude`, `~/.codex`), or into the repo with `--scope project`. |
 
-The mechanism is fixed (`git_tree_hash_v1`), but the tool is generic:
-every SDD-following repo configures it through a small JSON file
-(`.sdd/config.json`).
+The default backend is **git** (`mechanism: git_tree_hash_v1`), but the
+VCS is pluggable: an external adapter selected via `.sdd/config.json`'s
+`vcs` field declares its own `mechanism`. Every SDD-following repo
+configures the tool through a small JSON file (`.sdd/config.json`). See
+[Writing a VCS adapter](https://github.com/cyberash-dev/agent-sdd/blob/main/docs/writing-vcs-adapters.md).
 
 ---
 
 ## Requirements
 
 - **Node.js** ≥ 20
-- **git** ≥ 2.30 on `PATH`
-- a git repository — the CLI refuses to run outside one
+- the default **git** backend needs `git` ≥ 2.30 on `PATH` and a git
+  repository — the CLI refuses to run outside one
+- an external VCS adapter (selected via `vcs` in `.sdd/config.json`) brings
+  its own requirements — see [Writing a VCS adapter](https://github.com/cyberash-dev/agent-sdd/blob/main/docs/writing-vcs-adapters.md)
 
 ---
 
@@ -149,8 +153,9 @@ example:
 |-----------------------------|-----------|----------|------------------------|-------------------------------------------------------------------------|
 | `spec_file`                 | string    | yes      | —                      | Path to the SDD spec file, relative to repo root.                       |
 | `baseline_id`               | string    | yes      | —                      | Full `<partition>:BL-<n>` of the BrownfieldBaseline block to read.      |
-| `discovery_scope`           | string[]  | yes      | —                      | git pathspecs (dirs, files, globs) handed verbatim to `git ls-tree`.    |
-| `mechanism`                 | enum      | yes      | —                      | Currently only `"git_tree_hash_v1"`.                                    |
+| `discovery_scope`           | string[]  | yes      | —                      | Pathspecs (dirs, files, globs), relative to repo root, handed to the active VCS adapter. |
+| `mechanism`                 | string    | yes      | —                      | Fingerprint id of the active VCS adapter (grammar `^[a-z][a-z0-9_]*$`); built-in git declares `git_tree_hash_v1`. |
+| `vcs`                       | string    | no       | `"git"`                | VCS adapter selector: `"git"` (built-in) or a module specifier of an external adapter package. See [Writing a VCS adapter](https://github.com/cyberash-dev/agent-sdd/blob/main/docs/writing-vcs-adapters.md). |
 | `footprint.binding_id_prefix` | string  | no       | `"IMP-"`               | Neutral-id prefix scanned for footprint paths.                          |
 | `footprint.binding_field`   | string    | no       | `"binding"`            | YAML key under which file paths live in IMP blocks.                     |
 | `lint.spec_files`           | string[]  | no       | `[spec_file]`          | Glob patterns (posix) for spec files to scan with `sdd lint`/`sdd approve`. |
@@ -623,7 +628,7 @@ Reasons are stable strings — downstream tooling can pin against them.
 
 ---
 
-## Token mechanism — `git_tree_hash_v1`
+## Token mechanism — built-in git (`git_tree_hash_v1`)
 
 ```
 1. git diff --quiet HEAD -- <scope>          # if non-zero -> baseline-dirty (exit 1)
@@ -638,11 +643,17 @@ commit and pathspec set, the bytes are identical across invocations on
 the same git version family. Reordering scope entries does not change
 the token, because git canonicalises by name.
 
-The set of git subcommands used by `sdd-cli` is a strict allowlist:
-`diff --quiet HEAD`, `ls-tree HEAD`, `rev-parse HEAD`,
+The set of git subcommands used by the built-in git adapter is a strict
+allowlist: `diff --quiet HEAD`, `ls-tree HEAD`, `rev-parse HEAD`,
 `rev-parse --is-inside-work-tree`, `diff --name-only baseline..HEAD`,
-`status --porcelain`. No state-mutating subcommand is ever invoked
-(see `spec/spec.md` POL-002).
+`status --porcelain`, `show <ref>:<path>`. No state-mutating subcommand is
+ever invoked (see `spec/spec.md` POL-002).
+
+When `vcs` selects an external adapter, the `mechanism` and the fingerprint
+bytes are produced by that adapter instead — `agent-sdd` only computes
+`sha256` over the bytes it returns. The git allowlist above applies to the
+built-in git adapter only. See
+[Writing a VCS adapter](https://github.com/cyberash-dev/agent-sdd/blob/main/docs/writing-vcs-adapters.md).
 
 ---
 
@@ -905,7 +916,7 @@ src/
       domain/                 # —
       application/            # ComputeToken
       ports/{inbound,outbound}/
-      adapters/{inbound,outbound}/   # CliTokenHandler, ChildProcessTokenGit, NodeTokenConfigReader
+      adapters/{inbound,outbound}/   # CliTokenHandler, NodeTokenConfigReader (VCS injected from src/vcs)
     check/
       domain/                 # BaselineComparison
       application/            # CheckBaseline
@@ -934,12 +945,17 @@ src/
   shared/
     domain/                   # Config (incl. LintConfig + partitions), Token, SpecBlocks,
                               # Scope, CliOutput, Errors, PartitionGrammar (CST-007 source of truth),
-                              # SpecRecord, LintReport, LintRules, CheckOutcome
+                              # SpecRecord, LintReport, LintRules, CheckOutcome,
+                              # Vcs (the pluggable VCS port) + VcsConformance
+  vcs/                        # built-in GitVcs adapter + resolveVcs loader
+                              # (selects git or an external adapter by config.vcs)
 ```
 
 Cross-feature imports are forbidden and enforced by
-`tests/unit/layer-imports.test.ts` (per `INV-004`). Shared primitives
-live only under `src/shared/domain`.
+`tests/unit/layer-imports.test.ts` (per `INV-004`). Shared primitives live
+only under `src/shared/domain`; the VCS infrastructure (the built-in git
+adapter and the external-adapter loader) lives under `src/vcs`, wired only
+from the composition root.
 
 ---
 
@@ -972,7 +988,8 @@ installs the tarball into a fresh consumer to verify the `bin` wiring
 ## Limits / out of scope (v0.3.0)
 
 - npm-registry publication of `agent-sdd`.
-- Other token mechanisms (`sha256_of_concat`, `git_tag_based`).
+- Bundling non-git VCS adapters in this package — they ship as separate
+  packages (see [Writing a VCS adapter](https://github.com/cyberash-dev/agent-sdd/blob/main/docs/writing-vcs-adapters.md)).
 - A scaffolding command (`sdd init`).
 - Auto-application of `sdd refresh` stubs back into `spec.md`
   (forbidden by INV-002).
@@ -1003,6 +1020,7 @@ working tree (`INV-016` / `POL-003`).
 | `RELEASING.md`    | How to cut a release and publish to npm.                                       |
 | `CLAUDE.md`       | Project-specific instructions for Claude Code agents.                          |
 | `AGENTS.md`       | Repo-rooted, agent-agnostic rules of the road for any AI coding agent.        |
+| `docs/writing-vcs-adapters.md` | Guide for writing an external VCS adapter against the `Vcs` contract. |
 | `LICENSE`         | MIT.                                                                           |
 | `schema/sdd.config.schema.json` | Published JSON Schema for `.sdd/config.json`.                    |
 

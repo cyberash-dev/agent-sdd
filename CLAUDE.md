@@ -19,9 +19,9 @@ Code bits. `AGENTS.md` is where you'll find:
 - **The command list** and the CI gate
   (`tsc && test:unit && test:integration && build && sdd lint && sdd ready`).
 - **The "tests that must never regress" table.**
-- **The gotchas** (YAML parser, mechanism enum, marker grammar, byte-level
-  scanner, `sdd install` write boundary, …) and the **finish-a-task
-  checklist**.
+- **The gotchas** (YAML parser, `mechanism` grammar + pluggable VCS,
+  marker grammar, byte-level scanner, `sdd install` write boundary, …)
+  and the **finish-a-task checklist**.
 
 For what the tool does, see [`README.md`](README.md); for the normative
 spec, `spec/spec.md`.
