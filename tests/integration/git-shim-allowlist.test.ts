@@ -84,6 +84,7 @@ function firstSubcommand(args: readonly string[]): string {
 test("sdd invokes only EXT-001-allowed git subcommands", async () => {
 	// @covers sdd-cli:POL-002
 	// @covers sdd-cli:EXT-001
+	// @covers sdd-cli:DLT-007
 	const repo = await fixtureRepo();
 	const shim = await buildShim();
 	const env = { PATH: `${shim.dir}${delimiter}${process.env.PATH ?? ""}` };

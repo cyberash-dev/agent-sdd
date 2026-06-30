@@ -7623,6 +7623,10 @@ consumer_contract:
     - cmd: "git status --porcelain -- <pathspec...>"
       expects:
         - exit 0; lines describe uncommitted scope changes (BEH-006 dirty branch)
+    - cmd: "git show <ref>:<path>"
+      expects:
+        - exit 0; stdout = file content at <ref> (readAtRef; ready/report --against)
+        - non-zero => path or ref absent => readAtRef returns null
 drift_detection:
   mechanism: contract_test_against_sandbox
   artefact: tests/integration/e2e.test.ts
@@ -7884,7 +7888,7 @@ applicability:
 predicate: |
   The CLI MUST invoke only the git subcommands enumerated in EXT-001
   (diff --quiet, ls-tree, rev-parse, status --porcelain, diff
-  --name-only). It MUST NOT invoke any state-mutating subcommand
+  --name-only, show). It MUST NOT invoke any state-mutating subcommand
   (commit, checkout, fetch, push, reset, clean, gc, prune, add,
   branch -d/D, tag, stash apply/drop, worktree add/remove).
 negative_test_obligations:
@@ -8800,6 +8804,56 @@ caveats:
   - BL-001's freshness_token is stale w.r.t. the src/tests changes; a separate
     sdd refresh run regenerates it after the source lands.
   - external adapters are trusted in-process code (ASM-010).
+---
+```
+
+```yaml
+---
+id: sdd-cli:DLT-007
+type: Delta
+lifecycle:
+  status: approved
+  approval_record:
+    owner_role: tech-lead
+    approver_identity: cyberash
+    timestamp: 2026-06-30T11:47:23.335Z
+    change_request: "DLT-007: add git show to built-in git allowlist"
+    scope: first-time-approval
+partition_id: sdd-cli
+title: v1.3.0 → next — add `git show <ref>:<path>` to the built-in git allowlist (EXT-001/POL-002)
+target_ids:
+  - sdd-cli:EXT-001
+  - sdd-cli:POL-002
+kind: replace
+compatibility_action: ignore
+baseline_version: sdd-cli:BL-001@v1.3.0
+description: |
+  The built-in git adapter's readAtRef (GitVcs, added in v1.3.0 alongside the
+  Vcs port) shells `git show <ref>:<path>` to read a file at a revision for
+  `ready --against` and `report --against`. The DLT-006 restructuring added
+  this code path, and the git-shim allowlist guard test already permits
+  `show`, but EXT-001's invocation list and POL-002's enumerated "MUST invoke
+  only" set were not extended, leaving the approved allowlist behind the code.
+  This Delta widens both to include `git show <ref>:<path>` as a read-only
+  invocation.
+
+  The invocation and predicate edits to the already-approved EXT-001 and
+  POL-002 are applied by a one-off manual spec edit, sanctioned by the
+  partition owner, because the CLI offers no in-place predicate-edit path for
+  approved records. This Delta records that exception. No Surface references
+  POL-002 or EXT-001, so finalising it materialises no version bump.
+tests_old_behavior:
+  - the five pre-existing git subcommands stay allowed and git-shim-allowlist
+    stays green (POL-002)
+  - existing token, check, refresh integration tests stay green
+tests_new_behavior:
+  - git show <ref>:<path> is inside the EXT-001 allowlist and the
+    git-shim-allowlist ALLOWED_SUBCOMMANDS set includes show (POL-002)
+  - readAtRef is exercised through ready --against and report --against
+    integration tests against a real git binary (EXT-001)
+caveats:
+  - purely additive change; the old five-command allowlist is a subset of the
+    new six-command allowlist, so nothing relying on the old set breaks.
 ---
 ```
 
