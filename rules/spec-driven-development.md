@@ -16,7 +16,7 @@ Every normative statement is an ID-element with one of these templates:
 External behavior · `Surface`/`Contract` boundaries · `Invariant` · external identifiers (API fields, events, CLI, public DB columns, error codes, message_ids) · `ExternalDependency` (third-party providers) · `Policy` (authz/tenant/PII/audit/rate-limit) · `Migration` (data at-rest) · `applicability` (feature_flag, tenant, locale, env, plan_tier, api_version) · `concurrency_model` on boundaries.
 
 ## What spec MUST NOT fix
-Internal file/module/class/function names · library/framework choice (unless a `Constraint` with external rationale) · directory layout · internal layering not observable from outside · estimates, schedules, owners.
+Internal file/module/class/function names · library/framework choice (unless a `Constraint` with external rationale) · directory layout · internal layering not observable from outside · deployment topology and platform settings (hosts, DB addresses, data centers, replica counts, resources/quotas, network, secret references) · CI/release configuration and infrastructure manifests · estimates, schedules, owners.
 
 The agent decides everything not normatively fixed. The agent MUST list its internal decisions in the PR as candidates for new `REQ`/`Constraint`/`Policy`/`ASSUMPTION`.
 
@@ -39,6 +39,7 @@ The agent decides everything not normatively fixed. The agent MUST list its inte
 
 - `Brownfield baseline` is non-normative until a `REQ`/`Invariant`/`Contract` references it as preserved.
 - Anything outside `Discovery scope` is `unmodeled` — never silently deleted, renamed or rewritten. Expanding scope requires recon.
+- `Discovery scope` lists sources of observable behavior only: code, API contract sources, tests. Deployment and platform paths (environment configs with hosts or secrets, IaC and deploy manifests, CI/release configs, Dockerfiles) stay out of scope; they are outside the spec's domain, not `unmodeled`, and changing them needs no recon or `Delta`. An environment-specific value that changes behavior (allowlist, feature flag) is modeled through `applicability.env` on the normative ID and checked by a test that reads it.
 - Every behavior change → `Delta` (with `kind`, `compatibility_action`, `tests_old_behavior`, `tests_new_behavior`, `baseline_version`).
 - Data-at-rest changes → `Migration`. Two orthogonal axes: spec-lifecycle `{draft..removed}` (governance) and runtime-state `{pre_cutover, in_progress, cutover_done, rolled_back}` (operational evidence). Cross-partition migrations use `partition_slice[]` + `coordinator_id`, not joint approval.
 - `Invariant`/`Contract` with `data_scope=post_migration:<MIG-ID>` MUST carry `enforcement_stage` pointing to a **deterministic test-controllable marker in the repo** (feature flag, completion sentinel, `cutover_marker`) — never a live deployment signal. CI runs pre/during/post tests by toggling the marker.

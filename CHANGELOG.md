@@ -10,6 +10,17 @@ landed.
 
 ## [Unreleased]
 
+### Changed
+
+- **Rules keep deployment and platform paths out of the spec.** The
+  installed methodology no longer asks `Discovery scope` to cover
+  environments or IaC inventories. "What spec MUST NOT fix" now lists
+  deployment topology, platform settings, CI / release configuration and
+  infrastructure manifests, and the scope guidance says such paths are
+  outside the spec's domain rather than `unmodeled`. A behavior-changing
+  value from such a file is modeled through `applicability.env` and a test
+  that reads it. Docs only; no CLI behavior changes.
+
 ## [2.1.0] — 2026-08-04
 
 ### Added

@@ -68,6 +68,12 @@ preserved unchanged.
 - Keep the scope tight and meaningful. It defines what "the repository's content"
   means for the freshness token — everything inside it is watched for drift,
   everything outside is `unmodeled`.
+- Include only sources of observable behaviour: code, API contract sources,
+  tests. Leave out deployment and platform paths: environment
+  configs with hosts, DB addresses or secret references, IaC and deploy
+  manifests (`deploy/`, `k8s/`, `helm/`, `terraform/`), CI and release
+  configs (`.github/workflows/`, `a.yaml`), Dockerfiles. Otherwise every
+  operational change, such as removing a DB host, stales the baseline.
 
 ---
 

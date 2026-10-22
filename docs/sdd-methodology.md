@@ -76,7 +76,10 @@ the agent:
   the concurrency model on boundaries.
 - **MUST NOT fix:** internal file / module / class / function names, library or
   framework choice (unless there's an external `Constraint`), directory layout,
-  internal layering, estimates, schedules, owners.
+  internal layering, deployment topology and platform settings (hosts, DB
+  addresses, data centers, replica counts, resources and quotas, network,
+  secret references), CI / release configuration and infrastructure manifests,
+  estimates, schedules, owners.
 
 Everything not normatively fixed is the agent's call — and the agent must list
 those internal decisions in the PR as candidates for new `Constraint` / `Policy`
@@ -185,6 +188,14 @@ ships as an external adapter that declares its own `mechanism`. See
   references it as *preserved*.
 - Anything outside `Discovery scope` is `unmodeled` — never silently deleted or
   rewritten. Widening scope requires fresh reconnaissance.
+- `Discovery scope` lists sources of observable behaviour only: code, API
+  contract sources, tests. Deployment and platform paths
+  (environment configs with hosts or secrets, IaC and deploy manifests, CI /
+  release configs, Dockerfiles) stay out of it: they are outside the spec's
+  domain, not `unmodeled`, and changing them needs no recon or `Delta`. A
+  value in such a file that changes behaviour (a caller allowlist, a feature
+  flag) is modeled through `applicability.env` and checked by a test that
+  reads it.
 - Every behaviour change → a `Delta` (with `kind`, `compatibility_action`,
   `tests_old_behavior`, `tests_new_behavior`, `baseline_version`).
 - Data-at-rest changes → a `Migration`, which carries **two orthogonal axes**:
