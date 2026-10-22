@@ -1,6 +1,6 @@
 {
   "name": "agent-sdd",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Spec-Driven Development CLI: freshness tokens, spec-lint, human-gated approvals, and one-command SDD methodology install for AI coding agents (Claude Code, Codex).",
   "keywords": [
     "spec-driven-development",

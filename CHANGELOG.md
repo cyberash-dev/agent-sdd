@@ -10,6 +10,8 @@ landed.
 
 ## [Unreleased]
 
+## [2.1.1] — 2026-10-22
+
 ### Changed
 
 - **Rules keep deployment and platform paths out of the spec.** The
@@ -450,7 +452,8 @@ landed.
 - Shipped via `npm pack` tarball (`@cyberash/sdd-cli@0.1.0.tgz`); npm
   registry publication intentionally out of scope.
 
-[Unreleased]: https://github.com/cyberash-dev/sdd-cli/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/cyberash-dev/sdd-cli/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v2.1.1
 [2.1.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v2.1.0
 [1.3.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v1.3.0
 [1.1.0]: https://github.com/cyberash-dev/sdd-cli/releases/tag/v1.1.0

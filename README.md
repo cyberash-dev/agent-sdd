@@ -17,7 +17,7 @@ it. The CLI does two jobs:
    the spec, gates approvals, and blocks a merge whenever code and spec have
    drifted apart.
 
-> **Status:** v2.1.0, itself governed by `spec/spec.md`. This README covers the
+> **Status:** v2.1.1, itself governed by `spec/spec.md`. This README covers the
 > core concepts and gets you running. The deep material lives in [`docs/`](#documentation).
 
 ---
